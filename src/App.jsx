@@ -43,6 +43,7 @@ import {
   History,
   Search,
   UtensilsCrossed,
+  Pencil,
 } from "lucide-react";
 import { format, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval } from "date-fns";
 
@@ -50,7 +51,7 @@ import { format, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear,
  * Types (for readability only)
  *******************/
 /** @typedef {'breakfast'|'lunch'|'dinner'|'snack'|'other'} MealKey */
-/** @typedef {{id:string,name:string,brand?:string,unit:'per100g'|'perServing',servingSize?:number,kcal:number,fat:number,carbs:number,protein:number}} Food */
+/** @typedef {{id:string,name:string,brand?:string,unit:'per100g'|'perServing',servingSize?:number,kcal:number,fat:number,carbs:number,protein:number,category:string}} Food */
 /** @typedef {{id:string,date:string,foodId?:string,label?:string,qty:number,meal:MealKey}} Entry */
 
 /*******************
@@ -73,13 +74,68 @@ const COLORS = {
   redDark: "#b91c1c",
 };
 
+const FOOD_CATEGORIES = [
+  { value: "vegetable", label: "Vegetable", emoji: "🥦" },
+  { value: "fruit", label: "Fruit", emoji: "🍎" },
+  { value: "meat", label: "Meat", emoji: "🥩" },
+  { value: "fish", label: "Fish & Seafood", emoji: "🐟" },
+  { value: "plantProtein", label: "Plant Protein", emoji: "🌱" },
+  { value: "supplement", label: "Protein Powder & Supplement", emoji: "🧴" },
+  { value: "breadBakery", label: "Bread & Bakery", emoji: "🥖" },
+  { value: "cereals", label: "Cereals", emoji: "🥣" },
+  { value: "grains", label: "Grains", emoji: "🌾" },
+  { value: "nutsSeeds", label: "Nuts & Seeds", emoji: "🥜" },
+  { value: "milk", label: "Milk", emoji: "🥛" },
+  { value: "yogurt", label: "Yogurt", emoji: "🍶" },
+  { value: "cheese", label: "Cheese", emoji: "🧀" },
+  { value: "creamsButters", label: "Creams & Butters", emoji: "🧈" },
+  { value: "cookingOil", label: "Cooking Oil", emoji: "🛢️" },
+  { value: "dressing", label: "Dressing", emoji: "🥫" },
+  { value: "homeRecipe", label: "Home Recipe", emoji: "🏠" },
+  { value: "outsideMeal", label: "Outside Meal", emoji: "🍽️" },
+  { value: "other", label: "Other", emoji: "⚪️" },
+];
+
+const FOOD_CATEGORY_MAP = FOOD_CATEGORIES.reduce((acc, cat) => {
+  acc[cat.value] = cat;
+  return acc;
+}, {});
+
+const DEFAULT_CATEGORY = "other";
+
+const getCategoryEmoji = (category) => FOOD_CATEGORY_MAP[category]?.emoji ?? FOOD_CATEGORY_MAP[DEFAULT_CATEGORY].emoji;
+const getCategoryLabel = (category) => FOOD_CATEGORY_MAP[category]?.label ?? FOOD_CATEGORY_MAP[DEFAULT_CATEGORY].label;
+
+function toNumber(value, fallback = 0) {
+  const num = Number.parseFloat(value);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+function sanitizeFood(food) {
+  const unit = food.unit === "perServing" ? "perServing" : "per100g";
+  const servingSize = unit === "perServing" ? Math.max(1, toNumber(food.servingSize ?? 0, 1)) : undefined;
+  const category = FOOD_CATEGORY_MAP[food.category]?.value ?? DEFAULT_CATEGORY;
+  return {
+    ...food,
+    unit,
+    servingSize,
+    category,
+    kcal: toNumber(food.kcal, 0),
+    fat: toNumber(food.fat, 0),
+    carbs: toNumber(food.carbs, 0),
+    protein: toNumber(food.protein, 0),
+  };
+}
+
+const ensureFoods = (list) => list.map((food) => sanitizeFood(food));
+
 /** @type {Food[]} */
 const DEFAULT_FOODS = [
-  { id: crypto.randomUUID(), name: "Chicken Breast (cooked)", unit: "per100g", kcal: 165, fat: 3.6, carbs: 0, protein: 31 },
-  { id: crypto.randomUUID(), name: "White Rice (cooked)", unit: "per100g", kcal: 130, fat: 0.3, carbs: 28, protein: 2.7 },
-  { id: crypto.randomUUID(), name: "Olive Oil", unit: "perServing", servingSize: 10, kcal: 88, fat: 10, carbs: 0, protein: 0 },
-  { id: crypto.randomUUID(), name: "Apple", unit: "per100g", kcal: 52, fat: 0.2, carbs: 14, protein: 0.3 },
-  { id: crypto.randomUUID(), name: "Whey Protein (1 scoop)", unit: "perServing", servingSize: 30, kcal: 120, fat: 1.5, carbs: 3, protein: 24 },
+  sanitizeFood({ id: crypto.randomUUID(), name: "Chicken Breast (cooked)", unit: "per100g", category: "meat", kcal: 165, fat: 3.6, carbs: 0, protein: 31 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "White Rice (cooked)", unit: "per100g", category: "grains", kcal: 130, fat: 0.3, carbs: 28, protein: 2.7 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Olive Oil", unit: "perServing", servingSize: 10, category: "cookingOil", kcal: 88, fat: 10, carbs: 0, protein: 0 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Apple", unit: "per100g", category: "fruit", kcal: 52, fat: 0.2, carbs: 14, protein: 0.3 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Whey Protein (1 scoop)", unit: "perServing", servingSize: 30, category: "supplement", kcal: 120, fat: 1.5, carbs: 3, protein: 24 }),
 ];
 
 const toISODate = (d) => format(d, "yyyy-MM-dd");
@@ -149,7 +205,7 @@ const MEAL_ORDER = ['breakfast','lunch','dinner','snack','other'];
  *******************/
 export default function MacroTrackerApp(){
   const [theme, setTheme] = useState(load(K_THEME, 'system'));
-  const [foods, setFoods] = useState(load(K_FOODS, DEFAULT_FOODS));
+  const [foods, setFoods] = useState(()=> ensureFoods(load(K_FOODS, DEFAULT_FOODS)));
   const [entries, setEntries] = useState(load(K_ENTRIES, []));
   const [settings, setSettings] = useState(load(K_SETTINGS, { dailyGoals:{kcal:2400,fat:80,carbs:250,protein:160}, profile:{activity:'moderate'} }));
   const [tab, setTab] = useState('dashboard');
@@ -174,7 +230,7 @@ export default function MacroTrackerApp(){
   const selectedFood = useMemo(()=> foods.find(f=>f.id===selectedFoodId)||null, [selectedFoodId,foods]);
 
   const entriesForDay = useMemo(()=> entries.filter(e=>e.date===logDate),[entries,logDate]);
-  const rowsForDay = useMemo(()=> entriesForDay.map(e=>{ const f = foods.find(x=>x.id===e.foodId); if(!f) return { id:e.id, foodId:e.foodId, label:e.label??'Unknown', qty:e.qty, meal:e.meal||'other', kcal:0,fat:0,carbs:0,protein:0}; const m=scaleMacros(f,e.qty); return { id:e.id, foodId:e.foodId, label:f.name, qty:e.qty, meal:e.meal||'other', ...m}; }),[entriesForDay,foods]);
+  const rowsForDay = useMemo(()=> entriesForDay.map(e=>{ const f = foods.find(x=>x.id===e.foodId); if(!f) return { id:e.id, foodId:e.foodId, label:e.label??'Unknown', category:DEFAULT_CATEGORY, qty:e.qty, meal:e.meal||'other', kcal:0,fat:0,carbs:0,protein:0}; const m=scaleMacros(f,e.qty); return { id:e.id, foodId:e.foodId, label:f.name, category:f.category, qty:e.qty, meal:e.meal||'other', ...m}; }),[entriesForDay,foods]);
 
   const totalsForDate = (iso)=>{ const dayEntries = entries.filter(e=>e.date===iso); const rows = dayEntries.map(e=>{ const f=foods.find(x=>x.id===e.foodId); return f? scaleMacros(f,e.qty) : {kcal:0,fat:0,carbs:0,protein:0};}); return sumMacros(rows); };
 
@@ -219,11 +275,32 @@ export default function MacroTrackerApp(){
   function updateEntryQuantity(id,newQty){ if(!Number.isFinite(newQty)||newQty<=0) return; setEntries(prev=>prev.map(e=>e.id===id?{...e,qty:newQty}:e)); }
   function updateEntryFood(id,newFoodId){ setEntries(prev=>prev.map(e=>{ if(e.id!==id) return e; const oldFood=foods.find(f=>f.id===e.foodId); const newFood=foods.find(f=>f.id===newFoodId); const newQty=normalizeQty(oldFood,newFood,e.qty); return {...e,foodId:newFoodId,qty:newQty}; })); }
   function updateEntryMeal(id,newMeal){ setEntries(prev=>prev.map(e=>e.id===id?{...e,meal:newMeal}:e)); }
-  function addFood(newFood){ setFoods(prev=>[newFood,...prev]); }
+  function addFood(newFood){ setFoods(prev=>[sanitizeFood(newFood),...prev]); }
   function deleteFood(id){ setFoods(prev=>prev.filter(f=>f.id!==id)); }
+  function updateFood(foodId, partial){
+    setFoods(prev=>{
+      const idx = prev.findIndex(f=>f.id===foodId);
+      if(idx===-1) return prev;
+      const oldFood = prev[idx];
+      const updated = sanitizeFood({ ...oldFood, ...partial, id: oldFood.id });
+      if(
+        oldFood.unit !== updated.unit ||
+        (oldFood.unit === "perServing" && updated.unit === "perServing" && oldFood.servingSize !== updated.servingSize)
+      ){
+        setEntries(prevEntries=>prevEntries.map(e=>{
+          if(e.foodId!==foodId) return e;
+          const newQty = normalizeQty(oldFood, updated, e.qty);
+          return { ...e, qty: newQty };
+        }));
+      }
+      const clone = [...prev];
+      clone[idx] = updated;
+      return clone;
+    });
+  }
 
   function exportJSON(){ const blob = new Blob([JSON.stringify({foods,entries,settings},null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`macrotracker_backup_${todayISO()}.json`; a.click(); URL.revokeObjectURL(url); }
-  function importJSON(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(String(reader.result)); if(data.foods) setFoods(data.foods); if(data.entries) setEntries(data.entries); if(data.settings) setSettings(data.settings);}catch{ alert('Invalid JSON file'); } }; reader.readAsText(file); }
+  function importJSON(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(String(reader.result)); if(data.foods) setFoods(ensureFoods(data.foods)); if(data.entries) setEntries(data.entries); if(data.settings) setSettings(data.settings);}catch{ alert('Invalid JSON file'); } }; reader.readAsText(file); }
 
   // Helper
   const left = (goal, actual)=> Math.max(0, (goal||0) - (actual||0));
@@ -560,28 +637,21 @@ export default function MacroTrackerApp(){
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
+                      <TableHead>Category</TableHead>
                       <TableHead>Unit</TableHead>
                       <TableHead className="text-right">kcal</TableHead>
                       <TableHead className="text-right">Protein (g)</TableHead>
                       <TableHead className="text-right">Carbs (g)</TableHead>
                       <TableHead className="text-right">Fat (g)</TableHead>
-                      <TableHead></TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {foods.map((f)=> (
-                      <TableRow key={f.id}>
-                        <TableCell className="font-medium">{f.name}</TableCell>
-                        <TableCell>{f.unit==='per100g'? 'per 100 g' : `per ${f.servingSize??1} g serving`}</TableCell>
-                        <TableCell className="text-right">{f.kcal}</TableCell>
-                        <TableCell className="text-right">{f.protein}</TableCell>
-                        <TableCell className="text-right">{f.carbs}</TableCell>
-                        <TableCell className="text-right">{f.fat}</TableCell>
-                        <TableCell className="text-right"><Button variant="ghost" size="icon" onClick={()=>deleteFood(f.id)}><Trash2 className="h-4 w-4"/></Button></TableCell>
-                      </TableRow>
+                      <EditableFoodRow key={f.id} food={f} onUpdate={updateFood} onDelete={deleteFood} />
                     ))}
                     {foods.length===0 && (
-                      <TableRow><TableCell colSpan={7} className="text-center text-slate-500">Your database is empty. Add foods above or import a backup.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={8} className="text-center text-slate-500">Your database is empty. Add foods above or import a backup.</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -866,15 +936,183 @@ function FoodInput({ foods, selectedFoodId, onSelect }){
     </div>
   );
 }
+function EditableFoodRow({ food, onUpdate, onDelete }){
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState(()=>({
+    name: food.name,
+    category: food.category ?? DEFAULT_CATEGORY,
+    unit: food.unit,
+    servingSize: food.servingSize ? String(food.servingSize) : "",
+    kcal: String(food.kcal ?? 0),
+    protein: String(food.protein ?? 0),
+    carbs: String(food.carbs ?? 0),
+    fat: String(food.fat ?? 0),
+  }));
+
+  useEffect(()=>{
+    setForm({
+      name: food.name,
+      category: food.category ?? DEFAULT_CATEGORY,
+      unit: food.unit,
+      servingSize: food.servingSize ? String(food.servingSize) : "",
+      kcal: String(food.kcal ?? 0),
+      protein: String(food.protein ?? 0),
+      carbs: String(food.carbs ?? 0),
+      fat: String(food.fat ?? 0),
+    });
+  }, [food, editing]);
+
+  const isPerServing = form.unit === "perServing";
+
+  function handleSave(){
+    if(!form.name.trim()){
+      alert("Enter a food name");
+      return;
+    }
+    const payload = {
+      name: form.name.trim(),
+      category: form.category,
+      unit: form.unit,
+      servingSize: isPerServing ? toNumber(form.servingSize, 1) : undefined,
+      kcal: toNumber(form.kcal, 0),
+      protein: toNumber(form.protein, 0),
+      carbs: toNumber(form.carbs, 0),
+      fat: toNumber(form.fat, 0),
+    };
+    onUpdate(food.id, payload);
+    setEditing(false);
+  }
+
+  function handleCancel(){
+    setForm({
+      name: food.name,
+      category: food.category ?? DEFAULT_CATEGORY,
+      unit: food.unit,
+      servingSize: food.servingSize ? String(food.servingSize) : "",
+      kcal: String(food.kcal ?? 0),
+      protein: String(food.protein ?? 0),
+      carbs: String(food.carbs ?? 0),
+      fat: String(food.fat ?? 0),
+    });
+    setEditing(false);
+  }
+
+  return (
+    <TableRow>
+      <TableCell className="font-medium">
+        {editing ? (
+          <div className="flex items-center gap-2">
+            <span>{getCategoryEmoji(form.category)}</span>
+            <Input value={form.name} onChange={(e)=>setForm(prev=>({...prev, name:e.target.value }))} />
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span>{getCategoryEmoji(food.category)}</span>
+            <span>{food.name}</span>
+          </div>
+        )}
+      </TableCell>
+      <TableCell>
+        {editing ? (
+          <Select value={form.category} onValueChange={(value)=>setForm(prev=>({...prev, category:value }))}>
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {FOOD_CATEGORIES.map(cat=>(
+                <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          getCategoryLabel(food.category)
+        )}
+      </TableCell>
+      <TableCell>
+        {editing ? (
+          <div className="flex items-center gap-2">
+            <Select value={form.unit} onValueChange={(value)=>setForm(prev=>({ ...prev, unit:value, servingSize: value==='perServing' ? (prev.servingSize || '1') : '' }))}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="per100g">per 100g</SelectItem>
+                <SelectItem value="perServing">per serving</SelectItem>
+              </SelectContent>
+            </Select>
+            {isPerServing && (
+              <Input className="w-28" type="number" value={form.servingSize} onChange={(e)=>setForm(prev=>({...prev, servingSize:e.target.value }))} placeholder="g" />
+            )}
+          </div>
+        ) : (
+          food.unit==='per100g'? 'per 100 g' : `per ${food.servingSize??1} g serving`
+        )}
+      </TableCell>
+      <TableCell className="text-right">
+        {editing ? (
+          <Input className="text-right" type="number" value={form.kcal} onChange={(e)=>setForm(prev=>({...prev, kcal:e.target.value }))} />
+        ) : (
+          food.kcal
+        )}
+      </TableCell>
+      <TableCell className="text-right">
+        {editing ? (
+          <Input className="text-right" type="number" value={form.protein} onChange={(e)=>setForm(prev=>({...prev, protein:e.target.value }))} />
+        ) : (
+          food.protein
+        )}
+      </TableCell>
+      <TableCell className="text-right">
+        {editing ? (
+          <Input className="text-right" type="number" value={form.carbs} onChange={(e)=>setForm(prev=>({...prev, carbs:e.target.value }))} />
+        ) : (
+          food.carbs
+        )}
+      </TableCell>
+      <TableCell className="text-right">
+        {editing ? (
+          <Input className="text-right" type="number" value={form.fat} onChange={(e)=>setForm(prev=>({...prev, fat:e.target.value }))} />
+        ) : (
+          food.fat
+        )}
+      </TableCell>
+      <TableCell className="text-right">
+        {editing ? (
+          <div className="flex justify-end gap-2">
+            <Button size="sm" onClick={handleSave}>Save</Button>
+            <Button variant="ghost" size="sm" onClick={handleCancel}>Cancel</Button>
+            <Button variant="ghost" size="icon" onClick={()=>onDelete(food.id)}><Trash2 className="h-4 w-4" /></Button>
+          </div>
+        ) : (
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="icon" onClick={()=>setEditing(true)}><Pencil className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" onClick={()=>onDelete(food.id)}><Trash2 className="h-4 w-4" /></Button>
+          </div>
+        )}
+      </TableCell>
+    </TableRow>
+  );
+}
 function AddFoodCard({ onAdd }){
   const [name,setName]=useState(""); const [unit,setUnit]=useState('per100g'); const [servingSize,setServingSize]=useState(100);
+  const [category,setCategory]=useState(DEFAULT_CATEGORY);
   const [kcal,setKcal]=useState(0); const [protein,setProtein]=useState(0); const [carbs,setCarbs]=useState(0); const [fat,setFat]=useState(0);
-  function handleAdd(){ if(!name.trim()){ alert('Enter a food name'); return; } const f={ id:crypto.randomUUID(), name:name.trim(), unit, servingSize: unit==='perServing'? servingSize: undefined, kcal:+kcal, protein:+protein, carbs:+carbs, fat:+fat }; onAdd(f); setName(''); setUnit('per100g'); setServingSize(100); setKcal(0); setProtein(0); setCarbs(0); setFat(0); }
+  function handleAdd(){ if(!name.trim()){ alert('Enter a food name'); return; } const f={ id:crypto.randomUUID(), name:name.trim(), unit, category, servingSize: unit==='perServing'? servingSize: undefined, kcal:+kcal, protein:+protein, carbs:+carbs, fat:+fat }; onAdd(f); setName(''); setUnit('per100g'); setServingSize(100); setCategory(DEFAULT_CATEGORY); setKcal(0); setProtein(0); setCarbs(0); setFat(0); }
   return (
     <Card>
       <CardHeader><CardTitle>Add Food to Database</CardTitle></CardHeader>
-      <CardContent className="grid md:grid-cols-5 gap-3">
+      <CardContent className="grid md:grid-cols-6 gap-3">
         <div className="md:col-span-2"><Label>Name</Label><Input value={name} onChange={(e)=>setName(e.target.value)} placeholder="e.g. Banana" /></div>
+        <div><Label>Category</Label>
+          <Select value={category} onValueChange={(v)=>setCategory(v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {FOOD_CATEGORIES.map(cat=>(
+                <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <div><Label>Unit</Label>
           <Select value={unit} onValueChange={(v)=>setUnit(v)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
@@ -885,13 +1123,13 @@ function AddFoodCard({ onAdd }){
           </Select>
         </div>
         {unit==='perServing' && (<div><Label>Serving size (g)</Label><Input type="number" value={servingSize} onChange={(e)=>setServingSize(parseFloat(e.target.value))} /></div>)}
-        <div className="md:col-span-5 grid grid-cols-4 gap-3">
+        <div className="md:col-span-6 grid grid-cols-4 gap-3">
           <div><Label>kcal</Label><Input type="number" value={kcal} onChange={(e)=>setKcal(parseFloat(e.target.value))} /></div>
           <div><Label>Protein (g)</Label><Input type="number" value={protein} onChange={(e)=>setProtein(parseFloat(e.target.value))} /></div>
           <div><Label>Carbs (g)</Label><Input type="number" value={carbs} onChange={(e)=>setCarbs(parseFloat(e.target.value))} /></div>
           <div><Label>Fat (g)</Label><Input type="number" value={fat} onChange={(e)=>setFat(parseFloat(e.target.value))} /></div>
         </div>
-        <div className="md:col-span-5 text-right mt-3"><Button onClick={handleAdd}>Add Food</Button></div>
+        <div className="md:col-span-6 text-right mt-3"><Button onClick={handleAdd}>Add Food</Button></div>
       </CardContent>
     </Card>
   );
@@ -900,12 +1138,17 @@ function EditableFoodCell({ entryId, currentFoodId, fallbackLabel, foods, onSele
   const [editing,setEditing]=useState(false); const [query,setQuery]=useState("");
   const current = foods.find(f=>f.id===currentFoodId)||null;
   const results = useMemo(()=>{ if(!query.trim()) return foods.slice(0,10); const q=query.toLowerCase(); return foods.filter(f=>`${f.name} ${f.brand??''}`.toLowerCase().includes(q)).slice(0,10); },[query,foods]);
-  function handlePick(foodId){ onSelect(foodId); setEditing(false);} 
+  function handlePick(foodId){ onSelect(foodId); setEditing(false);}
+  const displayEmoji = current ? getCategoryEmoji(current.category) : getCategoryEmoji(DEFAULT_CATEGORY);
+  const displayName = current?.name || fallbackLabel || 'Unknown';
   return (
     <div className="relative">
       {!editing && (
         <button className="text-left w-full hover:underline" onClick={()=>{ setEditing(true); setQuery(current?.name||''); }} title="Click to change food">
-          {current?.name || fallbackLabel || 'Unknown'}
+          <span className="flex items-center gap-2">
+            <span>{displayEmoji}</span>
+            <span>{displayName}</span>
+          </span>
         </button>
       )}
       {editing && (
