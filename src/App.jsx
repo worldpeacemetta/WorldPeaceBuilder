@@ -632,8 +632,8 @@ export default function MacroTrackerApp(){
             <AddFoodCard onAdd={(f)=>addFood(f)} />
             <Card>
               <CardHeader><CardTitle>Database — {foods.length} items</CardTitle></CardHeader>
-              <CardContent>
-                <Table>
+              <CardContent className="overflow-x-auto">
+                <Table className="min-w-[900px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
