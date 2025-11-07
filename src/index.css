@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: 255 255 255;
+    --foreground: 15 23 42;
+  }
+  body {
+    @apply bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-50;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border bg-white dark:bg-slate-900 text-slate-950 dark:text-slate-50 shadow-sm;
+  }
+}
+/* Safeguard for dropdowns and popovers (Radix portals) */
+.radix-portal,
+[role="listbox"] {
+  position: relative;
+  z-index: 99999;
+}
