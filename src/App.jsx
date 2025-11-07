@@ -106,6 +106,12 @@ const DEFAULT_CATEGORY = "other";
 const getCategoryEmoji = (category) => FOOD_CATEGORY_MAP[category]?.emoji ?? FOOD_CATEGORY_MAP[DEFAULT_CATEGORY].emoji;
 const getCategoryLabel = (category) => FOOD_CATEGORY_MAP[category]?.label ?? FOOD_CATEGORY_MAP[DEFAULT_CATEGORY].label;
 
+const numberFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+const formatNumber = (value) => {
+  const numeric = Number.parseFloat(value);
+  return Number.isFinite(numeric) ? numberFormatter.format(numeric) : "0";
+};
+
 function toNumber(value, fallback = 0) {
   const num = Number.parseFloat(value);
   return Number.isFinite(num) ? num : fallback;
@@ -633,17 +639,17 @@ export default function MacroTrackerApp(){
             <Card>
               <CardHeader><CardTitle>Database — {foods.length} items</CardTitle></CardHeader>
               <CardContent className="overflow-x-auto">
-                <Table className="min-w-[900px]">
+                <Table className="w-full table-fixed">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Unit</TableHead>
-                      <TableHead className="text-right">kcal</TableHead>
-                      <TableHead className="text-right">Protein (g)</TableHead>
-                      <TableHead className="text-right">Carbs (g)</TableHead>
-                      <TableHead className="text-right">Fat (g)</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="w-[26%]">Name</TableHead>
+                      <TableHead className="w-[18%]">Category</TableHead>
+                      <TableHead className="w-[16%]">Unit</TableHead>
+                      <TableHead className="w-[7%] text-right">kcal</TableHead>
+                      <TableHead className="w-[7%] text-right">Protein (g)</TableHead>
+                      <TableHead className="w-[7%] text-right">Carbs (g)</TableHead>
+                      <TableHead className="w-[7%] text-right">Fat (g)</TableHead>
+                      <TableHead className="w-[12%] text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -928,7 +934,7 @@ function FoodInput({ foods, selectedFoodId, onSelect }){
           {results.map((f)=> (
             <button key={f.id} className="block w-full text-left px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm" onMouseDown={()=>handlePick(f)}>
               <div className="font-medium">{f.name}</div>
-              <div className="text-xs text-slate-500">{f.kcal} kcal · P {f.protein}g · C {f.carbs}g · F {f.fat}g</div>
+              <div className="text-xs text-slate-500">{formatNumber(f.kcal)} kcal · P {formatNumber(f.protein)} g · C {formatNumber(f.carbs)} g · F {formatNumber(f.fat)} g</div>
             </button>
           ))}
         </div>
@@ -999,23 +1005,23 @@ function EditableFoodRow({ food, onUpdate, onDelete }){
 
   return (
     <TableRow>
-      <TableCell className="font-medium">
+      <TableCell className="align-middle">
         {editing ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <span>{getCategoryEmoji(form.category)}</span>
-            <Input value={form.name} onChange={(e)=>setForm(prev=>({...prev, name:e.target.value }))} />
+            <Input className="h-8 w-full" value={form.name} onChange={(e)=>setForm(prev=>({...prev, name:e.target.value }))} />
           </div>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <span>{getCategoryEmoji(food.category)}</span>
-            <span>{food.name}</span>
+            <span className="truncate" title={food.name}>{food.name}</span>
           </div>
         )}
       </TableCell>
-      <TableCell>
+      <TableCell className="align-middle">
         {editing ? (
           <Select value={form.category} onValueChange={(value)=>setForm(prev=>({...prev, category:value }))}>
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="h-8 w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1025,14 +1031,14 @@ function EditableFoodRow({ food, onUpdate, onDelete }){
             </SelectContent>
           </Select>
         ) : (
-          getCategoryLabel(food.category)
+          <span className="whitespace-nowrap text-sm">{getCategoryLabel(food.category)}</span>
         )}
       </TableCell>
-      <TableCell>
+      <TableCell className="align-middle">
         {editing ? (
           <div className="flex items-center gap-2">
             <Select value={form.unit} onValueChange={(value)=>setForm(prev=>({ ...prev, unit:value, servingSize: value==='perServing' ? (prev.servingSize || '1') : '' }))}>
-              <SelectTrigger className="w-32">
+              <SelectTrigger className="h-8 w-[120px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1041,42 +1047,44 @@ function EditableFoodRow({ food, onUpdate, onDelete }){
               </SelectContent>
             </Select>
             {isPerServing && (
-              <Input className="w-28" type="number" value={form.servingSize} onChange={(e)=>setForm(prev=>({...prev, servingSize:e.target.value }))} placeholder="g" />
+              <Input className="h-8 w-[90px]" type="number" step="0.1" value={form.servingSize} onChange={(e)=>setForm(prev=>({...prev, servingSize:e.target.value }))} placeholder="g" />
             )}
           </div>
         ) : (
-          food.unit==='per100g'? 'per 100 g' : `per ${food.servingSize??1} g serving`
+          <span className="whitespace-nowrap text-sm">
+            {food.unit==='per100g'? 'per 100 g' : `per ${formatNumber(food.servingSize??1)} g serving`}
+          </span>
         )}
       </TableCell>
-      <TableCell className="text-right">
+      <TableCell className="text-right tabular-nums align-middle">
         {editing ? (
-          <Input className="text-right" type="number" value={form.kcal} onChange={(e)=>setForm(prev=>({...prev, kcal:e.target.value }))} />
+          <Input className="h-8 w-full text-right" type="number" step="0.01" value={form.kcal} onChange={(e)=>setForm(prev=>({...prev, kcal:e.target.value }))} />
         ) : (
-          food.kcal
+          formatNumber(food.kcal)
         )}
       </TableCell>
-      <TableCell className="text-right">
+      <TableCell className="text-right tabular-nums align-middle">
         {editing ? (
-          <Input className="text-right" type="number" value={form.protein} onChange={(e)=>setForm(prev=>({...prev, protein:e.target.value }))} />
+          <Input className="h-8 w-full text-right" type="number" step="0.01" value={form.protein} onChange={(e)=>setForm(prev=>({...prev, protein:e.target.value }))} />
         ) : (
-          food.protein
+          formatNumber(food.protein)
         )}
       </TableCell>
-      <TableCell className="text-right">
+      <TableCell className="text-right tabular-nums align-middle">
         {editing ? (
-          <Input className="text-right" type="number" value={form.carbs} onChange={(e)=>setForm(prev=>({...prev, carbs:e.target.value }))} />
+          <Input className="h-8 w-full text-right" type="number" step="0.01" value={form.carbs} onChange={(e)=>setForm(prev=>({...prev, carbs:e.target.value }))} />
         ) : (
-          food.carbs
+          formatNumber(food.carbs)
         )}
       </TableCell>
-      <TableCell className="text-right">
+      <TableCell className="text-right tabular-nums align-middle">
         {editing ? (
-          <Input className="text-right" type="number" value={form.fat} onChange={(e)=>setForm(prev=>({...prev, fat:e.target.value }))} />
+          <Input className="h-8 w-full text-right" type="number" step="0.01" value={form.fat} onChange={(e)=>setForm(prev=>({...prev, fat:e.target.value }))} />
         ) : (
-          food.fat
+          formatNumber(food.fat)
         )}
       </TableCell>
-      <TableCell className="text-right">
+      <TableCell className="text-right align-middle">
         {editing ? (
           <div className="flex justify-end gap-2">
             <Button size="sm" onClick={handleSave}>Save</Button>
@@ -1084,7 +1092,7 @@ function EditableFoodRow({ food, onUpdate, onDelete }){
             <Button variant="ghost" size="icon" onClick={()=>onDelete(food.id)}><Trash2 className="h-4 w-4" /></Button>
           </div>
         ) : (
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-1">
             <Button variant="ghost" size="icon" onClick={()=>setEditing(true)}><Pencil className="h-4 w-4" /></Button>
             <Button variant="ghost" size="icon" onClick={()=>onDelete(food.id)}><Trash2 className="h-4 w-4" /></Button>
           </div>
