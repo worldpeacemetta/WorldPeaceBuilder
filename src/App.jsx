@@ -111,6 +111,13 @@ const FOOD_CATEGORY_MAP = FOOD_CATEGORIES.reduce((acc, cat) => {
 
 const DEFAULT_CATEGORY = "other";
 const DEFAULT_GOALS = { kcal: 2400, protein: 160, carbs: 250, fat: 80 };
+const TREND_RANGE_LABELS = {
+  "7": "Last 7 days",
+  "14": "Last 14 days",
+  "30": "Last 30 days",
+  "90": "Last 3 months",
+  "365": "Last 12 months",
+};
 
 const getCategoryEmoji = (category) => FOOD_CATEGORY_MAP[category]?.emoji ?? FOOD_CATEGORY_MAP[DEFAULT_CATEGORY].emoji;
 const getCategoryLabel = (category) => FOOD_CATEGORY_MAP[category]?.label ?? FOOD_CATEGORY_MAP[DEFAULT_CATEGORY].label;
@@ -374,6 +381,8 @@ export default function MacroTrackerApp(){
   const activeGoalType = settings.dailyGoals?.active === 'rest' ? 'rest' : 'train';
   const activeGoals = settings.dailyGoals?.[activeGoalType] ?? DEFAULT_GOALS;
 
+  const headerPillClass = "gap-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60 px-3 py-2 text-xs font-medium shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800";
+
   const sortedFoods = useMemo(()=>{
     const list = [...foods];
     list.sort((a, b)=>{
@@ -423,7 +432,7 @@ export default function MacroTrackerApp(){
   }, [foods, foodSort]);
 
   // Trend
-  const [trendRange, setTrendRange] = useState('30');
+  const [trendRange, setTrendRange] = useState('7');
   const [show, setShow] = useState({kcal:true, protein:true, carbs:false, fat:false});
   const trendSeries = useMemo(()=>{
     const now = startOfDay(new Date()); const from = startOfRange(trendRange); const isoFrom = toISODate(from); const map={};
@@ -433,7 +442,10 @@ export default function MacroTrackerApp(){
 
   // Top foods (limit 5)
   const [topMacroKey, setTopMacroKey] = useState('kcal');
-  const [topScope, setTopScope] = useState('range');
+  const [topScope, setTopScope] = useState('day');
+  const [goalScope, setGoalScope] = useState('day');
+  const [goalDate, setGoalDate] = useState(todayISO());
+  const [splitDate, setSplitDate] = useState(todayISO());
   const topFoods = useMemo(()=>{
     const map = new Map();
     if(topScope==='day'){
@@ -445,12 +457,63 @@ export default function MacroTrackerApp(){
     return Array.from(map.entries()).map(([name,val])=>({name,val})).sort((a,b)=>b.val-a.val).slice(0,5);
   },[entries,foods,trendRange,logDate,topScope,topMacroKey]);
 
+  const dayOptions = useMemo(()=>{
+    const set = new Set(entries.map((e)=>e.date));
+    set.add(todayISO());
+    return Array.from(set).sort((a,b)=>b.localeCompare(a));
+  },[entries]);
+
+  useEffect(()=>{
+    if(!dayOptions.includes(goalDate)){
+      setGoalDate(dayOptions[0] ?? todayISO());
+    }
+  },[dayOptions, goalDate]);
+
+  useEffect(()=>{
+    if(!dayOptions.includes(splitDate)){
+      setSplitDate(dayOptions[0] ?? todayISO());
+    }
+  },[dayOptions, splitDate]);
+
+  const goalTotals = useMemo(()=>{
+    if(goalScope==='range'){
+      const from = startOfRange(trendRange);
+      const isoFrom = toISODate(from);
+      const isoTo = todayISO();
+      const rows = entries
+        .filter((e)=>e.date>=isoFrom && e.date<=isoTo)
+        .map((e)=>{
+          const food = foods.find((f)=>f.id===e.foodId);
+          return food ? scaleMacros(food, e.qty) : null;
+        })
+        .filter(Boolean);
+      return sumMacros(/** @type {{kcal:number,fat:number,carbs:number,protein:number}[]} */(rows));
+    }
+    return totalsForDate(goalDate);
+  },[entries, foods, goalScope, goalDate, trendRange]);
+
+  const goalTarget = useMemo(()=>{
+    if(goalScope==='range'){
+      const from = startOfRange(trendRange);
+      const days = rangeDays(from, new Date()).length;
+      return {
+        kcal: activeGoals.kcal * days,
+        protein: activeGoals.protein * days,
+        carbs: activeGoals.carbs * days,
+        fat: activeGoals.fat * days,
+      };
+    }
+    return activeGoals;
+  },[activeGoals, goalScope, trendRange]);
+
+  const entriesForSplitDate = useMemo(()=> entries.filter((e)=>e.date===splitDate),[entries, splitDate]);
+
   // Meal-split dataset for dashboard (stacked bar)
   const mealSplit = useMemo(()=>{
     const byMeal = { breakfast:{kcal:0,protein:0,carbs:0,fat:0}, lunch:{kcal:0,protein:0,carbs:0,fat:0}, dinner:{kcal:0,protein:0,carbs:0,fat:0}, snack:{kcal:0,protein:0,carbs:0,fat:0}, other:{kcal:0,protein:0,carbs:0,fat:0} };
-    entriesForDay.forEach(e=>{ const f=foods.find(x=>x.id===e.foodId); if(!f) return; const m=scaleMacros(f,e.qty); const key = e.meal||'other'; byMeal[key].kcal+=m.kcal; byMeal[key].protein+=m.protein; byMeal[key].carbs+=m.carbs; byMeal[key].fat+=m.fat; });
+    entriesForSplitDate.forEach(e=>{ const f=foods.find(x=>x.id===e.foodId); if(!f) return; const m=scaleMacros(f,e.qty); const key = e.meal||'other'; byMeal[key].kcal+=m.kcal; byMeal[key].protein+=m.protein; byMeal[key].carbs+=m.carbs; byMeal[key].fat+=m.fat; });
     return MEAL_ORDER.map(k=>({ meal: MEAL_LABELS[k], ...byMeal[k] }));
-  },[entriesForDay,foods]);
+  },[entriesForSplitDate,foods]);
 
   // Mutators
   function addEntry(){ if(!selectedFood||!qty||qty<=0) return; const e={id:crypto.randomUUID(),date:logDate,foodId:selectedFood.id,qty,meal}; setEntries(prev=>[e,...prev]); setQty(0); setSelectedFoodId(null); setMeal(suggestMealByNow()); }
@@ -549,14 +612,20 @@ export default function MacroTrackerApp(){
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" className="gap-2" onClick={exportJSON}><Download className="h-4 w-4" /> Export</Button>
-            <label className="inline-flex items-center gap-2 cursor-pointer px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800">
+            <Button variant="ghost" className={headerPillClass} onClick={exportJSON}>
+              <Download className="h-4 w-4" />
+              <span>Export</span>
+            </Button>
+            <label className={`inline-flex items-center ${headerPillClass} cursor-pointer`}>
               <Upload className="h-4 w-4" />
               <span>Import</span>
               <input type="file" accept="application/json" className="hidden" onChange={(e)=>e.target.files&&importJSON(e.target.files[0])} />
             </label>
             <GoalModeToggle active={activeGoalType} onChange={handleGoalTabChange} />
-            <Button variant="outline" className="gap-2" onClick={()=>setTab('settings')}><SettingsIcon className="h-4 w-4"/> Settings</Button>
+            <Button variant="ghost" className={headerPillClass} onClick={()=>setTab('settings')}>
+              <SettingsIcon className="h-4 w-4"/>
+              <span>Settings</span>
+            </Button>
             <Button variant="ghost" size="icon" onClick={()=>setTheme(theme==='dark'?'light': theme==='light'?'system':'dark')} title="Theme: dark/light/system">
               {theme==='dark'? <SunMedium className="h-5 w-5"/> : theme==='light'? <Moon className="h-5 w-5"/> : <SunMedium className="h-5 w-5"/>}
             </Button>
@@ -697,23 +766,58 @@ export default function MacroTrackerApp(){
               </CardContent>
             </Card>
 
-            {/* Goal vs Actual (today) — donuts */}
+            {/* Goal vs Actual */}
             <Card>
-              <CardHeader><CardTitle>Goal vs Actual (today)</CardTitle></CardHeader>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-3">
+                  <CardTitle>Goal vs Actual</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Select value={goalScope} onValueChange={setGoalScope}>
+                      <SelectTrigger className="h-8 w-36 text-xs"><SelectValue placeholder="Scope" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="day">Selected day</SelectItem>
+                        <SelectItem value="range">Range</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {goalScope==='day' ? (
+                      <Select value={goalDate} onValueChange={setGoalDate}>
+                        <SelectTrigger className="h-8 w-44 text-xs"><SelectValue placeholder="Date" /></SelectTrigger>
+                        <SelectContent>
+                          {dayOptions.map((iso)=>(
+                            <SelectItem key={iso} value={iso}>{format(new Date(iso), 'PP')}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <span className="text-xs text-slate-500">{TREND_RANGE_LABELS[trendRange] ?? 'Selected range'}</span>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <GoalDonut label="Calories" color={COLORS.kcal} actual={totalsForDate(todayISO()).kcal} goal={activeGoals.kcal} unit="kcal" />
-                  <GoalDonut label="Protein" color={COLORS.protein} actual={totalsForDate(todayISO()).protein} goal={activeGoals.protein} unit="g" />
-                  <GoalDonut label="Carbs" color={COLORS.carbs} actual={totalsForDate(todayISO()).carbs} goal={activeGoals.carbs} unit="g" />
-                  <GoalDonut label="Fat" color={COLORS.fat} actual={totalsForDate(todayISO()).fat} goal={activeGoals.fat} unit="g" />
+                  <GoalDonut label="Calories" color={COLORS.kcal} actual={goalTotals.kcal} goal={goalTarget.kcal} unit="kcal" />
+                  <GoalDonut label="Protein" color={COLORS.protein} actual={goalTotals.protein} goal={goalTarget.protein} unit="g" />
+                  <GoalDonut label="Carbs" color={COLORS.carbs} actual={goalTotals.carbs} goal={goalTarget.carbs} unit="g" />
+                  <GoalDonut label="Fat" color={COLORS.fat} actual={goalTotals.fat} goal={goalTarget.fat} unit="g" />
                 </div>
               </CardContent>
             </Card>
 
             {/* Macro Split per Meal */}
             <Card>
-              <CardHeader className="pb-0 flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2"><UtensilsCrossed className="h-5 w-5"/>Macro Split per Meal — {format(new Date(logDate), 'PP')}</CardTitle>
+              <CardHeader className="pb-0">
+                <div className="flex items-center justify-between gap-3">
+                  <CardTitle className="flex items-center gap-2"><UtensilsCrossed className="h-5 w-5"/>Macro Split per Meal</CardTitle>
+                  <Select value={splitDate} onValueChange={setSplitDate}>
+                    <SelectTrigger className="h-8 w-44 text-xs"><SelectValue placeholder="Date" /></SelectTrigger>
+                    <SelectContent>
+                      {dayOptions.map((iso)=>(
+                        <SelectItem key={iso} value={iso}>{format(new Date(iso), 'PP')}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </CardHeader>
               <div className="mt-4" />
               <CardContent className="h-80">
@@ -733,7 +837,14 @@ export default function MacroTrackerApp(){
             </Card>
 
             {/* Top Foods by Macros (unchanged aside from existing top-5) */}
-            <TopFoodsCard topFoods={topFoods} topScope={topScope} topMacroKey={topMacroKey} onScopeChange={setTopScope} onMacroChange={setTopMacroKey} />
+            <TopFoodsCard
+              topFoods={topFoods}
+              topScope={topScope}
+              topMacroKey={topMacroKey}
+              onScopeChange={setTopScope}
+              onMacroChange={setTopMacroKey}
+              selectedDate={logDate}
+            />
 
             {/* Averages tiles (non-empty days only) */}
             <div className="grid md:grid-cols-4 gap-4">
@@ -1211,18 +1322,19 @@ function GoalDonut({ label, color, actual, goal, unit }){
     </div>
   );
 }
-function TopFoodsCard({ topFoods, topScope, topMacroKey, onScopeChange, onMacroChange }){
+function TopFoodsCard({ topFoods, topScope, topMacroKey, onScopeChange, onMacroChange, selectedDate }){
+  const dayLabel = selectedDate ? format(new Date(selectedDate), 'PP') : 'Selected day';
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
-          <CardTitle>Top Foods by Macros — current {topScope==='day'?'day':'range'}</CardTitle>
+          <CardTitle>Top Foods by Macros — {topScope==='day'? dayLabel : 'current range'}</CardTitle>
           <div className="flex items-center gap-2">
             <Select value={topScope} onValueChange={onScopeChange}>
               <SelectTrigger className="h-8 w-36"><SelectValue placeholder="Scope" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="range">Range</SelectItem>
                 <SelectItem value="day">Selected day</SelectItem>
+                <SelectItem value="range">Range</SelectItem>
               </SelectContent>
             </Select>
             <Select value={topMacroKey} onValueChange={onMacroChange}>
