@@ -1228,20 +1228,51 @@ function AvgTile({ label, entries, foods, days, from }){
   );
 }
 function GoalDonut({ label, color, actual, goal, unit }){
-  const a = Math.max(0, actual||0);
-  const g = Math.max(0, goal||0);
-  const pct = pctOf(a,g); // can exceed 100 now
-  const within = Math.min(a, g);
-  const over = Math.max(0, a-g);
-  const remaining = Math.max(0, g-a);
+  const a = Math.max(0, actual || 0);
+  const g = Math.max(0, goal || 0);
+  const pct = pctOf(a, g);
 
   const pieData = [];
-  if (within > 0) pieData.push({ name: 'Actual', value: within, fill: color });
-  if (over > 0) pieData.push({ name: 'Over', value: over, fill: darkenHex(color, 0.7) });
-  if (remaining > 0) pieData.push({ name: 'Remaining', value: remaining, fill: COLORS.gray });
+
+  if (g > 0) {
+    const ratio = Math.min(a / g, 1);
+    const overRatio = Math.min(Math.max(a / g - 1, 0), 1); // 0 to 1 between 100%-200%
+    const remainingRatio = Math.max(0, 1 - ratio);
+
+    if (ratio > 0) {
+      pieData.push({
+        name: 'Actual',
+        value: ratio * 100,
+        displayValue: Math.min(a, g),
+        fill: color,
+      });
+    }
+
+    if (overRatio > 0) {
+      pieData.push({
+        name: 'Over',
+        value: overRatio * 100,
+        displayValue: Math.max(0, a - g),
+        fill: darkenHex(color, 0.7),
+      });
+    }
+
+    if (overRatio === 0 && remainingRatio > 0) {
+      pieData.push({
+        name: 'Remaining',
+        value: remainingRatio * 100,
+        displayValue: Math.max(0, g - a),
+        fill: COLORS.gray,
+      });
+    }
+  }
 
   if (pieData.length === 0) {
-    pieData.push({ name: 'Empty', value: 1, fill: COLORS.gray });
+    if (a > 0) {
+      pieData.push({ name: 'Actual', value: a, displayValue: a, fill: color });
+    } else {
+      pieData.push({ name: 'Empty', value: 1, displayValue: 0, fill: COLORS.gray });
+    }
   }
 
   return (
@@ -1251,13 +1282,15 @@ function GoalDonut({ label, color, actual, goal, unit }){
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie data={pieData} dataKey="value" innerRadius={40} outerRadius={55} startAngle={90} endAngle={-270}>
-              {pieData.map((d,i)=>(<Cell key={i} fill={d.fill} />))}
+              {pieData.map((d, i) => (
+                <Cell key={i} fill={d.fill} />
+              ))}
             </Pie>
-            <RTooltip formatter={(v,n)=>[`${Math.round(v)} ${unit}`, n]} />
+            <RTooltip formatter={(_, n, entry) => [`${Math.round(entry?.payload?.displayValue ?? 0)} ${unit}`, n]} />
           </PieChart>
         </ResponsiveContainer>
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="text-lg font-semibold" style={{ color }}>{Number.isFinite(pct)? `${pct}%` : '0%'}</div>
+          <div className="text-lg font-semibold" style={{ color }}>{Number.isFinite(pct) ? `${pct}%` : '0%'}</div>
         </div>
       </div>
       <div className="mt-1 text-xs text-slate-500">{Math.round(a)} / {Math.round(g)} {unit}</div>
