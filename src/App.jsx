@@ -1620,7 +1620,6 @@ function RecipeIngredientsEditor({ ingredients, onChange, foods, ownerId }) {
       )}
       {ingredients.map((item) => {
         const selected = foods.find((f) => f.id === item.foodId) || null;
-        const showSelectedFallback = selected && !availableFoods.some((f) => f.id === selected.id);
         const macros = selected ? scaleMacros(selected, toNumber(item.quantity, 0)) : null;
         const quantityUnit = selected ? (selected.unit === "perServing" ? "servings" : "g") : "";
         return (
@@ -1628,29 +1627,12 @@ function RecipeIngredientsEditor({ ingredients, onChange, foods, ownerId }) {
             <div className="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto] items-end">
               <div>
                 <Label className="text-xs font-medium uppercase tracking-wide text-slate-500">Ingredient</Label>
-                <Select value={item.foodId} onValueChange={(value)=>handleFoodChange(item.id, value)}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select food" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {showSelectedFallback && (
-                      <SelectItem value={selected.id}>
-                        <span className="flex items-center gap-2">
-                          <span>{getCategoryEmoji(selected.category)}</span>
-                          <span className="truncate">{selected.name}</span>
-                        </span>
-                      </SelectItem>
-                    )}
-                    {availableFoods.map((food) => (
-                      <SelectItem key={food.id} value={food.id}>
-                        <span className="flex items-center gap-2">
-                          <span>{getCategoryEmoji(food.category)}</span>
-                          <span className="truncate">{food.name}</span>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <IngredientFoodPicker
+                  value={item.foodId}
+                  foods={availableFoods}
+                  allFoods={foods}
+                  onSelect={(value)=>handleFoodChange(item.id, value)}
+                />
               </div>
               <div>
                 <Label className="text-xs font-medium uppercase tracking-wide text-slate-500">Quantity</Label>
@@ -1686,6 +1668,85 @@ function RecipeIngredientsEditor({ ingredients, onChange, foods, ownerId }) {
           <Plus className="mr-2 h-4 w-4" /> Add ingredient
         </Button>
       </div>
+    </div>
+  );
+}
+
+function IngredientFoodPicker({ value, foods, allFoods, onSelect }) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const selected = allFoods.find((food) => food.id === value) || null;
+
+  useEffect(() => {
+    if (selected) {
+      setQuery(selected.name);
+    } else if (!value) {
+      setQuery("");
+    }
+  }, [selected?.id, value]);
+
+  const results = useMemo(() => {
+    const base = filterFoods(query, foods);
+    if (selected && !base.some((food) => food.id === selected.id)) {
+      return [selected, ...base];
+    }
+    return base;
+  }, [query, foods, selected]);
+
+  const handlePick = (food) => {
+    onSelect(food.id);
+    setQuery(food.name);
+    setOpen(false);
+  };
+
+  const showEmptyState = open && results.length === 0;
+
+  return (
+    <div className="relative mt-1">
+      <Input
+        type="text"
+        value={query}
+        onFocus={() => {
+          setOpen(true);
+          if (selected && !query) {
+            setQuery(selected.name);
+          }
+        }}
+        onBlur={() => {
+          setTimeout(() => setOpen(false), 120);
+        }}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setOpen(true);
+        }}
+        placeholder="Search ingredient"
+      />
+      <Search className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+      {open && results.length > 0 && (
+        <div className="absolute z-20 mt-1 w-full max-h-64 overflow-auto rounded-xl border border-slate-200 bg-white shadow dark:border-slate-700 dark:bg-slate-900">
+          {results.map((food) => (
+            <button
+              key={food.id}
+              type="button"
+              className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
+              onMouseDown={() => handlePick(food)}
+            >
+              <div className="flex items-center gap-2">
+                <span>{getCategoryEmoji(food.category)}</span>
+                <span className="flex-1 truncate">{food.name}</span>
+              </div>
+              <div className="text-xs text-slate-500">
+                {formatNumber(food.kcal)} kcal · P {formatNumber(food.protein)} g · C {formatNumber(food.carbs)} g · F {formatNumber(food.fat)} g
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+      {showEmptyState && (
+        <div className="absolute z-20 mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500 shadow dark:border-slate-700 dark:bg-slate-900">
+          No foods match that search.
+        </div>
+      )}
     </div>
   );
 }
