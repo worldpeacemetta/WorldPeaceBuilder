@@ -37,6 +37,8 @@ import {
   Download,
   Moon,
   SunMedium,
+  Dumbbell,
+  BedDouble,
   Database,
   BarChart3,
   BookOpenText,
@@ -553,6 +555,7 @@ export default function MacroTrackerApp(){
               <span>Import</span>
               <input type="file" accept="application/json" className="hidden" onChange={(e)=>e.target.files&&importJSON(e.target.files[0])} />
             </label>
+            <GoalModeToggle active={activeGoalType} onChange={handleGoalTabChange} />
             <Button variant="outline" className="gap-2" onClick={()=>setTab('settings')}><SettingsIcon className="h-4 w-4"/> Settings</Button>
             <Button variant="ghost" size="icon" onClick={()=>setTheme(theme==='dark'?'light': theme==='light'?'system':'dark')} title="Theme: dark/light/system">
               {theme==='dark'? <SunMedium className="h-5 w-5"/> : theme==='light'? <Moon className="h-5 w-5"/> : <SunMedium className="h-5 w-5"/>}
@@ -1063,6 +1066,40 @@ function LabeledNumber({ label, value, onChange }){
     <div>
       <Label className="text-sm">{label}</Label>
       <Input type="number" inputMode="numeric" value={Number.isFinite(value)? value: 0} onChange={(e)=>onChange(parseFloat(e.target.value||'0'))} />
+    </div>
+  );
+}
+
+function GoalModeToggle({ active, onChange }){
+  const options = [
+    { value: 'train', label: 'Train Day', Icon: Dumbbell, accent: COLORS.protein },
+    { value: 'rest', label: 'Rest Day', Icon: BedDouble, accent: COLORS.cyan },
+  ];
+
+  return (
+    <div
+      className="flex flex-shrink-0 items-center gap-1 rounded-full border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60 px-1 py-1 shadow-sm"
+      role="group"
+      aria-label="Select active goal profile"
+    >
+      {options.map(({ value, label, Icon, accent })=>{
+        const isActive = active===value;
+        return (
+          <button
+            key={value}
+            type="button"
+            onClick={()=>onChange(value)}
+            aria-pressed={isActive}
+            className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-slate-400 dark:focus-visible:ring-slate-500 ${isActive? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-sm': 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100'}`}
+          >
+            <span className="inline-flex items-center justify-center">
+              <Icon className={`h-3 w-3 ${isActive? '' : 'opacity-80'}`} />
+            </span>
+            <span>{label}</span>
+            <span className="ml-1 inline-flex h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} aria-hidden="true" />
+          </button>
+        );
+      })}
     </div>
   );
 }
