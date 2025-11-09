@@ -54,7 +54,8 @@ import { format, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear,
  * Types (for readability only)
  *******************/
 /** @typedef {'breakfast'|'lunch'|'dinner'|'snack'|'other'} MealKey */
-/** @typedef {{id:string,name:string,brand?:string,unit:'per100g'|'perServing',servingSize?:number,kcal:number,fat:number,carbs:number,protein:number,category:string}} Food */
+/** @typedef {{id:string,name:string,brand?:string,unit:'per100g'|'perServing',servingSize?:number,kcal:number,fat:number,carbs:number,protein:number,category:string,components?:Ingredient[]}} Food */
+/** @typedef {{foodId:string,quantity:number}} Ingredient */
 /** @typedef {{id:string,date:string,foodId?:string,label?:string,qty:number,meal:MealKey}} Entry */
 
 /*******************
@@ -117,20 +118,37 @@ const formatNumber = (value) => {
   return Number.isFinite(numeric) ? numberFormatter.format(numeric) : "0";
 };
 
+const toInputString = (value, fractionDigits = 2) => {
+  const numeric = Number.isFinite(value) ? value : 0;
+  return String(+numeric.toFixed(fractionDigits));
+};
+
 function toNumber(value, fallback = 0) {
   const num = Number.parseFloat(value);
   return Number.isFinite(num) ? num : fallback;
+}
+
+function sanitizeComponents(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((item) => ({
+      foodId: typeof item.foodId === "string" ? item.foodId : "",
+      quantity: toNumber(item.quantity, 0),
+    }))
+    .filter((item) => item.foodId && item.quantity > 0);
 }
 
 function sanitizeFood(food) {
   const unit = food.unit === "perServing" ? "perServing" : "per100g";
   const servingSize = unit === "perServing" ? Math.max(1, toNumber(food.servingSize ?? 0, 1)) : undefined;
   const category = FOOD_CATEGORY_MAP[food.category]?.value ?? DEFAULT_CATEGORY;
+  const components = sanitizeComponents(food.components);
   return {
     ...food,
     unit,
     servingSize,
     category,
+    components,
     kcal: toNumber(food.kcal, 0),
     fat: toNumber(food.fat, 0),
     carbs: toNumber(food.carbs, 0),
@@ -175,6 +193,43 @@ function sumMacros(rows) {
     protein: a.protein + r.protein,
   }), { kcal: 0, fat: 0, carbs: 0, protein: 0 });
 }
+
+function computeRecipeTotals(components, foods) {
+  if (!Array.isArray(components) || components.length === 0) {
+    return { kcal: 0, fat: 0, carbs: 0, protein: 0 };
+  }
+  const rows = components.map((component) => {
+    const food = foods.find((f) => f.id === component.foodId);
+    if (!food) return { kcal: 0, fat: 0, carbs: 0, protein: 0 };
+    const qty = toNumber(component.quantity, 0);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      return { kcal: 0, fat: 0, carbs: 0, protein: 0 };
+    }
+    return scaleMacros(food, qty);
+  });
+  return sumMacros(rows);
+}
+
+const createBasicFoodForm = () => ({
+  name: "",
+  category: DEFAULT_CATEGORY,
+  unit: "per100g",
+  servingSize: "100",
+  kcal: "0",
+  protein: "0",
+  carbs: "0",
+  fat: "0",
+});
+
+const createRecipeForm = () => ({
+  name: "",
+  unit: "per100g",
+  servingSize: "100",
+  kcal: "0",
+  protein: "0",
+  carbs: "0",
+  fat: "0",
+});
 function rangeDays(from, to) { return eachDayOfInterval({ start: startOfDay(from), end: startOfDay(to) }); }
 function startOfRange(key) { const map = { "7":6, "14":13, "30":29, "90":89, "365":364 }; return subDays(startOfDay(new Date()), map[key]); }
 function filterFoods(q, foods) { const s = String(q||"").trim().toLowerCase(); return s? foods.filter(f=>`${f.name} ${f.brand??""}`.toLowerCase().includes(s)).slice(0,20) : foods.slice(0,20); }
@@ -707,7 +762,7 @@ export default function MacroTrackerApp(){
 
           {/* FOOD DB */}
           <TabsContent value="foods" className="mt-6 space-y-6">
-            <AddFoodCard onAdd={(f)=>addFood(f)} />
+            <AddFoodCard foods={foods} onAdd={addFood} />
             <Card>
               <CardHeader><CardTitle>Database — {foods.length} items</CardTitle></CardHeader>
               <CardContent className="overflow-x-auto">
@@ -789,7 +844,7 @@ export default function MacroTrackerApp(){
                   </TableHeader>
                   <TableBody>
                     {sortedFoods.map((f)=> (
-                      <EditableFoodRow key={f.id} food={f} onUpdate={updateFood} onDelete={deleteFood} />
+                      <EditableFoodRow key={f.id} food={f} foods={foods} onUpdate={updateFood} onDelete={deleteFood} />
                     ))}
                     {sortedFoods.length===0 && (
                       <TableRow><TableCell colSpan={8} className="text-center text-slate-500">Your database is empty. Add foods above or import a backup.</TableCell></TableRow>
@@ -1077,7 +1132,7 @@ function FoodInput({ foods, selectedFoodId, onSelect }){
     </div>
   );
 }
-function EditableFoodRow({ food, onUpdate, onDelete }){
+function EditableFoodRow({ food, foods, onUpdate, onDelete }){
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(()=>({
     name: food.name,
@@ -1088,6 +1143,11 @@ function EditableFoodRow({ food, onUpdate, onDelete }){
     protein: String(food.protein ?? 0),
     carbs: String(food.carbs ?? 0),
     fat: String(food.fat ?? 0),
+    components: (food.components ?? []).map((component) => ({
+      id: crypto.randomUUID(),
+      foodId: component.foodId,
+      quantity: String(component.quantity ?? 0),
+    })),
   }));
 
   useEffect(()=>{
@@ -1100,16 +1160,52 @@ function EditableFoodRow({ food, onUpdate, onDelete }){
       protein: String(food.protein ?? 0),
       carbs: String(food.carbs ?? 0),
       fat: String(food.fat ?? 0),
+      components: (food.components ?? []).map((component) => ({
+        id: crypto.randomUUID(),
+        foodId: component.foodId,
+        quantity: String(component.quantity ?? 0),
+      })),
     });
   }, [food, editing]);
 
   const isPerServing = form.unit === "perServing";
+
+  const derived = useMemo(() => computeRecipeTotals(form.components ?? [], foods), [form.components, foods]);
+  const { kcal: derivedKcal, protein: derivedProtein, carbs: derivedCarbs, fat: derivedFat } = derived;
+
+  useEffect(() => {
+    if (!editing || form.category !== "homeRecipe") return;
+    setForm((prev) => {
+      if (prev.category !== "homeRecipe") {
+        return prev;
+      }
+      const next = {
+        ...prev,
+        kcal: toInputString(derivedKcal),
+        protein: toInputString(derivedProtein),
+        carbs: toInputString(derivedCarbs),
+        fat: toInputString(derivedFat),
+      };
+      if (
+        prev.kcal === next.kcal &&
+        prev.protein === next.protein &&
+        prev.carbs === next.carbs &&
+        prev.fat === next.fat
+      ) {
+        return prev;
+      }
+      return next;
+    });
+  }, [editing, form.category, derivedKcal, derivedProtein, derivedCarbs, derivedFat]);
 
   function handleSave(){
     if(!form.name.trim()){
       alert("Enter a food name");
       return;
     }
+    const components = (form.components ?? [])
+      .map((component) => ({ foodId: component.foodId, quantity: toNumber(component.quantity, 0) }))
+      .filter((component) => component.foodId && component.quantity > 0);
     const payload = {
       name: form.name.trim(),
       category: form.category,
@@ -1120,6 +1216,11 @@ function EditableFoodRow({ food, onUpdate, onDelete }){
       carbs: toNumber(form.carbs, 0),
       fat: toNumber(form.fat, 0),
     };
+    if (form.category === "homeRecipe") {
+      payload.components = components;
+    } else if ((food.components?.length ?? 0) > 0) {
+      payload.components = [];
+    }
     onUpdate(food.id, payload);
     setEditing(false);
   }
@@ -1134,147 +1235,458 @@ function EditableFoodRow({ food, onUpdate, onDelete }){
       protein: String(food.protein ?? 0),
       carbs: String(food.carbs ?? 0),
       fat: String(food.fat ?? 0),
+      components: (food.components ?? []).map((component) => ({
+        id: crypto.randomUUID(),
+        foodId: component.foodId,
+        quantity: String(component.quantity ?? 0),
+      })),
     });
     setEditing(false);
   }
 
   return (
-    <TableRow>
-      <TableCell className="align-middle">
-        {editing ? (
-          <div className="flex items-center gap-2 min-w-0">
-            <span>{getCategoryEmoji(form.category)}</span>
-            <Input className="h-8 w-full" value={form.name} onChange={(e)=>setForm(prev=>({...prev, name:e.target.value }))} />
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 min-w-0">
-            <span>{getCategoryEmoji(food.category)}</span>
-            <span className="truncate" title={food.name}>{food.name}</span>
-          </div>
-        )}
-      </TableCell>
-      <TableCell className="align-middle">
-        {editing ? (
-          <Select value={form.category} onValueChange={(value)=>setForm(prev=>({...prev, category:value }))}>
-            <SelectTrigger className="h-8 w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {FOOD_CATEGORIES.map(cat=>(
-                <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <span className="whitespace-nowrap text-sm">{getCategoryLabel(food.category)}</span>
-        )}
-      </TableCell>
-      <TableCell className="align-middle">
-        {editing ? (
-          <div className="flex items-center gap-2">
-            <Select value={form.unit} onValueChange={(value)=>setForm(prev=>({ ...prev, unit:value, servingSize: value==='perServing' ? (prev.servingSize || '1') : '' }))}>
-              <SelectTrigger className="h-8 w-[120px]">
+    <>
+      <TableRow>
+        <TableCell className="align-middle">
+          {editing ? (
+            <div className="flex items-center gap-2 min-w-0">
+              <span>{getCategoryEmoji(form.category)}</span>
+              <Input className="h-8 w-full" value={form.name} onChange={(e)=>setForm(prev=>({...prev, name:e.target.value }))} />
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 min-w-0">
+              <span>{getCategoryEmoji(food.category)}</span>
+              <span className="truncate" title={food.name}>{food.name}</span>
+            </div>
+          )}
+        </TableCell>
+        <TableCell className="align-middle">
+          {editing ? (
+            <Select value={form.category} onValueChange={(value)=>setForm(prev=>({...prev, category:value }))}>
+              <SelectTrigger className="h-8 w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="per100g">per 100g</SelectItem>
-                <SelectItem value="perServing">per serving</SelectItem>
+                {FOOD_CATEGORIES.map(cat=>(
+                  <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
-            {isPerServing && (
-              <Input className="h-8 w-[90px]" type="number" step="0.1" value={form.servingSize} onChange={(e)=>setForm(prev=>({...prev, servingSize:e.target.value }))} placeholder="g" />
-            )}
-          </div>
-        ) : (
-          <span className="whitespace-nowrap text-sm">
-            {food.unit==='per100g'? 'per 100 g' : `per ${formatNumber(food.servingSize??1)} g serving`}
-          </span>
-        )}
-      </TableCell>
-      <TableCell className="text-right tabular-nums align-middle">
-        {editing ? (
-          <Input className="h-8 w-full text-right" type="number" step="0.01" value={form.kcal} onChange={(e)=>setForm(prev=>({...prev, kcal:e.target.value }))} />
-        ) : (
-          formatNumber(food.kcal)
-        )}
-      </TableCell>
-      <TableCell className="text-right tabular-nums align-middle">
-        {editing ? (
-          <Input className="h-8 w-full text-right" type="number" step="0.01" value={form.protein} onChange={(e)=>setForm(prev=>({...prev, protein:e.target.value }))} />
-        ) : (
-          formatNumber(food.protein)
-        )}
-      </TableCell>
-      <TableCell className="text-right tabular-nums align-middle">
-        {editing ? (
-          <Input className="h-8 w-full text-right" type="number" step="0.01" value={form.carbs} onChange={(e)=>setForm(prev=>({...prev, carbs:e.target.value }))} />
-        ) : (
-          formatNumber(food.carbs)
-        )}
-      </TableCell>
-      <TableCell className="text-right tabular-nums align-middle">
-        {editing ? (
-          <Input className="h-8 w-full text-right" type="number" step="0.01" value={form.fat} onChange={(e)=>setForm(prev=>({...prev, fat:e.target.value }))} />
-        ) : (
-          formatNumber(food.fat)
-        )}
-      </TableCell>
-      <TableCell className="text-right align-middle">
-        {editing ? (
-          <div className="flex justify-end gap-2">
-            <Button size="sm" onClick={handleSave}>Save</Button>
-            <Button variant="ghost" size="sm" onClick={handleCancel}>Cancel</Button>
-            <Button variant="ghost" size="icon" onClick={()=>onDelete(food.id)}><Trash2 className="h-4 w-4" /></Button>
-          </div>
-        ) : (
-          <div className="flex justify-end gap-1">
-            <Button variant="ghost" size="icon" onClick={()=>setEditing(true)}><Pencil className="h-4 w-4" /></Button>
-            <Button variant="ghost" size="icon" onClick={()=>onDelete(food.id)}><Trash2 className="h-4 w-4" /></Button>
-          </div>
-        )}
-      </TableCell>
-    </TableRow>
+          ) : (
+            <span className="whitespace-nowrap text-sm">{getCategoryLabel(food.category)}</span>
+          )}
+        </TableCell>
+        <TableCell className="align-middle">
+          {editing ? (
+            <div className="flex items-center gap-2">
+              <Select value={form.unit} onValueChange={(value)=>setForm(prev=>({ ...prev, unit:value, servingSize: value==='perServing' ? (prev.servingSize || '1') : '' }))}>
+                <SelectTrigger className="h-8 w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="per100g">per 100g</SelectItem>
+                  <SelectItem value="perServing">per serving</SelectItem>
+                </SelectContent>
+              </Select>
+              {isPerServing && (
+                <Input className="h-8 w-[90px]" type="number" step="0.1" value={form.servingSize} onChange={(e)=>setForm(prev=>({...prev, servingSize:e.target.value }))} placeholder="g" />
+              )}
+            </div>
+          ) : (
+            <span className="whitespace-nowrap text-sm">
+              {food.unit==='per100g'? 'per 100 g' : `per ${formatNumber(food.servingSize??1)} g serving`}
+            </span>
+          )}
+        </TableCell>
+        <TableCell className="text-right tabular-nums align-middle">
+          {editing ? (
+            <Input className="h-8 w-full text-right" type="number" step="0.01" value={form.kcal} onChange={(e)=>setForm(prev=>({...prev, kcal:e.target.value }))} />
+          ) : (
+            formatNumber(food.kcal)
+          )}
+        </TableCell>
+        <TableCell className="text-right tabular-nums align-middle">
+          {editing ? (
+            <Input className="h-8 w-full text-right" type="number" step="0.01" value={form.protein} onChange={(e)=>setForm(prev=>({...prev, protein:e.target.value }))} />
+          ) : (
+            formatNumber(food.protein)
+          )}
+        </TableCell>
+        <TableCell className="text-right tabular-nums align-middle">
+          {editing ? (
+            <Input className="h-8 w-full text-right" type="number" step="0.01" value={form.carbs} onChange={(e)=>setForm(prev=>({...prev, carbs:e.target.value }))} />
+          ) : (
+            formatNumber(food.carbs)
+          )}
+        </TableCell>
+        <TableCell className="text-right tabular-nums align-middle">
+          {editing ? (
+            <Input className="h-8 w-full text-right" type="number" step="0.01" value={form.fat} onChange={(e)=>setForm(prev=>({...prev, fat:e.target.value }))} />
+          ) : (
+            formatNumber(food.fat)
+          )}
+        </TableCell>
+        <TableCell className="text-right align-middle">
+          {editing ? (
+            <div className="flex justify-end gap-2">
+              <Button size="sm" onClick={handleSave}>Save</Button>
+              <Button variant="ghost" size="sm" onClick={handleCancel}>Cancel</Button>
+              <Button variant="ghost" size="icon" onClick={()=>onDelete(food.id)}><Trash2 className="h-4 w-4" /></Button>
+            </div>
+          ) : (
+            <div className="flex justify-end gap-1">
+              <Button variant="ghost" size="icon" onClick={()=>setEditing(true)}><Pencil className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" onClick={()=>onDelete(food.id)}><Trash2 className="h-4 w-4" /></Button>
+            </div>
+          )}
+        </TableCell>
+      </TableRow>
+      {editing && form.category === "homeRecipe" && (
+        <TableRow className="bg-slate-50/60 dark:bg-slate-900/40">
+          <TableCell colSpan={8} className="p-4">
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-sm font-medium">Home recipe ingredients</span>
+                <span className="text-xs text-slate-500">Totals sync with the macro fields above.</span>
+              </div>
+              <RecipeIngredientsEditor
+                ingredients={form.components}
+                onChange={(next)=>setForm((prev)=>({...prev, components: next }))}
+                foods={foods}
+                ownerId={food.id}
+              />
+            </div>
+          </TableCell>
+        </TableRow>
+      )}
+    </>
   );
 }
-function AddFoodCard({ onAdd }){
-  const [name,setName]=useState(""); const [unit,setUnit]=useState('per100g'); const [servingSize,setServingSize]=useState(100);
-  const [category,setCategory]=useState(DEFAULT_CATEGORY);
-  const [kcal,setKcal]=useState(0); const [protein,setProtein]=useState(0); const [carbs,setCarbs]=useState(0); const [fat,setFat]=useState(0);
-  function handleAdd(){ if(!name.trim()){ alert('Enter a food name'); return; } const f={ id:crypto.randomUUID(), name:name.trim(), unit, category, servingSize: unit==='perServing'? servingSize: undefined, kcal:+kcal, protein:+protein, carbs:+carbs, fat:+fat }; onAdd(f); setName(''); setUnit('per100g'); setServingSize(100); setCategory(DEFAULT_CATEGORY); setKcal(0); setProtein(0); setCarbs(0); setFat(0); }
+function AddFoodCard({ foods, onAdd }){
+  const [activeTab, setActiveTab] = useState("single");
+  const [basicForm, setBasicForm] = useState(()=>createBasicFoodForm());
+  const [recipeForm, setRecipeForm] = useState(()=>createRecipeForm());
+  const [recipeIngredients, setRecipeIngredients] = useState([]);
+
+  const derivedTotals = useMemo(() => computeRecipeTotals(recipeIngredients, foods), [recipeIngredients, foods]);
+  const { kcal: derivedKcal, protein: derivedProtein, carbs: derivedCarbs, fat: derivedFat } = derivedTotals;
+
+  useEffect(() => {
+    if (activeTab !== "recipe") return;
+    setRecipeForm((prev) => {
+      const next = {
+        ...prev,
+        kcal: toInputString(derivedKcal),
+        protein: toInputString(derivedProtein),
+        carbs: toInputString(derivedCarbs),
+        fat: toInputString(derivedFat),
+      };
+      if (
+        prev.kcal === next.kcal &&
+        prev.protein === next.protein &&
+        prev.carbs === next.carbs &&
+        prev.fat === next.fat
+      ) {
+        return prev;
+      }
+      return next;
+    });
+  }, [activeTab, derivedKcal, derivedProtein, derivedCarbs, derivedFat]);
+
+  function handleAddBasic(){
+    const trimmed = basicForm.name.trim();
+    if(!trimmed){ alert('Enter a food name'); return; }
+    const unit = basicForm.unit === 'perServing' ? 'perServing' : 'per100g';
+    const payload = {
+      id: crypto.randomUUID(),
+      name: trimmed,
+      unit,
+      category: basicForm.category,
+      servingSize: unit === 'perServing' ? Math.max(1, toNumber(basicForm.servingSize, 1)) : undefined,
+      kcal: toNumber(basicForm.kcal, 0),
+      protein: toNumber(basicForm.protein, 0),
+      carbs: toNumber(basicForm.carbs, 0),
+      fat: toNumber(basicForm.fat, 0),
+    };
+    onAdd(payload);
+    setBasicForm(createBasicFoodForm());
+  }
+
+  function handleAddRecipe(){
+    const trimmed = recipeForm.name.trim();
+    if(!trimmed){ alert('Enter a recipe name'); return; }
+    const components = recipeIngredients
+      .map((item) => ({ foodId: item.foodId, quantity: item.quantity }))
+      .filter((item) => item.foodId && toNumber(item.quantity, 0) > 0);
+    if(components.length===0){ alert('Add at least one ingredient'); return; }
+    const unit = recipeForm.unit === 'perServing' ? 'perServing' : 'per100g';
+    const payload = {
+      id: crypto.randomUUID(),
+      name: trimmed,
+      unit,
+      category: 'homeRecipe',
+      servingSize: unit === 'perServing' ? Math.max(1, toNumber(recipeForm.servingSize, 1)) : undefined,
+      kcal: toNumber(recipeForm.kcal, 0),
+      protein: toNumber(recipeForm.protein, 0),
+      carbs: toNumber(recipeForm.carbs, 0),
+      fat: toNumber(recipeForm.fat, 0),
+      components: components.map((item) => ({ foodId: item.foodId, quantity: toNumber(item.quantity, 0) })),
+    };
+    onAdd(payload);
+    setRecipeForm(createRecipeForm());
+    setRecipeIngredients([]);
+  }
+
   return (
     <Card>
       <CardHeader><CardTitle>Add Food to Database</CardTitle></CardHeader>
-      <CardContent className="grid md:grid-cols-6 gap-3">
-        <div className="md:col-span-2"><Label>Name</Label><Input value={name} onChange={(e)=>setName(e.target.value)} placeholder="e.g. Banana" /></div>
-        <div><Label>Category</Label>
-          <Select value={category} onValueChange={(v)=>setCategory(v)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {FOOD_CATEGORIES.map(cat=>(
-                <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div><Label>Unit</Label>
-          <Select value={unit} onValueChange={(v)=>setUnit(v)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="per100g">per 100g</SelectItem>
-              <SelectItem value="perServing">per serving</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        {unit==='perServing' && (<div><Label>Serving size (g)</Label><Input type="number" value={servingSize} onChange={(e)=>setServingSize(parseFloat(e.target.value))} /></div>)}
-        <div className="md:col-span-6 grid grid-cols-4 gap-3">
-          <div><Label>kcal</Label><Input type="number" value={kcal} onChange={(e)=>setKcal(parseFloat(e.target.value))} /></div>
-          <div><Label>Protein (g)</Label><Input type="number" value={protein} onChange={(e)=>setProtein(parseFloat(e.target.value))} /></div>
-          <div><Label>Carbs (g)</Label><Input type="number" value={carbs} onChange={(e)=>setCarbs(parseFloat(e.target.value))} /></div>
-          <div><Label>Fat (g)</Label><Input type="number" value={fat} onChange={(e)=>setFat(parseFloat(e.target.value))} /></div>
-        </div>
-        <div className="md:col-span-6 text-right mt-3"><Button onClick={handleAdd}>Add Food</Button></div>
+      <CardContent className="space-y-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full max-w-xs grid-cols-2">
+            <TabsTrigger value="single">Add Food</TabsTrigger>
+            <TabsTrigger value="recipe">Add Home Recipe</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="single" className="mt-4">
+            <div className="grid gap-3 md:grid-cols-6">
+              <div className="md:col-span-2">
+                <Label>Name</Label>
+                <Input value={basicForm.name} onChange={(e)=>setBasicForm((prev)=>({...prev, name:e.target.value }))} placeholder="e.g. Banana" />
+              </div>
+              <div>
+                <Label>Category</Label>
+                <Select value={basicForm.category} onValueChange={(v)=>setBasicForm((prev)=>({...prev, category:v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                  <SelectContent>
+                    {FOOD_CATEGORIES.map(cat=>(
+                      <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Unit</Label>
+                <Select value={basicForm.unit} onValueChange={(v)=>setBasicForm((prev)=>({...prev, unit:v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="per100g">per 100g</SelectItem>
+                    <SelectItem value="perServing">per serving</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {basicForm.unit==='perServing' && (
+                <div>
+                  <Label>Serving size (g)</Label>
+                  <Input type="number" inputMode="decimal" value={basicForm.servingSize} onChange={(e)=>setBasicForm((prev)=>({...prev, servingSize:e.target.value }))} />
+                </div>
+              )}
+              <div className="md:col-span-6 grid grid-cols-4 gap-3">
+                <div>
+                  <Label>kcal</Label>
+                  <Input type="number" inputMode="decimal" value={basicForm.kcal} onChange={(e)=>setBasicForm((prev)=>({...prev, kcal:e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Protein (g)</Label>
+                  <Input type="number" inputMode="decimal" value={basicForm.protein} onChange={(e)=>setBasicForm((prev)=>({...prev, protein:e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Carbs (g)</Label>
+                  <Input type="number" inputMode="decimal" value={basicForm.carbs} onChange={(e)=>setBasicForm((prev)=>({...prev, carbs:e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Fat (g)</Label>
+                  <Input type="number" inputMode="decimal" value={basicForm.fat} onChange={(e)=>setBasicForm((prev)=>({...prev, fat:e.target.value }))} />
+                </div>
+              </div>
+              <div className="md:col-span-6 text-right">
+                <Button onClick={handleAddBasic}>Add Food</Button>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="recipe" className="mt-4">
+            <div className="grid gap-3 md:grid-cols-6">
+              <div className="md:col-span-3">
+                <Label>Recipe name</Label>
+                <Input value={recipeForm.name} onChange={(e)=>setRecipeForm((prev)=>({...prev, name:e.target.value }))} placeholder="e.g. Vanilla Pancake" />
+              </div>
+              <div>
+                <Label>Unit</Label>
+                <Select value={recipeForm.unit} onValueChange={(v)=>setRecipeForm((prev)=>({...prev, unit:v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="per100g">per 100g</SelectItem>
+                    <SelectItem value="perServing">per serving</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {recipeForm.unit==='perServing' && (
+                <div>
+                  <Label>Serving size (g)</Label>
+                  <Input type="number" inputMode="decimal" value={recipeForm.servingSize} onChange={(e)=>setRecipeForm((prev)=>({...prev, servingSize:e.target.value }))} />
+                </div>
+              )}
+              <div className="md:col-span-6">
+                <Label>Ingredients</Label>
+                <RecipeIngredientsEditor
+                  ingredients={recipeIngredients}
+                  onChange={setRecipeIngredients}
+                  foods={foods}
+                />
+              </div>
+              <div className="md:col-span-6 grid grid-cols-4 gap-3">
+                <div>
+                  <Label>kcal</Label>
+                  <Input type="number" inputMode="decimal" value={recipeForm.kcal} onChange={(e)=>setRecipeForm((prev)=>({...prev, kcal:e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Protein (g)</Label>
+                  <Input type="number" inputMode="decimal" value={recipeForm.protein} onChange={(e)=>setRecipeForm((prev)=>({...prev, protein:e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Carbs (g)</Label>
+                  <Input type="number" inputMode="decimal" value={recipeForm.carbs} onChange={(e)=>setRecipeForm((prev)=>({...prev, carbs:e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Fat (g)</Label>
+                  <Input type="number" inputMode="decimal" value={recipeForm.fat} onChange={(e)=>setRecipeForm((prev)=>({...prev, fat:e.target.value }))} />
+                </div>
+              </div>
+              <div className="md:col-span-6 text-sm text-slate-500">
+                Totals above auto-fill from the ingredients. Adjust manually if you need to fine tune.
+              </div>
+              <div className="md:col-span-6 text-right">
+                <Button onClick={handleAddRecipe}>Add Home Recipe</Button>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
+  );
+}
+
+function RecipeIngredientsEditor({ ingredients, onChange, foods, ownerId }) {
+  const availableFoods = useMemo(
+    () => foods.filter((food) => food.id !== ownerId),
+    [foods, ownerId]
+  );
+
+  const ensureQuantityFor = (food) => (food?.unit === "perServing" ? "1" : "100");
+
+  const handleAdd = () => {
+    const first = availableFoods[0];
+    onChange([
+      ...ingredients,
+      {
+        id: crypto.randomUUID(),
+        foodId: first?.id ?? "",
+        quantity: first ? ensureQuantityFor(first) : "0",
+      },
+    ]);
+  };
+
+  const handleFoodChange = (id, foodId) => {
+    onChange(
+      ingredients.map((item) => {
+        if (item.id !== id) return item;
+        const base = foods.find((f) => f.id === foodId) || null;
+        const shouldReset = !item.quantity || item.quantity === "0";
+        return {
+          ...item,
+          foodId,
+          quantity: shouldReset && base ? ensureQuantityFor(base) : item.quantity,
+        };
+      })
+    );
+  };
+
+  const handleQuantityChange = (id, quantity) => {
+    onChange(ingredients.map((item) => (item.id === id ? { ...item, quantity } : item)));
+  };
+
+  const handleRemove = (id) => {
+    onChange(ingredients.filter((item) => item.id !== id));
+  };
+
+  const canAddIngredient = availableFoods.length > 0;
+
+  return (
+    <div className="space-y-3">
+      {ingredients.length === 0 && (
+        <div className="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500 dark:border-slate-700">
+          Add ingredients from your food database to build this recipe.
+        </div>
+      )}
+      {ingredients.map((item) => {
+        const selected = foods.find((f) => f.id === item.foodId) || null;
+        const showSelectedFallback = selected && !availableFoods.some((f) => f.id === selected.id);
+        const macros = selected ? scaleMacros(selected, toNumber(item.quantity, 0)) : null;
+        const quantityUnit = selected ? (selected.unit === "perServing" ? "servings" : "g") : "";
+        return (
+          <div key={item.id} className="space-y-2 rounded-lg border border-slate-200 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/40">
+            <div className="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto] items-end">
+              <div>
+                <Label className="text-xs font-medium uppercase tracking-wide text-slate-500">Ingredient</Label>
+                <Select value={item.foodId} onValueChange={(value)=>handleFoodChange(item.id, value)}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select food" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {showSelectedFallback && (
+                      <SelectItem value={selected.id}>
+                        <span className="flex items-center gap-2">
+                          <span>{getCategoryEmoji(selected.category)}</span>
+                          <span className="truncate">{selected.name}</span>
+                        </span>
+                      </SelectItem>
+                    )}
+                    {availableFoods.map((food) => (
+                      <SelectItem key={food.id} value={food.id}>
+                        <span className="flex items-center gap-2">
+                          <span>{getCategoryEmoji(food.category)}</span>
+                          <span className="truncate">{food.name}</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs font-medium uppercase tracking-wide text-slate-500">Quantity</Label>
+                <div className="mt-1 flex items-center gap-2">
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    value={item.quantity ?? ""}
+                    onChange={(e)=>handleQuantityChange(item.id, e.target.value)}
+                  />
+                  {quantityUnit && <span className="text-xs text-slate-500">{quantityUnit}</span>}
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button type="button" variant="ghost" size="icon" onClick={()=>handleRemove(item.id)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="text-xs text-slate-500">
+              {selected && macros
+                ? `${formatNumber(macros.kcal)} kcal · P ${formatNumber(macros.protein)} g · C ${formatNumber(macros.carbs)} g · F ${formatNumber(macros.fat)} g`
+                : "Pick a food and quantity to see the contribution."}
+            </div>
+          </div>
+        );
+      })}
+      <div className="flex items-center justify-between">
+        {!canAddIngredient && (
+          <span className="text-xs text-slate-500">Add foods to your database to build recipes.</span>
+        )}
+        <Button type="button" variant="outline" size="sm" onClick={handleAdd} disabled={!canAddIngredient}>
+          <Plus className="mr-2 h-4 w-4" /> Add ingredient
+        </Button>
+      </div>
+    </div>
   );
 }
 function EditableFoodCell({ entryId, currentFoodId, fallbackLabel, foods, onSelect }){
