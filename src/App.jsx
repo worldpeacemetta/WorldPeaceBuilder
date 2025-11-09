@@ -108,6 +108,7 @@ const FOOD_CATEGORY_MAP = FOOD_CATEGORIES.reduce((acc, cat) => {
 }, {});
 
 const DEFAULT_CATEGORY = "other";
+const DEFAULT_GOALS = { kcal: 2400, protein: 160, carbs: 250, fat: 80 };
 
 const getCategoryEmoji = (category) => FOOD_CATEGORY_MAP[category]?.emoji ?? FOOD_CATEGORY_MAP[DEFAULT_CATEGORY].emoji;
 const getCategoryLabel = (category) => FOOD_CATEGORY_MAP[category]?.label ?? FOOD_CATEGORY_MAP[DEFAULT_CATEGORY].label;
@@ -126,6 +127,68 @@ const toInputString = (value, fractionDigits = 2) => {
 function toNumber(value, fallback = 0) {
   const num = Number.parseFloat(value);
   return Number.isFinite(num) ? num : fallback;
+}
+
+function sanitizeGoal(goal) {
+  const source = goal && typeof goal === "object" ? goal : DEFAULT_GOALS;
+  return {
+    kcal: toNumber(source.kcal, DEFAULT_GOALS.kcal),
+    protein: toNumber(source.protein, DEFAULT_GOALS.protein),
+    carbs: toNumber(source.carbs, DEFAULT_GOALS.carbs),
+    fat: toNumber(source.fat, DEFAULT_GOALS.fat),
+  };
+}
+
+function ensureDailyGoals(value) {
+  if (value && typeof value === "object") {
+    if (value.train && value.rest) {
+      return {
+        train: sanitizeGoal(value.train),
+        rest: sanitizeGoal(value.rest),
+        active: value.active === "rest" ? "rest" : "train",
+      };
+    }
+
+    const base = sanitizeGoal(value);
+    const restGoal = value.rest ? sanitizeGoal(value.rest) : { ...base };
+    const active = value.active === "rest" ? "rest" : "train";
+
+    return {
+      train: base,
+      rest: restGoal,
+      active,
+    };
+  }
+
+  const fallbackTrain = sanitizeGoal(DEFAULT_GOALS);
+  const fallbackRest = sanitizeGoal(DEFAULT_GOALS);
+  return {
+    train: fallbackTrain,
+    rest: fallbackRest,
+    active: "train",
+  };
+}
+
+const DEFAULT_SETTINGS = {
+  dailyGoals: ensureDailyGoals({
+    train: DEFAULT_GOALS,
+    rest: DEFAULT_GOALS,
+    active: "train",
+  }),
+  profile: { activity: "moderate" },
+};
+
+function ensureSettings(value) {
+  const base = value && typeof value === "object" ? value : {};
+  const profile = base.profile && typeof base.profile === "object"
+    ? { ...DEFAULT_SETTINGS.profile, ...base.profile }
+    : { ...DEFAULT_SETTINGS.profile };
+
+  return {
+    ...base,
+    dailyGoals: ensureDailyGoals(base.dailyGoals),
+    profile,
+  };
 }
 
 function sanitizeComponents(list) {
@@ -274,7 +337,7 @@ export default function MacroTrackerApp(){
   const [foods, setFoods] = useState(()=> ensureFoods(load(K_FOODS, DEFAULT_FOODS)));
   const [foodSort, setFoodSort] = useState({ column: "name", direction: "asc" });
   const [entries, setEntries] = useState(load(K_ENTRIES, []));
-  const [settings, setSettings] = useState(load(K_SETTINGS, { dailyGoals:{kcal:2400,fat:80,carbs:250,protein:160}, profile:{activity:'moderate'} }));
+  const [settings, setSettings] = useState(()=> ensureSettings(load(K_SETTINGS, DEFAULT_SETTINGS)));
   const [tab, setTab] = useState('dashboard');
 
   // Theme handling
@@ -305,6 +368,9 @@ export default function MacroTrackerApp(){
   const stickyDate = stickyMode==='today'? todayISO(): logDate;
   const stickyTotals = useMemo(()=> totalsForDate(stickyDate), [entries,foods,stickyDate]);
   const totalsForCard = useMemo(()=> totalsForDate(logDate), [rowsForDay]);
+
+  const activeGoalType = settings.dailyGoals?.active === 'rest' ? 'rest' : 'train';
+  const activeGoals = settings.dailyGoals?.[activeGoalType] ?? DEFAULT_GOALS;
 
   const sortedFoods = useMemo(()=>{
     const list = [...foods];
@@ -415,7 +481,7 @@ export default function MacroTrackerApp(){
   }
 
   function exportJSON(){ const blob = new Blob([JSON.stringify({foods,entries,settings},null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`macrotracker_backup_${todayISO()}.json`; a.click(); URL.revokeObjectURL(url); }
-  function importJSON(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(String(reader.result)); if(data.foods) setFoods(ensureFoods(data.foods)); if(data.entries) setEntries(data.entries); if(data.settings) setSettings(data.settings);}catch{ alert('Invalid JSON file'); } }; reader.readAsText(file); }
+  function importJSON(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(String(reader.result)); if(data.foods) setFoods(ensureFoods(data.foods)); if(data.entries) setEntries(data.entries); if(data.settings) setSettings(ensureSettings(data.settings));}catch{ alert('Invalid JSON file'); } }; reader.readAsText(file); }
 
   // Helper
   const left = (goal, actual)=> Math.max(0, (goal||0) - (actual||0));
@@ -436,6 +502,35 @@ export default function MacroTrackerApp(){
     return foodSort.direction === "asc"
       ? <ArrowUp className="h-3.5 w-3.5" />
       : <ArrowDown className="h-3.5 w-3.5" />;
+  };
+
+  const setGoalValue = (type, key) => (value) => {
+    setSettings((prev) => {
+      const goals = ensureDailyGoals(prev.dailyGoals);
+      return {
+        ...prev,
+        dailyGoals: {
+          ...goals,
+          [type]: {
+            ...goals[type],
+            [key]: value,
+          },
+        },
+      };
+    });
+  };
+
+  const handleGoalTabChange = (value) => {
+    setSettings((prev) => {
+      const goals = ensureDailyGoals(prev.dailyGoals);
+      return {
+        ...prev,
+        dailyGoals: {
+          ...goals,
+          active: value === 'rest' ? 'rest' : 'train',
+        },
+      };
+    });
   };
 
   return (
@@ -470,7 +565,7 @@ export default function MacroTrackerApp(){
           <div className="max-w-6xl mx-auto px-4 py-2 flex items-center justify-between gap-3">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm flex-1">
               {(() => {
-                const rem = settings.dailyGoals.kcal - stickyTotals.kcal;
+                const rem = activeGoals.kcal - stickyTotals.kcal;
                 const over = rem < 0;
                 const sub = over ? `${Math.abs(rem).toFixed(0)} over` : `${rem.toFixed(0)} left`;
                 return (
@@ -484,7 +579,7 @@ export default function MacroTrackerApp(){
                 );
               })()}
               {(() => {
-                const rem = settings.dailyGoals.protein - stickyTotals.protein;
+                const rem = activeGoals.protein - stickyTotals.protein;
                 const over = rem < 0;
                 const sub = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
                 return (
@@ -498,7 +593,7 @@ export default function MacroTrackerApp(){
                 );
               })()}
               {(() => {
-                const rem = settings.dailyGoals.carbs - stickyTotals.carbs;
+                const rem = activeGoals.carbs - stickyTotals.carbs;
                 const over = rem < 0;
                 const sub = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
                 return (
@@ -512,7 +607,7 @@ export default function MacroTrackerApp(){
                 );
               })()}
               {(() => {
-                const rem = settings.dailyGoals.fat - stickyTotals.fat;
+                const rem = activeGoals.fat - stickyTotals.fat;
                 const over = rem < 0;
                 const sub = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
                 return (
@@ -552,10 +647,10 @@ export default function MacroTrackerApp(){
           {/* DASHBOARD */}
           <TabsContent value="dashboard" className="mt-6 space-y-6">
             <div className="grid md:grid-cols-4 gap-4">
-              <KpiCard title="Calories" value={`${totalsForCard.kcal.toFixed(0)} kcal`} goal={settings.dailyGoals.kcal} />
-              <KpiCard title="Protein" value={`${totalsForCard.protein.toFixed(0)} g`} goal={settings.dailyGoals.protein} />
-              <KpiCard title="Carbs" value={`${totalsForCard.carbs.toFixed(0)} g`} goal={settings.dailyGoals.carbs} />
-              <KpiCard title="Fat" value={`${totalsForCard.fat.toFixed(0)} g`} goal={settings.dailyGoals.fat} />
+              <KpiCard title="Calories" value={`${totalsForCard.kcal.toFixed(0)} kcal`} goal={activeGoals.kcal} />
+              <KpiCard title="Protein" value={`${totalsForCard.protein.toFixed(0)} g`} goal={activeGoals.protein} />
+              <KpiCard title="Carbs" value={`${totalsForCard.carbs.toFixed(0)} g`} goal={activeGoals.carbs} />
+              <KpiCard title="Fat" value={`${totalsForCard.fat.toFixed(0)} g`} goal={activeGoals.fat} />
             </div>
 
             {/* Macros Trend */}
@@ -604,10 +699,10 @@ export default function MacroTrackerApp(){
               <CardHeader><CardTitle>Goal vs Actual (today)</CardTitle></CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <GoalDonut label="Calories" color={COLORS.kcal} actual={totalsForDate(todayISO()).kcal} goal={settings.dailyGoals.kcal} unit="kcal" />
-                  <GoalDonut label="Protein" color={COLORS.protein} actual={totalsForDate(todayISO()).protein} goal={settings.dailyGoals.protein} unit="g" />
-                  <GoalDonut label="Carbs" color={COLORS.carbs} actual={totalsForDate(todayISO()).carbs} goal={settings.dailyGoals.carbs} unit="g" />
-                  <GoalDonut label="Fat" color={COLORS.fat} actual={totalsForDate(todayISO()).fat} goal={settings.dailyGoals.fat} unit="g" />
+                  <GoalDonut label="Calories" color={COLORS.kcal} actual={totalsForDate(todayISO()).kcal} goal={activeGoals.kcal} unit="kcal" />
+                  <GoalDonut label="Protein" color={COLORS.protein} actual={totalsForDate(todayISO()).protein} goal={activeGoals.protein} unit="g" />
+                  <GoalDonut label="Carbs" color={COLORS.carbs} actual={totalsForDate(todayISO()).carbs} goal={activeGoals.carbs} unit="g" />
+                  <GoalDonut label="Fat" color={COLORS.fat} actual={totalsForDate(todayISO()).fat} goal={activeGoals.fat} unit="g" />
                 </div>
               </CardContent>
             </Card>
@@ -863,13 +958,34 @@ export default function MacroTrackerApp(){
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
                     <h3 className="font-medium mb-2">Daily macro goals</h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      <LabeledNumber label="Calories (kcal)" value={settings.dailyGoals.kcal} onChange={(v)=>setSettings({...settings, dailyGoals:{...settings.dailyGoals, kcal:v}})} />
-                      <div></div>
-                      <LabeledNumber label="Protein (g)" value={settings.dailyGoals.protein} onChange={(v)=>setSettings({...settings, dailyGoals:{...settings.dailyGoals, protein:v}})} />
-                      <LabeledNumber label="Carbs (g)" value={settings.dailyGoals.carbs} onChange={(v)=>setSettings({...settings, dailyGoals:{...settings.dailyGoals, carbs:v}})} />
-                      <LabeledNumber label="Fat (g)" value={settings.dailyGoals.fat} onChange={(v)=>setSettings({...settings, dailyGoals:{...settings.dailyGoals, fat:v}})} />
-                    </div>
+                    <p className="text-xs text-slate-500 mb-3">Switch between Train Day and Rest Day to edit targets and pick which set powers your dashboard.</p>
+                    <Tabs value={activeGoalType} onValueChange={handleGoalTabChange}>
+                      <TabsList className="grid grid-cols-2 w-full max-w-xs mb-3">
+                        <TabsTrigger value="train">Train Day</TabsTrigger>
+                        <TabsTrigger value="rest">Rest Day</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="train" className="mt-0">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="col-span-2">
+                            <LabeledNumber label="Calories (kcal)" value={settings.dailyGoals.train.kcal} onChange={setGoalValue('train','kcal')} />
+                          </div>
+                          <LabeledNumber label="Protein (g)" value={settings.dailyGoals.train.protein} onChange={setGoalValue('train','protein')} />
+                          <LabeledNumber label="Carbs (g)" value={settings.dailyGoals.train.carbs} onChange={setGoalValue('train','carbs')} />
+                          <LabeledNumber label="Fat (g)" value={settings.dailyGoals.train.fat} onChange={setGoalValue('train','fat')} />
+                        </div>
+                      </TabsContent>
+                      <TabsContent value="rest" className="mt-0">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="col-span-2">
+                            <LabeledNumber label="Calories (kcal)" value={settings.dailyGoals.rest.kcal} onChange={setGoalValue('rest','kcal')} />
+                          </div>
+                          <LabeledNumber label="Protein (g)" value={settings.dailyGoals.rest.protein} onChange={setGoalValue('rest','protein')} />
+                          <LabeledNumber label="Carbs (g)" value={settings.dailyGoals.rest.carbs} onChange={setGoalValue('rest','carbs')} />
+                          <LabeledNumber label="Fat (g)" value={settings.dailyGoals.rest.fat} onChange={setGoalValue('rest','fat')} />
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+                    <p className="text-xs text-slate-500 mt-3">The active tab's goals feed the sticky macros, dashboard KPIs, and Goal vs Actual chart.</p>
                   </div>
                   <div>
                     <h3 className="font-medium mb-2">Appearance</h3>
