@@ -78,6 +78,7 @@ const FOOD_CATEGORIES = [
   { value: "vegetable", label: "Vegetable", emoji: "🥦" },
   { value: "fruit", label: "Fruit", emoji: "🍎" },
   { value: "meat", label: "Meat", emoji: "🥩" },
+  { value: "eggProducts", label: "Egg & Egg Products", emoji: "🥚" },
   { value: "fish", label: "Fish & Seafood", emoji: "🐟" },
   { value: "plantProtein", label: "Plant Protein", emoji: "🌱" },
   { value: "supplement", label: "Protein Powder & Supplement", emoji: "🧴" },
@@ -93,6 +94,7 @@ const FOOD_CATEGORIES = [
   { value: "dressing", label: "Dressing", emoji: "🥫" },
   { value: "homeRecipe", label: "Home Recipe", emoji: "🏠" },
   { value: "outsideMeal", label: "Outside Meal", emoji: "🍽️" },
+  { value: "sweet", label: "Sweet", emoji: "🍬" },
   { value: "other", label: "Other", emoji: "⚪️" },
 ];
 
