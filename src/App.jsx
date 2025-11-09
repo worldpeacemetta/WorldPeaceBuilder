@@ -1231,12 +1231,18 @@ function GoalDonut({ label, color, actual, goal, unit }){
   const a = Math.max(0, actual||0);
   const g = Math.max(0, goal||0);
   const pct = pctOf(a,g); // can exceed 100 now
+  const within = Math.min(a, g);
+  const over = Math.max(0, a-g);
   const remaining = Math.max(0, g-a);
-  const actualFill = a>g ? darkenHex(color, 0.7) : color;
 
-  const pieData = g>0
-    ? [{name:'Actual', value:a, fill:actualFill}, {name:'Remaining', value:remaining, fill:COLORS.gray}]
-    : [{name:'Empty', value:1, fill:COLORS.gray}];
+  const pieData = [];
+  if (within > 0) pieData.push({ name: 'Actual', value: within, fill: color });
+  if (over > 0) pieData.push({ name: 'Over', value: over, fill: darkenHex(color, 0.7) });
+  if (remaining > 0) pieData.push({ name: 'Remaining', value: remaining, fill: COLORS.gray });
+
+  if (pieData.length === 0) {
+    pieData.push({ name: 'Empty', value: 1, fill: COLORS.gray });
+  }
 
   return (
     <div className="flex flex-col items-center justify-center">
