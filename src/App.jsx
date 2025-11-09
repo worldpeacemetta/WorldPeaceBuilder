@@ -44,6 +44,9 @@ import {
   Search,
   UtensilsCrossed,
   Pencil,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from "lucide-react";
 import { format, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval } from "date-fns";
 
@@ -214,6 +217,7 @@ const MEAL_ORDER = ['breakfast','lunch','dinner','snack','other'];
 export default function MacroTrackerApp(){
   const [theme, setTheme] = useState(load(K_THEME, 'system'));
   const [foods, setFoods] = useState(()=> ensureFoods(load(K_FOODS, DEFAULT_FOODS)));
+  const [foodSort, setFoodSort] = useState({ column: "name", direction: "asc" });
   const [entries, setEntries] = useState(load(K_ENTRIES, []));
   const [settings, setSettings] = useState(load(K_SETTINGS, { dailyGoals:{kcal:2400,fat:80,carbs:250,protein:160}, profile:{activity:'moderate'} }));
   const [tab, setTab] = useState('dashboard');
@@ -246,6 +250,54 @@ export default function MacroTrackerApp(){
   const stickyDate = stickyMode==='today'? todayISO(): logDate;
   const stickyTotals = useMemo(()=> totalsForDate(stickyDate), [entries,foods,stickyDate]);
   const totalsForCard = useMemo(()=> totalsForDate(logDate), [rowsForDay]);
+
+  const sortedFoods = useMemo(()=>{
+    const list = [...foods];
+    list.sort((a, b)=>{
+      const dir = foodSort.direction === "asc" ? 1 : -1;
+      let av;
+      let bv;
+      switch(foodSort.column){
+        case "name":
+          av = (a.name ?? "").toLowerCase();
+          bv = (b.name ?? "").toLowerCase();
+          break;
+        case "category":
+          av = getCategoryLabel(a.category ?? DEFAULT_CATEGORY).toLowerCase();
+          bv = getCategoryLabel(b.category ?? DEFAULT_CATEGORY).toLowerCase();
+          break;
+        case "unit":
+          av = a.unit === "perServing" ? `per ${formatNumber(a.servingSize ?? 1)} g serving` : "per 100 g";
+          bv = b.unit === "perServing" ? `per ${formatNumber(b.servingSize ?? 1)} g serving` : "per 100 g";
+          av = av.toLowerCase();
+          bv = bv.toLowerCase();
+          break;
+        case "kcal":
+          av = a.kcal ?? 0;
+          bv = b.kcal ?? 0;
+          break;
+        case "protein":
+          av = a.protein ?? 0;
+          bv = b.protein ?? 0;
+          break;
+        case "carbs":
+          av = a.carbs ?? 0;
+          bv = b.carbs ?? 0;
+          break;
+        case "fat":
+          av = a.fat ?? 0;
+          bv = b.fat ?? 0;
+          break;
+        default:
+          av = 0;
+          bv = 0;
+      }
+      if(av < bv) return -1 * dir;
+      if(av > bv) return 1 * dir;
+      return 0;
+    });
+    return list;
+  }, [foods, foodSort]);
 
   // Trend
   const [trendRange, setTrendRange] = useState('30');
@@ -312,6 +364,24 @@ export default function MacroTrackerApp(){
 
   // Helper
   const left = (goal, actual)=> Math.max(0, (goal||0) - (actual||0));
+
+  const toggleFoodSort = (column)=>{
+    setFoodSort((prev)=>{
+      if(prev.column === column){
+        return { column, direction: prev.direction === "asc" ? "desc" : "asc" };
+      }
+      return { column, direction: "asc" };
+    });
+  };
+
+  const renderSortIcon = (column)=>{
+    if(foodSort.column !== column){
+      return <ArrowUpDown className="h-3.5 w-3.5 opacity-50" />;
+    }
+    return foodSort.direction === "asc"
+      ? <ArrowUp className="h-3.5 w-3.5" />
+      : <ArrowDown className="h-3.5 w-3.5" />;
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 text-slate-900 dark:from-slate-900 dark:to-slate-950 dark:text-slate-100">
@@ -644,21 +714,84 @@ export default function MacroTrackerApp(){
                 <Table className="w-full table-fixed">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[26%]">Name</TableHead>
-                      <TableHead className="w-[18%]">Category</TableHead>
-                      <TableHead className="w-[16%]">Unit</TableHead>
-                      <TableHead className="w-[7%] text-right">kcal</TableHead>
-                      <TableHead className="w-[7%] text-right">Protein (g)</TableHead>
-                      <TableHead className="w-[7%] text-right">Carbs (g)</TableHead>
-                      <TableHead className="w-[7%] text-right">Fat (g)</TableHead>
+                      <TableHead className="w-[26%]">
+                        <button
+                          type="button"
+                          onClick={()=>toggleFoodSort("name")}
+                          className="flex w-full items-center gap-1 text-left text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"
+                        >
+                          <span>Name</span>
+                          {renderSortIcon("name")}
+                        </button>
+                      </TableHead>
+                      <TableHead className="w-[18%]">
+                        <button
+                          type="button"
+                          onClick={()=>toggleFoodSort("category")}
+                          className="flex w-full items-center gap-1 text-left text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"
+                        >
+                          <span>Category</span>
+                          {renderSortIcon("category")}
+                        </button>
+                      </TableHead>
+                      <TableHead className="w-[16%]">
+                        <button
+                          type="button"
+                          onClick={()=>toggleFoodSort("unit")}
+                          className="flex w-full items-center gap-1 text-left text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"
+                        >
+                          <span>Unit</span>
+                          {renderSortIcon("unit")}
+                        </button>
+                      </TableHead>
+                      <TableHead className="w-[7%] text-right">
+                        <button
+                          type="button"
+                          onClick={()=>toggleFoodSort("kcal")}
+                          className="ml-auto flex items-center gap-1 text-right text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"
+                        >
+                          <span>kcal</span>
+                          {renderSortIcon("kcal")}
+                        </button>
+                      </TableHead>
+                      <TableHead className="w-[7%] text-right">
+                        <button
+                          type="button"
+                          onClick={()=>toggleFoodSort("protein")}
+                          className="ml-auto flex items-center gap-1 text-right text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"
+                        >
+                          <span>Protein (g)</span>
+                          {renderSortIcon("protein")}
+                        </button>
+                      </TableHead>
+                      <TableHead className="w-[7%] text-right">
+                        <button
+                          type="button"
+                          onClick={()=>toggleFoodSort("carbs")}
+                          className="ml-auto flex items-center gap-1 text-right text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"
+                        >
+                          <span>Carbs (g)</span>
+                          {renderSortIcon("carbs")}
+                        </button>
+                      </TableHead>
+                      <TableHead className="w-[7%] text-right">
+                        <button
+                          type="button"
+                          onClick={()=>toggleFoodSort("fat")}
+                          className="ml-auto flex items-center gap-1 text-right text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"
+                        >
+                          <span>Fat (g)</span>
+                          {renderSortIcon("fat")}
+                        </button>
+                      </TableHead>
                       <TableHead className="w-[12%] text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {foods.map((f)=> (
+                    {sortedFoods.map((f)=> (
                       <EditableFoodRow key={f.id} food={f} onUpdate={updateFood} onDelete={deleteFood} />
                     ))}
-                    {foods.length===0 && (
+                    {sortedFoods.length===0 && (
                       <TableRow><TableCell colSpan={8} className="text-center text-slate-500">Your database is empty. Add foods above or import a backup.</TableCell></TableRow>
                     )}
                   </TableBody>
