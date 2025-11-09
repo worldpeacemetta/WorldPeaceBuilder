@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 import {
   CartesianGrid,
   Line,
@@ -79,6 +80,19 @@ const COLORS = {
   violet: "#8b5cf6",
   redDark: "#b91c1c",
 };
+
+function darkenHex(hex, factor = 0.75) {
+  if (typeof hex !== "string" || !hex.startsWith("#")) return hex;
+  const value = hex.length === 4
+    ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
+    : hex;
+  const int = Number.parseInt(value.slice(1), 16);
+  if (Number.isNaN(int)) return hex;
+  const r = Math.max(0, Math.min(255, Math.floor(((int >> 16) & 0xff) * factor)));
+  const g = Math.max(0, Math.min(255, Math.floor(((int >> 8) & 0xff) * factor)));
+  const b = Math.max(0, Math.min(255, Math.floor((int & 0xff) * factor)));
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+}
 
 const FOOD_CATEGORIES = [
   { value: "vegetable", label: "Vegetable", emoji: "🥦" },
@@ -442,69 +456,18 @@ export default function MacroTrackerApp(){
 
   // Top foods (limit 5)
   const [topMacroKey, setTopMacroKey] = useState('kcal');
-  const [topScope, setTopScope] = useState('day');
-  const [goalScope, setGoalScope] = useState('day');
   const [goalDate, setGoalDate] = useState(todayISO());
   const [splitDate, setSplitDate] = useState(todayISO());
+  const [topFoodsDate, setTopFoodsDate] = useState(todayISO());
   const topFoods = useMemo(()=>{
     const map = new Map();
-    if(topScope==='day'){
-      entries.filter(e=>e.date===logDate).forEach(e=>{ const f=foods.find(x=>x.id===e.foodId); if(!f) return; const m=scaleMacros(f,e.qty); map.set(f.name,(map.get(f.name)||0)+m[topMacroKey]); });
-    } else {
-      const from = startOfRange(trendRange); const isoFrom = toISODate(from);
-      entries.filter(e=>e.date>=isoFrom).forEach(e=>{ const f=foods.find(x=>x.id===e.foodId); if(!f) return; const m=scaleMacros(f,e.qty); map.set(f.name,(map.get(f.name)||0)+m[topMacroKey]); });
-    }
+    entries.filter(e=>e.date===topFoodsDate).forEach(e=>{ const f=foods.find(x=>x.id===e.foodId); if(!f) return; const m=scaleMacros(f,e.qty); map.set(f.name,(map.get(f.name)||0)+m[topMacroKey]); });
     return Array.from(map.entries()).map(([name,val])=>({name,val})).sort((a,b)=>b.val-a.val).slice(0,5);
-  },[entries,foods,trendRange,logDate,topScope,topMacroKey]);
+  },[entries,foods,topFoodsDate,topMacroKey]);
 
-  const dayOptions = useMemo(()=>{
-    const set = new Set(entries.map((e)=>e.date));
-    set.add(todayISO());
-    return Array.from(set).sort((a,b)=>b.localeCompare(a));
-  },[entries]);
+  const goalTotals = useMemo(()=> totalsForDate(goalDate),[entries, foods, goalDate]);
 
-  useEffect(()=>{
-    if(!dayOptions.includes(goalDate)){
-      setGoalDate(dayOptions[0] ?? todayISO());
-    }
-  },[dayOptions, goalDate]);
-
-  useEffect(()=>{
-    if(!dayOptions.includes(splitDate)){
-      setSplitDate(dayOptions[0] ?? todayISO());
-    }
-  },[dayOptions, splitDate]);
-
-  const goalTotals = useMemo(()=>{
-    if(goalScope==='range'){
-      const from = startOfRange(trendRange);
-      const isoFrom = toISODate(from);
-      const isoTo = todayISO();
-      const rows = entries
-        .filter((e)=>e.date>=isoFrom && e.date<=isoTo)
-        .map((e)=>{
-          const food = foods.find((f)=>f.id===e.foodId);
-          return food ? scaleMacros(food, e.qty) : null;
-        })
-        .filter(Boolean);
-      return sumMacros(/** @type {{kcal:number,fat:number,carbs:number,protein:number}[]} */(rows));
-    }
-    return totalsForDate(goalDate);
-  },[entries, foods, goalScope, goalDate, trendRange]);
-
-  const goalTarget = useMemo(()=>{
-    if(goalScope==='range'){
-      const from = startOfRange(trendRange);
-      const days = rangeDays(from, new Date()).length;
-      return {
-        kcal: activeGoals.kcal * days,
-        protein: activeGoals.protein * days,
-        carbs: activeGoals.carbs * days,
-        fat: activeGoals.fat * days,
-      };
-    }
-    return activeGoals;
-  },[activeGoals, goalScope, trendRange]);
+  const goalTarget = useMemo(()=> activeGoals,[activeGoals]);
 
   const entriesForSplitDate = useMemo(()=> entries.filter((e)=>e.date===splitDate),[entries, splitDate]);
 
@@ -725,6 +688,24 @@ export default function MacroTrackerApp(){
               <KpiCard title="Fat" value={`${totalsForCard.fat.toFixed(0)} g`} goal={activeGoals.fat} />
             </div>
 
+            {/* Goal vs Actual */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-3">
+                  <CardTitle>Goal vs Actual</CardTitle>
+                  <DatePickerButton value={goalDate} onChange={(value)=>setGoalDate(value||todayISO())} className="w-44" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <GoalDonut label="Calories" color={COLORS.kcal} actual={goalTotals.kcal} goal={goalTarget.kcal} unit="kcal" />
+                  <GoalDonut label="Protein" color={COLORS.protein} actual={goalTotals.protein} goal={goalTarget.protein} unit="g" />
+                  <GoalDonut label="Carbs" color={COLORS.carbs} actual={goalTotals.carbs} goal={goalTarget.carbs} unit="g" />
+                  <GoalDonut label="Fat" color={COLORS.fat} actual={goalTotals.fat} goal={goalTarget.fat} unit="g" />
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Macros Trend */}
             <Card>
               <CardHeader className="pb-0">
@@ -766,57 +747,12 @@ export default function MacroTrackerApp(){
               </CardContent>
             </Card>
 
-            {/* Goal vs Actual */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between gap-3">
-                  <CardTitle>Goal vs Actual</CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Select value={goalScope} onValueChange={setGoalScope}>
-                      <SelectTrigger className="h-8 w-36 text-xs"><SelectValue placeholder="Scope" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="day">Selected day</SelectItem>
-                        <SelectItem value="range">Range</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {goalScope==='day' ? (
-                      <Select value={goalDate} onValueChange={setGoalDate}>
-                        <SelectTrigger className="h-8 w-44 text-xs"><SelectValue placeholder="Date" /></SelectTrigger>
-                        <SelectContent>
-                          {dayOptions.map((iso)=>(
-                            <SelectItem key={iso} value={iso}>{format(new Date(iso), 'PP')}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <span className="text-xs text-slate-500">{TREND_RANGE_LABELS[trendRange] ?? 'Selected range'}</span>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <GoalDonut label="Calories" color={COLORS.kcal} actual={goalTotals.kcal} goal={goalTarget.kcal} unit="kcal" />
-                  <GoalDonut label="Protein" color={COLORS.protein} actual={goalTotals.protein} goal={goalTarget.protein} unit="g" />
-                  <GoalDonut label="Carbs" color={COLORS.carbs} actual={goalTotals.carbs} goal={goalTarget.carbs} unit="g" />
-                  <GoalDonut label="Fat" color={COLORS.fat} actual={goalTotals.fat} goal={goalTarget.fat} unit="g" />
-                </div>
-              </CardContent>
-            </Card>
-
             {/* Macro Split per Meal */}
             <Card>
               <CardHeader className="pb-0">
                 <div className="flex items-center justify-between gap-3">
                   <CardTitle className="flex items-center gap-2"><UtensilsCrossed className="h-5 w-5"/>Macro Split per Meal</CardTitle>
-                  <Select value={splitDate} onValueChange={setSplitDate}>
-                    <SelectTrigger className="h-8 w-44 text-xs"><SelectValue placeholder="Date" /></SelectTrigger>
-                    <SelectContent>
-                      {dayOptions.map((iso)=>(
-                        <SelectItem key={iso} value={iso}>{format(new Date(iso), 'PP')}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <DatePickerButton value={splitDate} onChange={(value)=>setSplitDate(value||todayISO())} className="w-44" />
                 </div>
               </CardHeader>
               <div className="mt-4" />
@@ -839,11 +775,10 @@ export default function MacroTrackerApp(){
             {/* Top Foods by Macros (unchanged aside from existing top-5) */}
             <TopFoodsCard
               topFoods={topFoods}
-              topScope={topScope}
               topMacroKey={topMacroKey}
-              onScopeChange={setTopScope}
               onMacroChange={setTopMacroKey}
-              selectedDate={logDate}
+              selectedDate={topFoodsDate}
+              onDateChange={(value)=>setTopFoodsDate(value||todayISO())}
             />
 
             {/* Averages tiles (non-empty days only) */}
@@ -1297,9 +1232,10 @@ function GoalDonut({ label, color, actual, goal, unit }){
   const g = Math.max(0, goal||0);
   const pct = pctOf(a,g); // can exceed 100 now
   const remaining = Math.max(0, g-a);
+  const actualFill = a>g ? darkenHex(color, 0.7) : color;
 
   const pieData = g>0
-    ? [{name:'Actual', value:a, fill:color}, {name:'Remaining', value:remaining, fill:COLORS.gray}]
+    ? [{name:'Actual', value:a, fill:actualFill}, {name:'Remaining', value:remaining, fill:COLORS.gray}]
     : [{name:'Empty', value:1, fill:COLORS.gray}];
 
   return (
@@ -1322,21 +1258,15 @@ function GoalDonut({ label, color, actual, goal, unit }){
     </div>
   );
 }
-function TopFoodsCard({ topFoods, topScope, topMacroKey, onScopeChange, onMacroChange, selectedDate }){
-  const dayLabel = selectedDate ? format(new Date(selectedDate), 'PP') : 'Selected day';
+function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDateChange }){
+  const dayLabel = selectedDate ? format(new Date(selectedDate), 'PP') : 'Select a day';
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
-          <CardTitle>Top Foods by Macros — {topScope==='day'? dayLabel : 'current range'}</CardTitle>
+          <CardTitle>Top Foods by Macros — {dayLabel}</CardTitle>
           <div className="flex items-center gap-2">
-            <Select value={topScope} onValueChange={onScopeChange}>
-              <SelectTrigger className="h-8 w-36"><SelectValue placeholder="Scope" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="day">Selected day</SelectItem>
-                <SelectItem value="range">Range</SelectItem>
-              </SelectContent>
-            </Select>
+            <DatePickerButton value={selectedDate} onChange={onDateChange} className="w-44" />
             <Select value={topMacroKey} onValueChange={onMacroChange}>
               <SelectTrigger className="h-8 w-40"><SelectValue placeholder="Macro" /></SelectTrigger>
               <SelectContent>
@@ -1367,6 +1297,20 @@ function TopFoodsCard({ topFoods, topScope, topMacroKey, onScopeChange, onMacroC
 /*******************
  * Inline components
  *******************/
+function DatePickerButton({ value, onChange, className }){
+  return (
+    <div className="relative">
+      <CalendarIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+      <Input
+        type="date"
+        value={value ?? ''}
+        onChange={(event)=>onChange(event.target.value)}
+        max={todayISO()}
+        className={cn("h-8 rounded-full border-slate-300 pl-9 pr-3 text-xs", className)}
+      />
+    </div>
+  );
+}
 function FoodInput({ foods, selectedFoodId, onSelect }){
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
