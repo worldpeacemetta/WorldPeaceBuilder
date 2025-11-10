@@ -4,7 +4,7 @@
 // 2) Sticky header KPIs show "X over" in dark red when exceeding goals.
 //    (Everything else left untouched.)
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -94,6 +94,29 @@ function darkenHex(hex, factor = 0.75) {
   return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+const toISODate = (d) => format(d, "yyyy-MM-dd");
+const todayISO = () => toISODate(new Date());
+
+function sanitizeGoalSchedule(value, fallbackMode, isoToday = todayISO()) {
+  if (!value || typeof value !== "object") {
+    return fallbackMode ? { [isoToday]: fallbackMode } : {};
+  }
+  const schedule = {};
+  Object.entries(value).forEach(([key, rawMode]) => {
+    if (!ISO_DATE_RE.test(key)) return;
+    const normalized = rawMode === "rest" ? "rest" : rawMode === "train" ? "train" : null;
+    if (normalized) {
+      schedule[key] = normalized;
+    }
+  });
+  if (fallbackMode && !schedule[isoToday]) {
+    schedule[isoToday] = fallbackMode;
+  }
+  return schedule;
+}
+
 const FOOD_CATEGORIES = [
   { value: "vegetable", label: "Vegetable", emoji: "🥦" },
   { value: "fruit", label: "Fruit", emoji: "🍎" },
@@ -163,32 +186,34 @@ function sanitizeGoal(goal) {
 }
 
 function ensureDailyGoals(value) {
-  if (value && typeof value === "object") {
-    if (value.train && value.rest) {
-      return {
-        train: sanitizeGoal(value.train),
-        rest: sanitizeGoal(value.rest),
-        active: value.active === "rest" ? "rest" : "train",
-      };
-    }
+  const isoToday = todayISO();
+  const hasValue = value && typeof value === "object";
+  const active = hasValue && value.active === "rest" ? "rest" : "train";
 
-    const base = sanitizeGoal(value);
-    const restGoal = value.rest ? sanitizeGoal(value.rest) : { ...base };
-    const active = value.active === "rest" ? "rest" : "train";
+  let trainGoal;
+  let restGoal;
 
-    return {
-      train: base,
-      rest: restGoal,
-      active,
-    };
+  if (hasValue && value.train && value.rest) {
+    trainGoal = sanitizeGoal(value.train);
+    restGoal = sanitizeGoal(value.rest);
+  } else if (hasValue) {
+    trainGoal = sanitizeGoal(value);
+    restGoal = value?.rest ? sanitizeGoal(value.rest) : { ...trainGoal };
+  } else {
+    trainGoal = sanitizeGoal(DEFAULT_GOALS);
+    restGoal = sanitizeGoal(DEFAULT_GOALS);
   }
 
-  const fallbackTrain = sanitizeGoal(DEFAULT_GOALS);
-  const fallbackRest = sanitizeGoal(DEFAULT_GOALS);
+  const schedule = sanitizeGoalSchedule(hasValue ? value.byDate : undefined, active, isoToday);
+  if (!schedule[isoToday]) {
+    schedule[isoToday] = active;
+  }
+
   return {
-    train: fallbackTrain,
-    rest: fallbackRest,
-    active: "train",
+    train: trainGoal,
+    rest: restGoal,
+    active,
+    byDate: schedule,
   };
 }
 
@@ -252,9 +277,6 @@ const DEFAULT_FOODS = [
   sanitizeFood({ id: crypto.randomUUID(), name: "Apple", unit: "per100g", category: "fruit", kcal: 52, fat: 0.2, carbs: 14, protein: 0.3 }),
   sanitizeFood({ id: crypto.randomUUID(), name: "Whey Protein (1 scoop)", unit: "perServing", servingSize: 30, category: "supplement", kcal: 120, fat: 1.5, carbs: 3, protein: 24 }),
 ];
-
-const toISODate = (d) => format(d, "yyyy-MM-dd");
-const todayISO = () => toISODate(new Date());
 
 function load(k, fallback) {
   try { const raw = localStorage.getItem(k); return raw ? JSON.parse(raw) : fallback; } catch { return fallback; }
@@ -393,7 +415,43 @@ export default function MacroTrackerApp(){
   const totalsForCard = useMemo(()=> totalsForDate(logDate), [rowsForDay]);
 
   const activeGoalType = settings.dailyGoals?.active === 'rest' ? 'rest' : 'train';
-  const activeGoals = settings.dailyGoals?.[activeGoalType] ?? DEFAULT_GOALS;
+  const goalSchedule = settings.dailyGoals?.byDate ?? {};
+  const sortedScheduleKeys = useMemo(() => Object.keys(goalSchedule).sort(), [goalSchedule]);
+
+  const resolveModeForDate = useCallback((isoDate) => {
+    if (isoDate && goalSchedule[isoDate]) {
+      const mode = goalSchedule[isoDate];
+      if (mode === 'rest' || mode === 'train') {
+        return mode;
+      }
+    }
+    if (isoDate) {
+      for (let i = sortedScheduleKeys.length - 1; i >= 0; i -= 1) {
+        const key = sortedScheduleKeys[i];
+        if (key <= isoDate) {
+          const mode = goalSchedule[key];
+          if (mode === 'rest' || mode === 'train') {
+            return mode;
+          }
+        }
+      }
+    }
+    return activeGoalType;
+  }, [activeGoalType, goalSchedule, sortedScheduleKeys]);
+
+  const goalValuesForDate = useCallback((isoDate) => {
+    const mode = resolveModeForDate(isoDate);
+    const base = settings.dailyGoals?.[mode];
+    if (base) return base;
+    return settings.dailyGoals?.[activeGoalType] ?? DEFAULT_GOALS;
+  }, [activeGoalType, resolveModeForDate, settings.dailyGoals]);
+
+  const stickyGoals = useMemo(() => goalValuesForDate(stickyDate), [goalValuesForDate, stickyDate]);
+  const dashboardGoals = useMemo(() => goalValuesForDate(logDate), [goalValuesForDate, logDate]);
+  const goalTarget = useMemo(() => goalValuesForDate(goalDate), [goalValuesForDate, goalDate]);
+  const splitMode = resolveModeForDate(splitDate);
+  const goalDateMode = resolveModeForDate(goalDate);
+  const topFoodsMode = resolveModeForDate(topFoodsDate);
 
   const headerPillClass = "gap-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60 px-3 py-2 text-xs font-medium shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800";
 
@@ -467,8 +525,6 @@ export default function MacroTrackerApp(){
 
   const goalTotals = useMemo(()=> totalsForDate(goalDate),[entries, foods, goalDate]);
 
-  const goalTarget = useMemo(()=> activeGoals,[activeGoals]);
-
   const entriesForSplitDate = useMemo(()=> entries.filter((e)=>e.date===splitDate),[entries, splitDate]);
 
   // Meal-split dataset for dashboard (stacked bar)
@@ -532,6 +588,24 @@ export default function MacroTrackerApp(){
       : <ArrowDown className="h-3.5 w-3.5" />;
   };
 
+  const setGoalModeForDate = useCallback((isoDate, mode) => {
+    if (!isoDate || !ISO_DATE_RE.test(isoDate)) return;
+    const normalized = mode === 'rest' ? 'rest' : 'train';
+    setSettings((prev) => {
+      const goals = ensureDailyGoals(prev.dailyGoals);
+      const today = todayISO();
+      const byDate = { ...goals.byDate, [isoDate]: normalized };
+      return {
+        ...prev,
+        dailyGoals: {
+          ...goals,
+          active: isoDate === today ? normalized : goals.active,
+          byDate,
+        },
+      };
+    });
+  }, [setSettings]);
+
   const setGoalValue = (type, key) => (value) => {
     setSettings((prev) => {
       const goals = ensureDailyGoals(prev.dailyGoals);
@@ -549,16 +623,7 @@ export default function MacroTrackerApp(){
   };
 
   const handleGoalTabChange = (value) => {
-    setSettings((prev) => {
-      const goals = ensureDailyGoals(prev.dailyGoals);
-      return {
-        ...prev,
-        dailyGoals: {
-          ...goals,
-          active: value === 'rest' ? 'rest' : 'train',
-        },
-      };
-    });
+    setGoalModeForDate(todayISO(), value === 'rest' ? 'rest' : 'train');
   };
 
   return (
@@ -600,7 +665,7 @@ export default function MacroTrackerApp(){
           <div className="max-w-6xl mx-auto px-4 py-2 flex items-center justify-between gap-3">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm flex-1">
               {(() => {
-                const rem = activeGoals.kcal - stickyTotals.kcal;
+                const rem = stickyGoals.kcal - stickyTotals.kcal;
                 const over = rem < 0;
                 const sub = over ? `${Math.abs(rem).toFixed(0)} over` : `${rem.toFixed(0)} left`;
                 return (
@@ -614,7 +679,7 @@ export default function MacroTrackerApp(){
                 );
               })()}
               {(() => {
-                const rem = activeGoals.protein - stickyTotals.protein;
+                const rem = stickyGoals.protein - stickyTotals.protein;
                 const over = rem < 0;
                 const sub = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
                 return (
@@ -628,7 +693,7 @@ export default function MacroTrackerApp(){
                 );
               })()}
               {(() => {
-                const rem = activeGoals.carbs - stickyTotals.carbs;
+                const rem = stickyGoals.carbs - stickyTotals.carbs;
                 const over = rem < 0;
                 const sub = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
                 return (
@@ -642,7 +707,7 @@ export default function MacroTrackerApp(){
                 );
               })()}
               {(() => {
-                const rem = activeGoals.fat - stickyTotals.fat;
+                const rem = stickyGoals.fat - stickyTotals.fat;
                 const over = rem < 0;
                 const sub = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
                 return (
@@ -682,10 +747,10 @@ export default function MacroTrackerApp(){
           {/* DASHBOARD */}
           <TabsContent value="dashboard" className="mt-6 space-y-6">
             <div className="grid md:grid-cols-4 gap-4">
-              <KpiCard title="Calories" value={`${totalsForCard.kcal.toFixed(0)} kcal`} goal={activeGoals.kcal} />
-              <KpiCard title="Protein" value={`${totalsForCard.protein.toFixed(0)} g`} goal={activeGoals.protein} />
-              <KpiCard title="Carbs" value={`${totalsForCard.carbs.toFixed(0)} g`} goal={activeGoals.carbs} />
-              <KpiCard title="Fat" value={`${totalsForCard.fat.toFixed(0)} g`} goal={activeGoals.fat} />
+              <KpiCard title="Calories" value={`${totalsForCard.kcal.toFixed(0)} kcal`} goal={dashboardGoals.kcal} />
+              <KpiCard title="Protein" value={`${totalsForCard.protein.toFixed(0)} g`} goal={dashboardGoals.protein} />
+              <KpiCard title="Carbs" value={`${totalsForCard.carbs.toFixed(0)} g`} goal={dashboardGoals.carbs} />
+              <KpiCard title="Fat" value={`${totalsForCard.fat.toFixed(0)} g`} goal={dashboardGoals.fat} />
             </div>
 
             {/* Goal vs Actual */}
@@ -693,7 +758,10 @@ export default function MacroTrackerApp(){
               <CardHeader>
                 <div className="flex items-center justify-between gap-3">
                   <CardTitle>Goal vs Actual</CardTitle>
-                  <DatePickerButton value={goalDate} onChange={(value)=>setGoalDate(value||todayISO())} className="w-44" />
+                  <div className="flex items-center gap-2">
+                    <GoalModeSelect value={goalDateMode} onChange={(mode)=>setGoalModeForDate(goalDate || todayISO(), mode)} />
+                    <DatePickerButton value={goalDate} onChange={(value)=>setGoalDate(value||todayISO())} className="w-44" />
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -752,7 +820,10 @@ export default function MacroTrackerApp(){
               <CardHeader className="pb-0">
                 <div className="flex items-center justify-between gap-3">
                   <CardTitle className="flex items-center gap-2"><UtensilsCrossed className="h-5 w-5"/>Macro Split per Meal</CardTitle>
-                  <DatePickerButton value={splitDate} onChange={(value)=>setSplitDate(value||todayISO())} className="w-44" />
+                  <div className="flex items-center gap-2">
+                    <GoalModeSelect value={splitMode} onChange={(mode)=>setGoalModeForDate(splitDate || todayISO(), mode)} />
+                    <DatePickerButton value={splitDate} onChange={(value)=>setSplitDate(value||todayISO())} className="w-44" />
+                  </div>
                 </div>
               </CardHeader>
               <div className="mt-4" />
@@ -779,6 +850,8 @@ export default function MacroTrackerApp(){
               onMacroChange={setTopMacroKey}
               selectedDate={topFoodsDate}
               onDateChange={(value)=>setTopFoodsDate(value||todayISO())}
+              goalMode={topFoodsMode}
+              onGoalModeChange={(mode)=>setGoalModeForDate(topFoodsDate || todayISO(), mode)}
             />
 
             {/* Averages tiles (non-empty days only) */}
@@ -1116,19 +1189,19 @@ function LabeledNumber({ label, value, onChange }){
   );
 }
 
-function GoalModeToggle({ active, onChange }){
-  const options = [
-    { value: 'train', label: 'Train Day', Icon: Dumbbell, accent: COLORS.protein },
-    { value: 'rest', label: 'Rest Day', Icon: BedDouble, accent: COLORS.cyan },
-  ];
+const GOAL_MODE_OPTIONS = [
+  { value: 'train', label: 'Train Day', Icon: Dumbbell, accent: COLORS.protein },
+  { value: 'rest', label: 'Rest Day', Icon: BedDouble, accent: COLORS.cyan },
+];
 
+function GoalModeToggle({ active, onChange }){
   return (
     <div
       className="flex flex-shrink-0 items-center gap-1 rounded-full border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60 px-1 py-1 shadow-sm"
       role="group"
       aria-label="Select active goal profile"
     >
-      {options.map(({ value, label, Icon, accent })=>{
+      {GOAL_MODE_OPTIONS.map(({ value, label, Icon, accent })=>{
         const isActive = active===value;
         return (
           <button
@@ -1147,6 +1220,36 @@ function GoalModeToggle({ active, onChange }){
         );
       })}
     </div>
+  );
+}
+
+function GoalModeSelect({ value, onChange, className }) {
+  const normalized = value === 'rest' ? 'rest' : 'train';
+  const ActiveIcon = normalized === 'rest' ? BedDouble : Dumbbell;
+  const accent = normalized === 'rest' ? COLORS.cyan : COLORS.protein;
+  return (
+    <Select value={normalized} onValueChange={onChange}>
+      <SelectTrigger className={cn("h-8 w-36 rounded-full border-slate-300 bg-white/80 pl-3 pr-3 text-xs dark:border-slate-700 dark:bg-slate-900/60", className)}>
+        <div className="flex w-full items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <ActiveIcon className="h-3.5 w-3.5" />
+            <SelectValue placeholder="Goal profile" />
+          </div>
+          <span className="inline-flex h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} aria-hidden="true" />
+        </div>
+      </SelectTrigger>
+      <SelectContent align="end">
+        {GOAL_MODE_OPTIONS.map(({ value: option, label, Icon: OptionIcon, accent: optionAccent }) => (
+          <SelectItem key={option} value={option}>
+            <div className="flex items-center gap-2">
+              <OptionIcon className="h-4 w-4" />
+              <span>{label}</span>
+              <span className="ml-auto inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: optionAccent }} aria-hidden="true" />
+            </div>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 function KpiCard({ title, value, goal }){
@@ -1308,7 +1411,7 @@ function GoalDonut({ label, color, actual, goal, unit }) {
     </div>
   );
 }
-function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDateChange }){
+function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDateChange, goalMode, onGoalModeChange }){
   const dayLabel = selectedDate ? format(new Date(selectedDate), 'PP') : 'Select a day';
   return (
     <Card>
@@ -1316,6 +1419,7 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
         <div className="flex items-center justify-between gap-3">
           <CardTitle>Top Foods by Macros — {dayLabel}</CardTitle>
           <div className="flex items-center gap-2">
+            <GoalModeSelect value={goalMode} onChange={(mode)=>onGoalModeChange(mode)} className="w-36" />
             <DatePickerButton value={selectedDate} onChange={onDateChange} className="w-44" />
             <Select value={topMacroKey} onValueChange={onMacroChange}>
               <SelectTrigger className="h-8 w-40"><SelectValue placeholder="Macro" /></SelectTrigger>
