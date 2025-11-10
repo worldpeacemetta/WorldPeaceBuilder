@@ -72,16 +72,16 @@ const K_THEME = "mt_theme"; // 'system' | 'light' | 'dark'
 // Pastel macro palette with gradient support
 const MACRO_THEME = {
   kcal: {
-    base: "#fda4af",
-    gradientFrom: "#fee2e2",
-    gradientTo: "#fb7185",
-    dark: "#f43f5e",
+    base: "#9F1D35", // vivid burgundy
+    gradientFrom: "#F4CDD6",
+    gradientTo: "#C23E52",
+    dark: "#8D021F", // burgundy
   },
   protein: {
-    base: "#86efac",
-    gradientFrom: "#dcfce7",
-    gradientTo: "#4ade80",
-    dark: "#22c55e",
+    base: "#014421", // Pakistan green
+    gradientFrom: "#A9D5B3",
+    gradientTo: "#026B32",
+    dark: "#013220",
   },
   carbs: {
     base: "#93c5fd",
@@ -1045,8 +1045,8 @@ export default function MacroTrackerApp(){
                   <BarChart
                     data={mealSplit}
                     margin={{ left: 12, right: 12 }}
-                    barCategoryGap={32}
-                    barGap={12}
+                    barCategoryGap={24}
+                    barGap={16}
                   >
                     <defs>
                       <linearGradient id="split-protein" x1="0" y1="0" x2="0" y2="1">
@@ -1071,9 +1071,9 @@ export default function MacroTrackerApp(){
                       name="Protein (g)"
                       stackId="g"
                       fill="url(#split-protein)"
-                      barSize={28}
+                      barSize={56}
                       shape={(props)=>(
-                        <RoundedBottomBar {...props} radius={18} />
+                        <RoundedBottomBar {...props} radius={28} />
                       )}
                     />
                     <Bar
@@ -1081,16 +1081,16 @@ export default function MacroTrackerApp(){
                       name="Carbs (g)"
                       stackId="g"
                       fill="url(#split-carbs)"
-                      barSize={28}
+                      barSize={56}
                     />
                     <Bar
                       dataKey="fat"
                       name="Fat (g)"
                       stackId="g"
                       fill="url(#split-fat)"
-                      barSize={28}
+                      barSize={56}
                       shape={(props)=>(
-                        <RoundedTopBar {...props} radius={18} />
+                        <RoundedTopBar {...props} radius={28} />
                       )}
                     />
                   </BarChart>
