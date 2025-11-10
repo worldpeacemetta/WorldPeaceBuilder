@@ -4,7 +4,7 @@
 // 2) Sticky header KPIs show "X over" in dark red when exceeding goals.
 //    (Everything else left untouched.)
 
-import React, { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import React, { Fragment, useCallback, useEffect, useMemo, useState, useId } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -69,15 +69,42 @@ const K_ENTRIES = "mt_entries";
 const K_SETTINGS = "mt_settings";
 const K_THEME = "mt_theme"; // 'system' | 'light' | 'dark'
 
-// Softer palette per your preference
+// Pastel macro palette with gradient support
+const MACRO_THEME = {
+  kcal: {
+    base: "#fda4af",
+    gradientFrom: "#fee2e2",
+    gradientTo: "#fb7185",
+    dark: "#f43f5e",
+  },
+  protein: {
+    base: "#86efac",
+    gradientFrom: "#dcfce7",
+    gradientTo: "#4ade80",
+    dark: "#22c55e",
+  },
+  carbs: {
+    base: "#93c5fd",
+    gradientFrom: "#dbeafe",
+    gradientTo: "#60a5fa",
+    dark: "#2563eb",
+  },
+  fat: {
+    base: "#fdba74",
+    gradientFrom: "#fef3c7",
+    gradientTo: "#fb923c",
+    dark: "#ea580c",
+  },
+};
+
 const COLORS = {
-  kcal: "#f87171", // red-400
-  protein: "#4ade80", // green-400
-  carbs: "#3b82f6", // blue-500
-  fat: "#f59e0b", // amber-500
+  kcal: MACRO_THEME.kcal.base,
+  protein: MACRO_THEME.protein.base,
+  carbs: MACRO_THEME.carbs.base,
+  fat: MACRO_THEME.fat.base,
   gray: "#94a3b8", // slate-400
-  cyan: "#06b6d4",
-  violet: "#8b5cf6",
+  cyan: "#0ea5e9",
+  violet: "#a855f7",
   redDark: "#b91c1c",
 };
 
@@ -561,10 +588,10 @@ export default function MacroTrackerApp(){
     });
 
     const macros = [
-      { key: "kcal", label: "Calories", unit: "kcal", color: COLORS.kcal },
-      { key: "protein", label: "Protein", unit: "g", color: COLORS.protein },
-      { key: "carbs", label: "Carbs", unit: "g", color: COLORS.carbs },
-      { key: "fat", label: "Fat", unit: "g", color: COLORS.fat },
+      { key: "kcal", label: "Calories", unit: "kcal", theme: MACRO_THEME.kcal },
+      { key: "protein", label: "Protein", unit: "g", theme: MACRO_THEME.protein },
+      { key: "carbs", label: "Carbs", unit: "g", theme: MACRO_THEME.carbs },
+      { key: "fat", label: "Fat", unit: "g", theme: MACRO_THEME.fat },
     ];
 
     const rows = macros.map((macro) => {
@@ -591,7 +618,7 @@ export default function MacroTrackerApp(){
         key: macro.key,
         label: macro.label,
         unit: macro.unit,
-        color: macro.color,
+        theme: macro.theme,
         cells,
         selectedActual,
         selectedGoal,
@@ -847,10 +874,10 @@ export default function MacroTrackerApp(){
                 <CardContent className="flex-1">
                   <div className="flex h-full items-center justify-center">
                     <div className="grid h-full grid-cols-2 gap-4 content-center origin-center scale-90">
-                      <GoalDonut label="Calories" color={COLORS.kcal} actual={goalTotals.kcal} goal={goalTarget.kcal} unit="kcal" />
-                      <GoalDonut label="Protein" color={COLORS.protein} actual={goalTotals.protein} goal={goalTarget.protein} unit="g" />
-                      <GoalDonut label="Carbs" color={COLORS.carbs} actual={goalTotals.carbs} goal={goalTarget.carbs} unit="g" />
-                      <GoalDonut label="Fat" color={COLORS.fat} actual={goalTotals.fat} goal={goalTarget.fat} unit="g" />
+                      <GoalDonut label="Calories" theme={MACRO_THEME.kcal} actual={goalTotals.kcal} goal={goalTarget.kcal} unit="kcal" />
+                      <GoalDonut label="Protein" theme={MACRO_THEME.protein} actual={goalTotals.protein} goal={goalTarget.protein} unit="g" />
+                      <GoalDonut label="Carbs" theme={MACRO_THEME.carbs} actual={goalTotals.carbs} goal={goalTarget.carbs} unit="g" />
+                      <GoalDonut label="Fat" theme={MACRO_THEME.fat} actual={goalTotals.fat} goal={goalTarget.fat} unit="g" />
                     </div>
                   </div>
                 </CardContent>
@@ -886,15 +913,33 @@ export default function MacroTrackerApp(){
               <CardContent className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={trendSeries} margin={{ left: 12, right: 12 }}>
+                    <defs>
+                      <linearGradient id="trend-kcal" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={MACRO_THEME.kcal.gradientFrom} />
+                        <stop offset="100%" stopColor={MACRO_THEME.kcal.gradientTo} />
+                      </linearGradient>
+                      <linearGradient id="trend-protein" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={MACRO_THEME.protein.gradientFrom} />
+                        <stop offset="100%" stopColor={MACRO_THEME.protein.gradientTo} />
+                      </linearGradient>
+                      <linearGradient id="trend-carbs" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={MACRO_THEME.carbs.gradientFrom} />
+                        <stop offset="100%" stopColor={MACRO_THEME.carbs.gradientTo} />
+                      </linearGradient>
+                      <linearGradient id="trend-fat" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={MACRO_THEME.fat.gradientFrom} />
+                        <stop offset="100%" stopColor={MACRO_THEME.fat.gradientTo} />
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" tickFormatter={(d)=>d.slice(5)} />
                     <YAxis />
                     <Legend />
                     <RTooltip labelFormatter={(l)=>format(new Date(l), 'PP')} />
-                    {show.kcal && <Line type="monotone" name="kcal" dataKey="kcal" dot={false} strokeWidth={2} stroke={COLORS.kcal} />}
-                    {show.protein && <Line type="monotone" name="Protein (g)" dataKey="protein" dot={false} strokeWidth={2} stroke={COLORS.protein} />}
-                    {show.carbs && <Line type="monotone" name="Carbs (g)" dataKey="carbs" dot={false} strokeWidth={2} stroke={COLORS.carbs} />}
-                    {show.fat && <Line type="monotone" name="Fat (g)" dataKey="fat" dot={false} strokeWidth={2} stroke={COLORS.fat} />}
+                    {show.kcal && <Line type="monotone" name="kcal" dataKey="kcal" dot={false} strokeWidth={2} stroke="url(#trend-kcal)" />}
+                    {show.protein && <Line type="monotone" name="Protein (g)" dataKey="protein" dot={false} strokeWidth={2} stroke="url(#trend-protein)" />}
+                    {show.carbs && <Line type="monotone" name="Carbs (g)" dataKey="carbs" dot={false} strokeWidth={2} stroke="url(#trend-carbs)" />}
+                    {show.fat && <Line type="monotone" name="Fat (g)" dataKey="fat" dot={false} strokeWidth={2} stroke="url(#trend-fat)" />}
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -915,14 +960,28 @@ export default function MacroTrackerApp(){
               <CardContent className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={mealSplit} margin={{ left: 12, right: 12 }}>
+                    <defs>
+                      <linearGradient id="split-protein" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={MACRO_THEME.protein.gradientFrom} />
+                        <stop offset="100%" stopColor={MACRO_THEME.protein.gradientTo} />
+                      </linearGradient>
+                      <linearGradient id="split-carbs" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={MACRO_THEME.carbs.gradientFrom} />
+                        <stop offset="100%" stopColor={MACRO_THEME.carbs.gradientTo} />
+                      </linearGradient>
+                      <linearGradient id="split-fat" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={MACRO_THEME.fat.gradientFrom} />
+                        <stop offset="100%" stopColor={MACRO_THEME.fat.gradientTo} />
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="meal" />
                     <YAxis />
                     <Legend />
                     <RTooltip />
-                    <Bar dataKey="protein" name="Protein (g)" stackId="g" fill={COLORS.protein} />
-                    <Bar dataKey="carbs" name="Carbs (g)" stackId="g" fill={COLORS.carbs} />
-                    <Bar dataKey="fat" name="Fat (g)" stackId="g" fill={COLORS.fat} />
+                    <Bar dataKey="protein" name="Protein (g)" stackId="g" fill="url(#split-protein)" />
+                    <Bar dataKey="carbs" name="Carbs (g)" stackId="g" fill="url(#split-carbs)" />
+                    <Bar dataKey="fat" name="Fat (g)" stackId="g" fill="url(#split-fat)" />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -1439,7 +1498,11 @@ function WeeklyNutritionCard({ data }) {
                 {rows.map((row) => (
                   <Fragment key={row.key}>
                     <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
-                      <span className="inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: row.color }} aria-hidden="true" />
+                      <span
+                        className="inline-flex h-2 w-2 rounded-full"
+                        style={{ backgroundImage: `linear-gradient(135deg, ${row.theme.gradientFrom}, ${row.theme.gradientTo})` }}
+                        aria-hidden="true"
+                      />
                       <span>{row.label}</span>
                     </div>
                     {row.cells.map((cell, idx) => {
@@ -1447,7 +1510,7 @@ function WeeklyNutritionCard({ data }) {
                       return (
                         <WeeklyNutritionCell
                           key={`${row.key}-${cell.iso}`}
-                          color={row.color}
+                          theme={row.theme}
                           unit={row.unit}
                           actual={cell.actual}
                           goal={cell.goal}
@@ -1478,7 +1541,8 @@ function WeeklyNutritionCard({ data }) {
   );
 }
 
-function WeeklyNutritionCell({ color, unit, actual, goal, isToday, isSelected }) {
+function WeeklyNutritionCell({ theme, unit, actual, goal, isToday, isSelected }) {
+  const palette = theme ?? MACRO_THEME.kcal;
   const safeActual = Math.max(0, actual || 0);
   const safeGoal = Math.max(0, goal || 0);
   const hasGoal = safeGoal > 0;
@@ -1488,7 +1552,8 @@ function WeeklyNutritionCell({ color, unit, actual, goal, isToday, isSelected })
   const overRatio = Math.max(0, cappedRatio - 1);
   const baseHeight = baseRatio * 50;
   const overHeight = overRatio * 50;
-  const overColor = darkenHex(color, 0.6);
+  const baseGradient = `linear-gradient(180deg, ${palette.gradientFrom}, ${palette.gradientTo})`;
+  const overGradient = `linear-gradient(180deg, ${palette.gradientTo}, ${palette.dark})`;
   const tooltip = hasGoal
     ? `${formatNumber(safeActual)} ${unit} of ${formatNumber(safeGoal)} ${unit}`
     : `${formatNumber(safeActual)} ${unit}`;
@@ -1519,13 +1584,13 @@ function WeeklyNutritionCell({ color, unit, actual, goal, isToday, isSelected })
           {baseHeight > 0 && (
             <div
               className="absolute bottom-0 left-0 right-0 mx-auto rounded-full"
-              style={{ height: `${baseHeight}%`, backgroundColor: color }}
+              style={{ height: `${baseHeight}%`, backgroundImage: baseGradient }}
             />
           )}
           {overHeight > 0 && (
             <div
               className="absolute left-0 right-0 mx-auto rounded-full"
-              style={{ height: `${overHeight}%`, bottom: `${baseHeight}%`, backgroundColor: overColor }}
+              style={{ height: `${overHeight}%`, bottom: `${baseHeight}%`, backgroundImage: overGradient }}
             />
           )}
         </div>
@@ -1580,7 +1645,7 @@ function AvgTile({ label, entries, foods, days, from }){
     </Card>
   );
 }
-function GoalDonut({ label, color, actual, goal, unit }) {
+function GoalDonut({ label, theme, actual, goal, unit }) {
   const a = Math.max(0, actual || 0);
   const g = Math.max(0, goal || 0);
   const pctRaw = g > 0 ? (a / g) * 100 : 0;
@@ -1592,6 +1657,10 @@ function GoalDonut({ label, color, actual, goal, unit }) {
   const radius = 52;
   const strokeWidth = 14;
   const circumference = 2 * Math.PI * radius;
+  const gradientId = useId();
+  const baseGradientId = `${gradientId}-base`;
+  const overGradientId = `${gradientId}-over`;
+  const textColor = theme.dark;
 
   const dashFor = (percent) => {
     if (percent <= 0) return `0 ${circumference}`;
@@ -1603,7 +1672,6 @@ function GoalDonut({ label, color, actual, goal, unit }) {
   const baseDasharray = dashFor(basePct);
   const overDasharray = dashFor(overPct);
 
-  const overlayColor = darkenHex(color, 0.55);
   const hasGoal = g > 0;
 
   return (
@@ -1611,6 +1679,16 @@ function GoalDonut({ label, color, actual, goal, unit }) {
       <div className="mb-1 text-base font-medium">{label}</div>
       <div className="relative h-32 w-32">
         <svg viewBox="0 0 120 120" className="h-full w-full">
+          <defs>
+            <linearGradient id={baseGradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={theme.gradientFrom} />
+              <stop offset="100%" stopColor={theme.gradientTo} />
+            </linearGradient>
+            <linearGradient id={overGradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={theme.gradientTo} />
+              <stop offset="100%" stopColor={theme.dark} />
+            </linearGradient>
+          </defs>
           <circle
             cx="60"
             cy="60"
@@ -1625,7 +1703,7 @@ function GoalDonut({ label, color, actual, goal, unit }) {
               cx="60"
               cy="60"
               r={radius}
-              stroke={color}
+              stroke={`url(#${baseGradientId})`}
               strokeWidth={strokeWidth}
               fill="transparent"
               strokeDasharray={baseDasharray}
@@ -1638,7 +1716,7 @@ function GoalDonut({ label, color, actual, goal, unit }) {
               cx="60"
               cy="60"
               r={radius}
-              stroke={overlayColor}
+              stroke={`url(#${overGradientId})`}
               strokeWidth={strokeWidth}
               fill="transparent"
               strokeDasharray={overDasharray}
@@ -1648,7 +1726,7 @@ function GoalDonut({ label, color, actual, goal, unit }) {
           )}
         </svg>
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="text-lg font-semibold" style={{ color }}>{Number.isFinite(pct) ? `${pct}%` : "0%"}</div>
+          <div className="text-lg font-semibold" style={{ color: textColor }}>{Number.isFinite(pct) ? `${pct}%` : "0%"}</div>
         </div>
       </div>
       <div className="mt-1 text-xs text-slate-500">
