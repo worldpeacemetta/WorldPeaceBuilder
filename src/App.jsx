@@ -568,16 +568,18 @@ export default function MacroTrackerApp(){
     ];
 
     const rows = macros.map((macro) => {
-      let totalActual = 0;
-      let totalGoal = 0;
+      let selectedActual = 0;
+      let selectedGoal = 0;
 
       const cells = days.map((day) => {
         const totals = totalsForDate(day.iso);
         const goal = goalValuesForDate(day.iso);
         const actualValue = Math.max(0, totals[macro.key] ?? 0);
         const goalValue = Math.max(0, goal?.[macro.key] ?? 0);
-        totalActual += actualValue;
-        totalGoal += goalValue;
+        if (day.iso === targetISO) {
+          selectedActual = actualValue;
+          selectedGoal = goalValue;
+        }
         return {
           iso: day.iso,
           actual: actualValue,
@@ -591,8 +593,8 @@ export default function MacroTrackerApp(){
         unit: macro.unit,
         color: macro.color,
         cells,
-        totalActual,
-        totalGoal,
+        selectedActual,
+        selectedGoal,
       };
     });
 
@@ -1409,19 +1411,19 @@ function WeeklyNutritionCard({ data }) {
           {data?.weekLabel && <span className="text-xs text-slate-500">{data.weekLabel}</span>}
         </div>
       </CardHeader>
-      <CardContent className="pt-4">
+      <CardContent className="pt-3">
         {!hasData ? (
           <p className="text-sm text-slate-500">Log entries to see your weekly breakdown.</p>
         ) : (
           <div className="overflow-x-auto">
             <div className="min-w-max">
-              <div className="grid grid-cols-[auto_repeat(7,minmax(0,1fr))_auto] items-end gap-x-3 gap-y-4">
-                <div className="text-xs font-medium text-slate-500">Macro</div>
+              <div className="grid grid-cols-[auto_repeat(7,minmax(0,1fr))_auto] items-end gap-x-3 gap-y-3 text-[13px]">
+                <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Macro</div>
                 {days.map((day) => (
                   <div key={day.iso} className="flex justify-center">
                     <div
                       className={cn(
-                        "flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-slate-500 transition-colors",
+                        "flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold text-slate-500 transition-colors",
                         day.isSelected && "text-slate-900 dark:text-slate-100",
                         day.isToday ? "border border-slate-400/80 dark:border-slate-500/80" : "border border-transparent",
                         day.isSelected && "ring-2 ring-offset-2 ring-offset-transparent ring-slate-400/70 dark:ring-slate-500/70",
@@ -1431,7 +1433,7 @@ function WeeklyNutritionCard({ data }) {
                     </div>
                   </div>
                 ))}
-                <div className="pr-1 text-right text-xs font-medium text-slate-500">Week total</div>
+                <div className="pr-1 text-right text-[11px] font-medium uppercase tracking-wide text-slate-500">Selected day</div>
                 {rows.map((row) => (
                   <Fragment key={row.key}>
                     <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
@@ -1454,11 +1456,11 @@ function WeeklyNutritionCard({ data }) {
                     })}
                     <div className="text-right text-xs text-slate-600 dark:text-slate-300">
                       <div className="font-semibold text-slate-900 dark:text-slate-100">
-                        {formatNumber(row.totalActual)}
+                        {formatNumber(row.selectedActual)}
                         <span className="ml-1 text-[10px] font-normal uppercase text-slate-500">{row.unit}</span>
                       </div>
-                      {row.totalGoal > 0 ? (
-                        <div className="text-[10px] text-slate-500">goal {formatNumber(row.totalGoal)}</div>
+                      {row.selectedGoal > 0 ? (
+                        <div className="text-[10px] text-slate-500">goal {formatNumber(row.selectedGoal)}</div>
                       ) : (
                         <div className="text-[10px] text-slate-400">no goal</div>
                       )}
@@ -1499,16 +1501,16 @@ function WeeklyNutritionCell({ color, unit, actual, goal, isToday, isSelected })
     <div className="flex justify-center">
       <div
         className={cn(
-          "relative flex h-28 w-10 items-end justify-center rounded-xl px-1 py-2 transition-all",
+          "relative flex h-24 w-9 items-end justify-center rounded-xl px-1.5 py-2 transition-all",
           ringClass,
         )}
         title={tooltip}
       >
-        <div className="relative h-full w-2" aria-hidden="true">
+        <div className="relative h-full w-[10px]" aria-hidden="true">
           <div className="absolute inset-0 rounded-full bg-slate-200/60 dark:bg-slate-800/60" />
           {hasGoal && (
             <div
-              className="absolute left-1/2 w-4 -translate-x-1/2 rounded-full bg-slate-400/80 dark:bg-slate-500/70"
+              className="absolute left-1/2 w-3 -translate-x-1/2 rounded-full bg-slate-400/80 dark:bg-slate-500/70"
               style={{ bottom: "50%", height: "2px" }}
             />
           )}
@@ -1585,8 +1587,8 @@ function GoalDonut({ label, color, actual, goal, unit }) {
   const basePct = g > 0 ? Math.min(Math.max(pctRaw, 0), 100) : a > 0 ? 100 : 0;
   const overPct = g > 0 ? Math.min(Math.max(pctRaw - 100, 0), 100) : 0;
 
-  const radius = 52;
-  const strokeWidth = 14;
+  const radius = 58;
+  const strokeWidth = 16;
   const circumference = 2 * Math.PI * radius;
 
   const dashFor = (percent) => {
@@ -1604,8 +1606,8 @@ function GoalDonut({ label, color, actual, goal, unit }) {
 
   return (
     <div className="flex flex-col items-center justify-center">
-      <div className="mb-1 text-sm font-medium">{label}</div>
-      <div className="relative h-32 w-32">
+      <div className="mb-1 text-base font-medium">{label}</div>
+      <div className="relative h-36 w-36">
         <svg viewBox="0 0 120 120" className="h-full w-full">
           <circle
             cx="60"
@@ -1644,7 +1646,7 @@ function GoalDonut({ label, color, actual, goal, unit }) {
           )}
         </svg>
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="text-lg font-semibold" style={{ color }}>{Number.isFinite(pct) ? `${pct}%` : "0%"}</div>
+          <div className="text-xl font-semibold" style={{ color }}>{Number.isFinite(pct) ? `${pct}%` : "0%"}</div>
         </div>
       </div>
       <div className="mt-1 text-xs text-slate-500">
