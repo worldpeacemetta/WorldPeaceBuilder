@@ -1230,97 +1230,81 @@ function AvgTile({ label, entries, foods, days, from }){
 function GoalDonut({ label, color, actual, goal, unit }) {
   const a = Math.max(0, actual || 0);
   const g = Math.max(0, goal || 0);
-  const pct = pctOf(a, g);
+  const pctRaw = g > 0 ? (a / g) * 100 : 0;
+  const pct = Number.isFinite(pctRaw) ? Math.round(pctRaw) : 0;
 
-  const safePct = Number.isFinite(pct) ? pct : 0;
-  const basePct = Math.min(Math.max(safePct, 0), 100);
-  const overPct = safePct > 100 ? Math.min(safePct - 100, 100) : 0;
-  const remainingPct = safePct < 100 ? Math.max(0, 100 - basePct) : 0;
+  const basePct = g > 0 ? Math.min(Math.max(pctRaw, 0), 100) : a > 0 ? 100 : 0;
+  const overPct = g > 0 ? Math.min(Math.max(pctRaw - 100, 0), 100) : 0;
 
-  const baseData = [];
-  const overlayData = [];
+  const radius = 52;
+  const strokeWidth = 14;
+  const circumference = 2 * Math.PI * radius;
 
-  if (g > 0) {
-    if (basePct > 0) {
-      baseData.push({
-        name: 'Actual',
-        value: basePct,
-        displayValue: Math.min(a, g),
-        fill: color,
-      });
-    }
+  const dashFor = (percent) => {
+    if (percent <= 0) return `0 ${circumference}`;
+    if (percent >= 100) return `${circumference} 0.0001`;
+    const length = (percent / 100) * circumference;
+    return `${length} ${circumference - length}`;
+  };
 
-    if (remainingPct > 0) {
-      baseData.push({
-        name: 'Remaining',
-        value: remainingPct,
-        displayValue: Math.max(0, g - a),
-        fill: COLORS.gray,
-      });
-    }
+  const baseDasharray = dashFor(basePct);
+  const overDasharray = dashFor(overPct);
 
-    if (overPct > 0) {
-      overlayData.push({
-        name: 'Over',
-        value: overPct,
-        displayValue: Math.max(0, a - g),
-        fill: darkenHex(color, 0.7),
-      });
-
-      if (overPct < 100) {
-        overlayData.push({
-          name: 'Cap',
-          value: 100 - overPct,
-          displayValue: 0,
-          fill: 'transparent',
-        });
-      }
-    }
-  } else if (a > 0) {
-    baseData.push({ name: 'Actual', value: 100, displayValue: a, fill: color });
-  } else {
-    baseData.push({ name: 'Empty', value: 100, displayValue: 0, fill: COLORS.gray });
-  }
-
-  if (baseData.length === 0) {
-    baseData.push({ name: 'Empty', value: 100, displayValue: 0, fill: COLORS.gray });
-  }
+  const overlayColor = darkenHex(color, 0.55);
+  const hasGoal = g > 0;
 
   return (
     <div className="flex flex-col items-center justify-center">
-      <div className="text-sm font-medium mb-1">{label}</div>
-      <div className="relative w-32 h-32">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie data={baseData} dataKey="value" innerRadius={40} outerRadius={55} startAngle={90} endAngle={-270} stroke="none">
-              {baseData.map((d, i) => (
-                <Cell key={`base-${i}`} fill={d.fill} />
-              ))}
-            </Pie>
-            {overlayData.length > 0 && (
-              <Pie
-                data={overlayData}
-                dataKey="value"
-                innerRadius={40}
-                outerRadius={55}
-                startAngle={90}
-                endAngle={-270}
-                stroke="none"
-                isAnimationActive={false}
-              >
-                {overlayData.map((d, i) => (
-                  <Cell key={`over-${i}`} fill={d.fill} />
-                ))}
-              </Pie>
-            )}
-            <RTooltip formatter={(_, n, entry) => [`${Math.round(entry?.payload?.displayValue ?? 0)} ${unit}`, n]} />
-          </PieChart>
-        </ResponsiveContainer>
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="text-lg font-semibold" style={{ color }}>{Number.isFinite(pct) ? `${pct}%` : '0%'}</div>
+      <div className="mb-1 text-sm font-medium">{label}</div>
+      <div className="relative h-32 w-32">
+        <svg viewBox="0 0 120 120" className="h-full w-full">
+          <circle
+            cx="60"
+            cy="60"
+            r={radius}
+            stroke={COLORS.gray}
+            strokeWidth={strokeWidth}
+            fill="transparent"
+            opacity={0.35}
+          />
+          {basePct > 0 && (
+            <circle
+              cx="60"
+              cy="60"
+              r={radius}
+              stroke={color}
+              strokeWidth={strokeWidth}
+              fill="transparent"
+              strokeDasharray={baseDasharray}
+              transform="rotate(-90 60 60)"
+              strokeLinecap="butt"
+            />
+          )}
+          {overPct > 0 && (
+            <circle
+              cx="60"
+              cy="60"
+              r={radius}
+              stroke={overlayColor}
+              strokeWidth={strokeWidth}
+              fill="transparent"
+              strokeDasharray={overDasharray}
+              transform="rotate(-90 60 60)"
+              strokeLinecap="butt"
+            />
+          )}
+        </svg>
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="text-lg font-semibold" style={{ color }}>{Number.isFinite(pct) ? `${pct}%` : "0%"}</div>
         </div>
       </div>
-      <div className="mt-1 text-xs text-slate-500">{Math.round(a)} / {Math.round(g)} {unit}</div>
+      <div className="mt-1 text-xs text-slate-500">
+        {hasGoal ? (
+          <span>{Math.round(a)} / {Math.round(g)} {unit}</span>
+        ) : (
+          <span>{Math.round(a)} {unit}</span>
+        )}
+      </div>
     </div>
   );
 }
