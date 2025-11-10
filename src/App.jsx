@@ -1022,7 +1022,7 @@ export default function MacroTrackerApp(){
                     </defs>
                     <XAxis dataKey="date" tickFormatter={(d)=>d.slice(5)} stroke="#94a3b8" tick={{ fill: '#64748b' }} axisLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} tickLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} />
                     <YAxis stroke="#94a3b8" tick={{ fill: '#64748b' }} axisLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} tickLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} />
-                    <Legend />
+                    <Legend iconType="circle" />
                     <RTooltip labelFormatter={(l)=>format(new Date(l), 'PP')} />
                     {show.kcal && (
                       <Area
@@ -1932,14 +1932,14 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
 
   const macroLabel = MACRO_LABELS[topMacroKey] ?? "Macro";
   const labelRenderer = useCallback((props) => {
-    const { percent, cx, cy, midAngle, innerRadius, outerRadius } = props;
+    const { percent, cx, cy, midAngle, outerRadius } = props;
     if (!percent || percent < 0.005) return null;
     const value = percent * 100;
     const formatted = value >= 10 ? `${Math.round(value)}%` : `${value.toFixed(1)}%`;
     const RADIAN = Math.PI / 180;
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.6;
-    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+    const offsetRadius = outerRadius + 18;
+    const x = cx + offsetRadius * Math.cos(-midAngle * RADIAN);
+    const y = cy + offsetRadius * Math.sin(-midAngle * RADIAN);
     return (
       <text
         x={x}
