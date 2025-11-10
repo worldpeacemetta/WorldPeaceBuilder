@@ -834,7 +834,7 @@ export default function MacroTrackerApp(){
             </div>
 
             <div className="grid lg:grid-cols-2 gap-4">
-              <Card className="h-full">
+              <Card className="h-full min-h-[360px] flex flex-col">
                 <CardHeader>
                   <div className="flex items-center justify-between gap-3">
                     <CardTitle>Goal vs Actual</CardTitle>
@@ -844,8 +844,8 @@ export default function MacroTrackerApp(){
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-4">
+                <CardContent className="flex-1">
+                  <div className="grid h-full grid-cols-2 gap-4 content-center">
                     <GoalDonut label="Calories" color={COLORS.kcal} actual={goalTotals.kcal} goal={goalTarget.kcal} unit="kcal" />
                     <GoalDonut label="Protein" color={COLORS.protein} actual={goalTotals.protein} goal={goalTarget.protein} unit="g" />
                     <GoalDonut label="Carbs" color={COLORS.carbs} actual={goalTotals.carbs} goal={goalTarget.carbs} unit="g" />
@@ -1404,14 +1404,14 @@ function WeeklyNutritionCard({ data }) {
   const hasData = days.length > 0 && rows.length > 0;
 
   return (
-    <Card className="h-full">
+    <Card className="h-full min-h-[360px] flex flex-col">
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
           <CardTitle>Weekly Nutrition</CardTitle>
           {data?.weekLabel && <span className="text-xs text-slate-500">{data.weekLabel}</span>}
         </div>
       </CardHeader>
-      <CardContent className="pt-3">
+      <CardContent className="flex-1 pt-3 pb-4">
         {!hasData ? (
           <p className="text-sm text-slate-500">Log entries to see your weekly breakdown.</p>
         ) : (
