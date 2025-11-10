@@ -18,8 +18,9 @@ import {
   CartesianGrid,
   AreaChart,
   Area,
-  BarChart,
+  ComposedChart,
   Bar,
+  Line,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -1095,7 +1096,7 @@ export default function MacroTrackerApp(){
               <div className="mt-4" />
               <CardContent className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
+                  <ComposedChart
                     data={mealSplit}
                     margin={{ left: 12, right: 12 }}
                     barCategoryGap={24}
@@ -1116,10 +1117,25 @@ export default function MacroTrackerApp(){
                       </linearGradient>
                     </defs>
                     <XAxis dataKey="meal" axisLine={false} tickLine={false} />
-                    <YAxis axisLine={false} tickLine={false} />
+                    <YAxis yAxisId="grams" axisLine={false} tickLine={false} tickFormatter={(value)=>`${formatNumber(value)} g`} />
+                    <YAxis
+                      yAxisId="kcal"
+                      orientation="right"
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(value)=>`${formatNumber(value)} kcal`}
+                    />
                     <Legend iconType="circle" />
-                    <RTooltip />
+                    <RTooltip
+                      formatter={(value, key)=>{
+                        if (key === "kcal") {
+                          return [`${formatNumber(value)} kcal`, "Calories"];
+                        }
+                        return [`${formatNumber(value)} g`, key === "protein" ? "Protein" : key === "carbs" ? "Carbs" : "Fat"];
+                      }}
+                    />
                     <Bar
+                      yAxisId="grams"
                       dataKey="protein"
                       name="Protein (g)"
                       stackId="g"
@@ -1130,6 +1146,7 @@ export default function MacroTrackerApp(){
                       )}
                     />
                     <Bar
+                      yAxisId="grams"
                       dataKey="carbs"
                       name="Carbs (g)"
                       stackId="g"
@@ -1137,6 +1154,7 @@ export default function MacroTrackerApp(){
                       barSize={56}
                     />
                     <Bar
+                      yAxisId="grams"
                       dataKey="fat"
                       name="Fat (g)"
                       stackId="g"
@@ -1146,7 +1164,17 @@ export default function MacroTrackerApp(){
                         <RoundedTopBar {...props} radius={28} />
                       )}
                     />
-                  </BarChart>
+                    <Line
+                      yAxisId="kcal"
+                      type="monotone"
+                      dataKey="kcal"
+                      name="Calories"
+                      stroke={MACRO_THEME.kcal.gradientTo}
+                      strokeWidth={3}
+                      dot={{ r: 3, fill: MACRO_THEME.kcal.base, strokeWidth: 0 }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </ComposedChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
