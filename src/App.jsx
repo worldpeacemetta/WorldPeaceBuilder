@@ -121,6 +121,45 @@ function darkenHex(hex, factor = 0.75) {
   return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
 
+function lightenHex(hex, amount = 0.25) {
+  if (typeof hex !== "string" || !hex.startsWith("#")) return hex;
+  const value = hex.length === 4
+    ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
+    : hex;
+  const int = Number.parseInt(value.slice(1), 16);
+  if (Number.isNaN(int)) return hex;
+  const r = Math.max(0, Math.min(255, Math.round(((int >> 16) & 0xff) + (255 - ((int >> 16) & 0xff)) * amount)));
+  const g = Math.max(0, Math.min(255, Math.round(((int >> 8) & 0xff) + (255 - ((int >> 8) & 0xff)) * amount)));
+  const b = Math.max(0, Math.min(255, Math.round((int & 0xff) + (255 - (int & 0xff)) * amount)));
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+}
+
+const TOP_FOOD_THEMES = [
+  MACRO_THEME.kcal,
+  MACRO_THEME.protein,
+  MACRO_THEME.carbs,
+  MACRO_THEME.fat,
+  {
+    base: COLORS.cyan,
+    gradientFrom: lightenHex(COLORS.cyan, 0.45),
+    gradientTo: darkenHex(COLORS.cyan, 0.8),
+    dark: darkenHex(COLORS.cyan, 0.65),
+  },
+  {
+    base: COLORS.violet,
+    gradientFrom: lightenHex(COLORS.violet, 0.45),
+    gradientTo: darkenHex(COLORS.violet, 0.8),
+    dark: darkenHex(COLORS.violet, 0.65),
+  },
+];
+
+const MACRO_LABELS = {
+  kcal: "Calories",
+  protein: "Protein",
+  carbs: "Carbs",
+  fat: "Fat",
+};
+
 const RoundedTopBar = ({ x, y, width, height, fill, radius = 12 }) => {
   const r = Math.min(radius, width / 2, height);
   return (
@@ -1850,8 +1889,37 @@ function GoalDonut({ label, theme, actual, goal, unit }) {
     </div>
   );
 }
-function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDateChange, goalMode }){
-  const dayLabel = selectedDate ? format(new Date(selectedDate), 'PP') : 'Select a day';
+function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDateChange, goalMode }) {
+  const dayLabel = selectedDate ? format(new Date(selectedDate), "PP") : "Select a day";
+  const gradientPrefix = useId();
+  const unit = topMacroKey === "kcal" ? "kcal" : "g";
+
+  const { slices, total } = useMemo(() => {
+    const sum = topFoods.reduce((acc, item) => acc + (item?.val ?? 0), 0);
+    const mapped = topFoods.map((item, index) => {
+      const theme = TOP_FOOD_THEMES[index % TOP_FOOD_THEMES.length];
+      const gradientFrom = theme.gradientFrom ?? lightenHex(theme.base, 0.45);
+      const gradientTo = theme.gradientTo ?? darkenHex(theme.base, 0.8);
+      const percent = sum > 0 ? (item.val / sum) * 100 : 0;
+      return {
+        ...item,
+        percent,
+        theme,
+        gradientFrom,
+        gradientTo,
+        gradientId: `${gradientPrefix}-slice-${index}`,
+      };
+    });
+    return { slices: mapped, total: sum };
+  }, [topFoods, gradientPrefix]);
+
+  const macroLabel = MACRO_LABELS[topMacroKey] ?? "Macro";
+  const labelRenderer = useCallback(({ percent }) => {
+    if (!percent || percent < 0.05) return "";
+    const value = percent * 100;
+    return value >= 10 ? `${Math.round(value)}%` : `${value.toFixed(1)}%`;
+  }, []);
+
   return (
     <Card>
       <CardHeader>
@@ -1861,7 +1929,9 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
             <GoalModeBadge value={goalMode} />
             <DatePickerButton value={selectedDate} onChange={onDateChange} className="w-44" />
             <Select value={topMacroKey} onValueChange={onMacroChange}>
-              <SelectTrigger className="h-8 w-40"><SelectValue placeholder="Macro" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-40">
+                <SelectValue placeholder="Macro" />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="kcal">Calories</SelectItem>
                 <SelectItem value="protein">Protein</SelectItem>
@@ -1873,15 +1943,90 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
         </div>
       </CardHeader>
       <CardContent className="h-80">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Legend />
-            <RTooltip formatter={(v)=>[v, topMacroKey==='kcal'? 'kcal':'g']} />
-            <Pie dataKey="val" nameKey="name" data={topFoods} innerRadius={50} outerRadius={90} label>
-              {topFoods.map((_,i)=>(<Cell key={i} fill={[COLORS.kcal, COLORS.protein, COLORS.carbs, COLORS.fat, COLORS.cyan, COLORS.violet][i%6]} />))}
-            </Pie>
-          </PieChart>
-        </ResponsiveContainer>
+        <div className="flex h-full items-center gap-8">
+          <div className="relative flex h-full w-[52%] min-w-[220px] items-center justify-center">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <defs>
+                  {slices.map((slice) => (
+                    <radialGradient key={slice.gradientId} id={slice.gradientId} cx="50%" cy="50%" r="65%">
+                      <stop offset="0%" stopColor={slice.gradientFrom} />
+                      <stop offset="100%" stopColor={slice.gradientTo} />
+                    </radialGradient>
+                  ))}
+                </defs>
+                <RTooltip
+                  formatter={(value) => [`${formatNumber(value)} ${unit}`, "Contribution"]}
+                  contentStyle={{ borderRadius: "12px", border: "1px solid rgba(148, 163, 184, 0.25)", boxShadow: "0 12px 24px rgba(15, 23, 42, 0.08)" }}
+                />
+                <Pie
+                  data={slices}
+                  dataKey="val"
+                  nameKey="name"
+                  innerRadius={58}
+                  outerRadius={95}
+                  paddingAngle={slices.length > 1 ? 3 : 0}
+                  stroke="#ffffff"
+                  strokeWidth={3}
+                  labelLine={false}
+                  label={labelRenderer}
+                >
+                  {slices.map((slice) => (
+                    <Cell key={slice.gradientId} fill={`url(#${slice.gradientId})`} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 text-center">
+              <span className="text-xs uppercase tracking-wide text-slate-400">{macroLabel}</span>
+              <span className="text-lg font-semibold text-slate-800">
+                {formatNumber(total)} {unit}
+              </span>
+            </div>
+          </div>
+          <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+            {slices.length === 0 ? (
+              <p className="text-sm text-slate-500">No foods logged for this day.</p>
+            ) : (
+              slices.map((item, index) => {
+                const percentValue =
+                  item.percent >= 10 || item.percent === 0
+                    ? Math.round(item.percent)
+                    : Number(item.percent.toFixed(1));
+                return (
+                  <div key={`${item.name}-${index}`} className="relative rounded-2xl p-[1px]">
+                    <div
+                      className="absolute inset-0 rounded-2xl opacity-80"
+                      style={{ background: `linear-gradient(135deg, ${item.gradientFrom}, ${item.gradientTo})` }}
+                    />
+                    <div className="relative flex items-center justify-between gap-4 rounded-[1.1rem] bg-white/90 px-4 py-3 shadow-sm backdrop-blur">
+                      <div className="flex items-center gap-3">
+                        <span
+                          className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white shadow-sm"
+                          style={{ background: `linear-gradient(135deg, ${item.gradientTo}, ${item.theme.base})` }}
+                        >
+                          {index + 1}
+                        </span>
+                        <div>
+                          <div className="font-semibold text-slate-900">{item.name}</div>
+                          <div className="text-xs text-slate-600">
+                            {formatNumber(item.val)} {unit} · {percentValue}% share
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end text-sm font-semibold text-slate-700">
+                        <span>
+                          {formatNumber(item.val)} {unit}
+                        </span>
+                        <span className="text-xs font-medium text-slate-500">{percentValue}% of total</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
