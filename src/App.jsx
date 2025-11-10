@@ -78,10 +78,10 @@ const MACRO_THEME = {
     dark: "#8D021F", // burgundy
   },
   protein: {
-    base: "#014421", // Pakistan green
-    gradientFrom: "#A9D5B3",
-    gradientTo: "#026B32",
-    dark: "#013220",
+    base: "#9CAF88", // sage-inspired green
+    gradientFrom: lightenHex("#9CAF88", 0.35),
+    gradientTo: "#819171",
+    dark: "#819171",
   },
   carbs: {
     base: "#93c5fd",
@@ -1937,7 +1937,7 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
     const value = percent * 100;
     const formatted = value >= 10 ? `${Math.round(value)}%` : `${value.toFixed(1)}%`;
     const RADIAN = Math.PI / 180;
-    const offsetRadius = outerRadius + 18;
+    const offsetRadius = outerRadius + 24;
     const x = cx + offsetRadius * Math.cos(-midAngle * RADIAN);
     const y = cy + offsetRadius * Math.sin(-midAngle * RADIAN);
     return (
@@ -1948,6 +1948,7 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
         textAnchor={x >= cx ? "start" : "end"}
         dominantBaseline="central"
         fontSize={11}
+        style={{ fontWeight: 600, filter: "drop-shadow(0 1px 1px rgba(15,23,42,0.25))" }}
       >
         {formatted}
       </text>
@@ -2020,8 +2021,8 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
             {leftItems.map((item, index) => renderLegendItem(item, index, `left-${index}`))}
           </div>
           <div className="relative row-span-2 flex h-full w-[260px] min-w-[220px] items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
+            <ResponsiveContainer width="100%" height="100%" style={{ overflow: "visible" }}>
+              <PieChart margin={{ top: 32, right: 40, bottom: 32, left: 40 }} style={{ overflow: "visible" }}>
                 <defs>
                   {slices.map((slice) => (
                     <radialGradient key={slice.gradientId} id={slice.gradientId} cx="50%" cy="50%" r="65%">
@@ -2039,7 +2040,7 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
                   dataKey="val"
                   nameKey="name"
                   innerRadius={58}
-                  outerRadius={95}
+                  outerRadius={92}
                   paddingAngle={slices.length > 1 ? 3 : 0}
                   stroke="#ffffff"
                   strokeWidth={3}
