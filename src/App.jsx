@@ -623,8 +623,22 @@ export default function MacroTrackerApp(){
   const [topMacroKey, setTopMacroKey] = useState('kcal');
   const topFoods = useMemo(()=>{
     const map = new Map();
-    entries.filter(e=>e.date===topFoodsDate).forEach(e=>{ const f=foods.find(x=>x.id===e.foodId); if(!f) return; const m=scaleMacros(f,e.qty); map.set(f.name,(map.get(f.name)||0)+m[topMacroKey]); });
-    return Array.from(map.entries()).map(([name,val])=>({name,val})).sort((a,b)=>b.val-a.val).slice(0,5);
+    entries
+      .filter(e=>e.date===topFoodsDate)
+      .forEach(e=>{
+        const f=foods.find(x=>x.id===e.foodId);
+        if(!f) return;
+        const m=scaleMacros(f,e.qty);
+        const current=(map.get(f.name)||0)+ (m?.[topMacroKey] ?? 0);
+        map.set(f.name,current);
+      });
+    const sorted = Array.from(map.entries()).map(([name,val])=>({name,val})).sort((a,b)=>b.val-a.val);
+    const total = sorted.reduce((acc,item)=>acc+(item.val??0),0);
+    const topFive = sorted.slice(0,5);
+    const topSum = topFive.reduce((acc,item)=>acc+(item.val??0),0);
+    const remainder = Math.max(0,total-topSum);
+    const items = remainder>0 ? [...topFive,{name:'Other',val:remainder,isOther:true}] : topFive;
+    return { items, total };
   },[entries,foods,topFoodsDate,topMacroKey]);
 
   const goalTotals = useMemo(()=> totalsForDate(goalDate),[entries, foods, goalDate]);
@@ -1895,12 +1909,13 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
   const unit = topMacroKey === "kcal" ? "kcal" : "g";
 
   const { slices, total } = useMemo(() => {
-    const sum = topFoods.reduce((acc, item) => acc + (item?.val ?? 0), 0);
-    const mapped = topFoods.map((item, index) => {
+    const items = topFoods?.items ?? [];
+    const total = Math.max(0, topFoods?.total ?? 0);
+    const mapped = items.map((item, index) => {
       const theme = TOP_FOOD_THEMES[index % TOP_FOOD_THEMES.length];
       const gradientFrom = theme.gradientFrom ?? lightenHex(theme.base, 0.45);
       const gradientTo = theme.gradientTo ?? darkenHex(theme.base, 0.8);
-      const share = sum > 0 ? item.val / sum : 0;
+      const share = total > 0 ? (item?.val ?? 0) / total : 0;
       const percentage = share * 100;
       return {
         ...item,
@@ -1912,14 +1927,31 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
         gradientId: `${gradientPrefix}-slice-${index}`,
       };
     });
-    return { slices: mapped, total: sum };
+    return { slices: mapped, total };
   }, [topFoods, gradientPrefix]);
 
   const macroLabel = MACRO_LABELS[topMacroKey] ?? "Macro";
-  const labelRenderer = useCallback(({ percent }) => {
-    if (!percent || percent < 0.005) return "";
+  const labelRenderer = useCallback((props) => {
+    const { percent, cx, cy, midAngle, innerRadius, outerRadius } = props;
+    if (!percent || percent < 0.005) return null;
     const value = percent * 100;
-    return value >= 10 ? `${Math.round(value)}%` : `${value.toFixed(1)}%`;
+    const formatted = value >= 10 ? `${Math.round(value)}%` : `${value.toFixed(1)}%`;
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.6;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+    return (
+      <text
+        x={x}
+        y={y}
+        fill="#64748b"
+        textAnchor={x >= cx ? "start" : "end"}
+        dominantBaseline="central"
+        fontSize={11}
+      >
+        {formatted}
+      </text>
+    );
   }, []);
 
   const leftItems = slices.slice(0, Math.min(2, slices.length));
@@ -1932,6 +1964,7 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
         item.percentage >= 10 || item.percentage === 0
           ? Math.round(item.percentage)
           : Number(item.percentage.toFixed(1));
+      const badgeLabel = item.isOther ? "•" : index + 1;
 
       return (
         <div key={`${item.name}-${positionKey}`} className="relative rounded-2xl p-[1px]">
@@ -1944,7 +1977,7 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white shadow-sm"
               style={{ background: `linear-gradient(135deg, ${item.gradientTo}, ${item.theme.base})` }}
             >
-              {index + 1}
+              {badgeLabel}
             </span>
             <div>
               <div className="font-semibold text-slate-900">{item.name}</div>
