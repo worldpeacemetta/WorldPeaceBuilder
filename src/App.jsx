@@ -410,6 +410,10 @@ export default function MacroTrackerApp(){
   const totalsForDate = (iso)=>{ const dayEntries = entries.filter(e=>e.date===iso); const rows = dayEntries.map(e=>{ const f=foods.find(x=>x.id===e.foodId); return f? scaleMacros(f,e.qty) : {kcal:0,fat:0,carbs:0,protein:0};}); return sumMacros(rows); };
 
   const [stickyMode, setStickyMode] = useState('today');
+  const [goalDate, setGoalDate] = useState(todayISO());
+  const [splitDate, setSplitDate] = useState(todayISO());
+  const [topFoodsDate, setTopFoodsDate] = useState(todayISO());
+
   const stickyDate = stickyMode==='today'? todayISO(): logDate;
   const stickyTotals = useMemo(()=> totalsForDate(stickyDate), [entries,foods,stickyDate]);
   const totalsForCard = useMemo(()=> totalsForDate(logDate), [rowsForDay]);
@@ -514,9 +518,6 @@ export default function MacroTrackerApp(){
 
   // Top foods (limit 5)
   const [topMacroKey, setTopMacroKey] = useState('kcal');
-  const [goalDate, setGoalDate] = useState(todayISO());
-  const [splitDate, setSplitDate] = useState(todayISO());
-  const [topFoodsDate, setTopFoodsDate] = useState(todayISO());
   const topFoods = useMemo(()=>{
     const map = new Map();
     entries.filter(e=>e.date===topFoodsDate).forEach(e=>{ const f=foods.find(x=>x.id===e.foodId); if(!f) return; const m=scaleMacros(f,e.qty); map.set(f.name,(map.get(f.name)||0)+m[topMacroKey]); });
