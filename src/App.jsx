@@ -1227,52 +1227,63 @@ function AvgTile({ label, entries, foods, days, from }){
     </Card>
   );
 }
-function GoalDonut({ label, color, actual, goal, unit }){
+function GoalDonut({ label, color, actual, goal, unit }) {
   const a = Math.max(0, actual || 0);
   const g = Math.max(0, goal || 0);
   const pct = pctOf(a, g);
 
-  const pieData = [];
+  const safePct = Number.isFinite(pct) ? pct : 0;
+  const basePct = Math.min(Math.max(safePct, 0), 100);
+  const overPct = safePct > 100 ? Math.min(safePct - 100, 100) : 0;
+  const remainingPct = safePct < 100 ? Math.max(0, 100 - basePct) : 0;
+
+  const baseData = [];
+  const overlayData = [];
 
   if (g > 0) {
-    const ratio = Math.min(a / g, 1);
-    const overRatio = Math.min(Math.max(a / g - 1, 0), 1); // 0 to 1 between 100%-200%
-    const remainingRatio = Math.max(0, 1 - ratio);
-
-    if (ratio > 0) {
-      pieData.push({
+    if (basePct > 0) {
+      baseData.push({
         name: 'Actual',
-        value: ratio * 100,
+        value: basePct,
         displayValue: Math.min(a, g),
         fill: color,
       });
     }
 
-    if (overRatio > 0) {
-      pieData.push({
-        name: 'Over',
-        value: overRatio * 100,
-        displayValue: Math.max(0, a - g),
-        fill: darkenHex(color, 0.7),
-      });
-    }
-
-    if (overRatio === 0 && remainingRatio > 0) {
-      pieData.push({
+    if (remainingPct > 0) {
+      baseData.push({
         name: 'Remaining',
-        value: remainingRatio * 100,
+        value: remainingPct,
         displayValue: Math.max(0, g - a),
         fill: COLORS.gray,
       });
     }
+
+    if (overPct > 0) {
+      overlayData.push({
+        name: 'Over',
+        value: overPct,
+        displayValue: Math.max(0, a - g),
+        fill: darkenHex(color, 0.7),
+      });
+
+      if (overPct < 100) {
+        overlayData.push({
+          name: 'Cap',
+          value: 100 - overPct,
+          displayValue: 0,
+          fill: 'transparent',
+        });
+      }
+    }
+  } else if (a > 0) {
+    baseData.push({ name: 'Actual', value: 100, displayValue: a, fill: color });
+  } else {
+    baseData.push({ name: 'Empty', value: 100, displayValue: 0, fill: COLORS.gray });
   }
 
-  if (pieData.length === 0) {
-    if (a > 0) {
-      pieData.push({ name: 'Actual', value: a, displayValue: a, fill: color });
-    } else {
-      pieData.push({ name: 'Empty', value: 1, displayValue: 0, fill: COLORS.gray });
-    }
+  if (baseData.length === 0) {
+    baseData.push({ name: 'Empty', value: 100, displayValue: 0, fill: COLORS.gray });
   }
 
   return (
@@ -1281,11 +1292,27 @@ function GoalDonut({ label, color, actual, goal, unit }){
       <div className="relative w-32 h-32">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie data={pieData} dataKey="value" innerRadius={40} outerRadius={55} startAngle={90} endAngle={-270}>
-              {pieData.map((d, i) => (
-                <Cell key={i} fill={d.fill} />
+            <Pie data={baseData} dataKey="value" innerRadius={40} outerRadius={55} startAngle={90} endAngle={-270} stroke="none">
+              {baseData.map((d, i) => (
+                <Cell key={`base-${i}`} fill={d.fill} />
               ))}
             </Pie>
+            {overlayData.length > 0 && (
+              <Pie
+                data={overlayData}
+                dataKey="value"
+                innerRadius={40}
+                outerRadius={55}
+                startAngle={90}
+                endAngle={-270}
+                stroke="none"
+                isAnimationActive={false}
+              >
+                {overlayData.map((d, i) => (
+                  <Cell key={`over-${i}`} fill={d.fill} />
+                ))}
+              </Pie>
+            )}
             <RTooltip formatter={(_, n, entry) => [`${Math.round(entry?.payload?.displayValue ?? 0)} ${unit}`, n]} />
           </PieChart>
         </ResponsiveContainer>
