@@ -1419,7 +1419,7 @@ function WeeklyNutritionCard({ data }) {
         ) : (
           <div className="overflow-x-auto">
             <div className="min-w-max">
-              <div className="grid grid-cols-[auto_repeat(7,minmax(0,1fr))_auto] items-end gap-x-3 gap-y-3 text-[13px] origin-top-left scale-90">
+              <div className="grid grid-cols-[auto_repeat(7,minmax(0,1fr))_auto] items-end gap-x-3 gap-y-3 text-[13px] origin-top-left scale-90 mt-3">
                 <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Macro</div>
                 {days.map((day) => (
                   <div key={day.iso} className="flex justify-center">
@@ -1589,8 +1589,8 @@ function GoalDonut({ label, color, actual, goal, unit }) {
   const basePct = g > 0 ? Math.min(Math.max(pctRaw, 0), 100) : a > 0 ? 100 : 0;
   const overPct = g > 0 ? Math.min(Math.max(pctRaw - 100, 0), 100) : 0;
 
-  const radius = 58;
-  const strokeWidth = 16;
+  const radius = 52;
+  const strokeWidth = 14;
   const circumference = 2 * Math.PI * radius;
 
   const dashFor = (percent) => {
@@ -1609,7 +1609,7 @@ function GoalDonut({ label, color, actual, goal, unit }) {
   return (
     <div className="flex flex-col items-center justify-center">
       <div className="mb-1 text-base font-medium">{label}</div>
-      <div className="relative h-36 w-36">
+      <div className="relative h-32 w-32">
         <svg viewBox="0 0 120 120" className="h-full w-full">
           <circle
             cx="60"
@@ -1648,7 +1648,7 @@ function GoalDonut({ label, color, actual, goal, unit }) {
           )}
         </svg>
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="text-xl font-semibold" style={{ color }}>{Number.isFinite(pct) ? `${pct}%` : "0%"}</div>
+          <div className="text-lg font-semibold" style={{ color }}>{Number.isFinite(pct) ? `${pct}%` : "0%"}</div>
         </div>
       </div>
       <div className="mt-1 text-xs text-slate-500">
