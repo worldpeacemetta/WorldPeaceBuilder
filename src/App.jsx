@@ -1284,7 +1284,7 @@ const GOAL_MODE_OPTIONS = [
 function GoalModeToggle({ active, onChange }){
   return (
     <div
-      className="flex flex-shrink-0 items-center gap-1 rounded-full border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60 px-1 py-1 shadow-sm"
+      className="flex h-9 flex-shrink-0 items-center gap-1 rounded-full border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60 px-1 shadow-sm"
       role="group"
       aria-label="Select active goal profile"
     >
