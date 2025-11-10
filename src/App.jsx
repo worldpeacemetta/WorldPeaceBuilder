@@ -84,10 +84,10 @@ const MACRO_THEME = {
     dark: "#819171",
   },
   carbs: {
-    base: "#93c5fd",
-    gradientFrom: "#dbeafe",
-    gradientTo: "#60a5fa",
-    dark: "#2563eb",
+    base: "#9EBBD3",
+    gradientFrom: lightenHex("#9EBBD3", 0.45),
+    gradientTo: darkenHex("#9EBBD3", 0.75),
+    dark: "#425274",
   },
   fat: {
     base: "#fdba74",
