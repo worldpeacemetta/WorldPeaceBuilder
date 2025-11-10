@@ -16,7 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import {
   CartesianGrid,
-  LineChart,
+  AreaChart,
   Area,
   BarChart,
   Bar,
@@ -912,7 +912,7 @@ export default function MacroTrackerApp(){
               <div className="mt-4" />
               <CardContent className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={trendSeries} margin={{ left: 12, right: 12 }}>
+                  <AreaChart data={trendSeries} margin={{ left: 12, right: 12 }}>
                     <defs>
                       <linearGradient id="trend-kcal-stroke" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor={MACRO_THEME.kcal.gradientFrom} />
@@ -1003,7 +1003,7 @@ export default function MacroTrackerApp(){
                         activeDot={{ r: 5 }}
                       />
                     )}
-                  </LineChart>
+                  </AreaChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
