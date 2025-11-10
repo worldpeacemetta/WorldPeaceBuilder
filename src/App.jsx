@@ -1900,10 +1900,12 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
       const theme = TOP_FOOD_THEMES[index % TOP_FOOD_THEMES.length];
       const gradientFrom = theme.gradientFrom ?? lightenHex(theme.base, 0.45);
       const gradientTo = theme.gradientTo ?? darkenHex(theme.base, 0.8);
-      const percent = sum > 0 ? (item.val / sum) * 100 : 0;
+      const share = sum > 0 ? item.val / sum : 0;
+      const percentage = share * 100;
       return {
         ...item,
-        percent,
+        share,
+        percentage,
         theme,
         gradientFrom,
         gradientTo,
@@ -1915,10 +1917,47 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
 
   const macroLabel = MACRO_LABELS[topMacroKey] ?? "Macro";
   const labelRenderer = useCallback(({ percent }) => {
-    if (!percent || percent < 0.05) return "";
+    if (!percent || percent < 0.005) return "";
     const value = percent * 100;
     return value >= 10 ? `${Math.round(value)}%` : `${value.toFixed(1)}%`;
   }, []);
+
+  const leftItems = slices.slice(0, Math.min(2, slices.length));
+  const rightItems = slices.slice(leftItems.length, leftItems.length + Math.min(2, Math.max(0, slices.length - leftItems.length)));
+  const bottomItems = slices.slice(leftItems.length + rightItems.length);
+
+  const renderLegendItem = useCallback(
+    (item, index, positionKey) => {
+      const percentValue =
+        item.percentage >= 10 || item.percentage === 0
+          ? Math.round(item.percentage)
+          : Number(item.percentage.toFixed(1));
+
+      return (
+        <div key={`${item.name}-${positionKey}`} className="relative rounded-2xl p-[1px]">
+          <div
+            className="absolute inset-0 rounded-2xl opacity-80"
+            style={{ background: `linear-gradient(135deg, ${item.gradientFrom}, ${item.gradientTo})` }}
+          />
+          <div className="relative flex items-center gap-3 rounded-[1.1rem] bg-white/90 px-4 py-3 shadow-sm backdrop-blur">
+            <span
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white shadow-sm"
+              style={{ background: `linear-gradient(135deg, ${item.gradientTo}, ${item.theme.base})` }}
+            >
+              {index + 1}
+            </span>
+            <div>
+              <div className="font-semibold text-slate-900">{item.name}</div>
+              <div className="text-xs text-slate-600">
+                {formatNumber(item.val)} {unit} · {percentValue}% of total
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    },
+    [unit]
+  );
 
   return (
     <Card>
@@ -1943,8 +1982,11 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
         </div>
       </CardHeader>
       <CardContent className="h-80">
-        <div className="flex h-full items-center gap-8">
-          <div className="relative flex h-full w-[52%] min-w-[220px] items-center justify-center">
+        <div className="grid h-full w-full grid-cols-[1fr_auto_1fr] grid-rows-[1fr_auto] items-center gap-6">
+          <div className="flex w-full flex-col items-stretch justify-center gap-3">
+            {leftItems.map((item, index) => renderLegendItem(item, index, `left-${index}`))}
+          </div>
+          <div className="relative row-span-2 flex h-full w-[260px] min-w-[220px] items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <defs>
@@ -1984,46 +2026,18 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
               </span>
             </div>
           </div>
-          <div className="flex-1 space-y-3 overflow-y-auto pr-1">
-            {slices.length === 0 ? (
-              <p className="text-sm text-slate-500">No foods logged for this day.</p>
+          <div className="flex w-full flex-col items-stretch justify-center gap-3">
+            {rightItems.map((item, index) => renderLegendItem(item, index + leftItems.length, `right-${index}`))}
+          </div>
+          <div className="col-span-3 flex flex-wrap items-center justify-center gap-3">
+            {bottomItems.length === 0 ? (
+              slices.length === 0 ? (
+                <p className="text-sm text-slate-500">No foods logged for this day.</p>
+              ) : null
             ) : (
-              slices.map((item, index) => {
-                const percentValue =
-                  item.percent >= 10 || item.percent === 0
-                    ? Math.round(item.percent)
-                    : Number(item.percent.toFixed(1));
-                return (
-                  <div key={`${item.name}-${index}`} className="relative rounded-2xl p-[1px]">
-                    <div
-                      className="absolute inset-0 rounded-2xl opacity-80"
-                      style={{ background: `linear-gradient(135deg, ${item.gradientFrom}, ${item.gradientTo})` }}
-                    />
-                    <div className="relative flex items-center justify-between gap-4 rounded-[1.1rem] bg-white/90 px-4 py-3 shadow-sm backdrop-blur">
-                      <div className="flex items-center gap-3">
-                        <span
-                          className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white shadow-sm"
-                          style={{ background: `linear-gradient(135deg, ${item.gradientTo}, ${item.theme.base})` }}
-                        >
-                          {index + 1}
-                        </span>
-                        <div>
-                          <div className="font-semibold text-slate-900">{item.name}</div>
-                          <div className="text-xs text-slate-600">
-                            {formatNumber(item.val)} {unit} · {percentValue}% share
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end text-sm font-semibold text-slate-700">
-                        <span>
-                          {formatNumber(item.val)} {unit}
-                        </span>
-                        <span className="text-xs font-medium text-slate-500">{percentValue}% of total</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
+              bottomItems.map((item, index) =>
+                renderLegendItem(item, index + leftItems.length + rightItems.length, `bottom-${index}`)
+              )
             )}
           </div>
         </div>
