@@ -1229,8 +1229,14 @@ function GoalModeSelect({ value, onChange, className }) {
   const activeOption = GOAL_MODE_OPTIONS.find((option) => option.value === normalized) || GOAL_MODE_OPTIONS[0];
   return (
     <Select value={normalized} onValueChange={onChange}>
-      <SelectTrigger className={cn("h-8 w-36 rounded-full border-slate-300 bg-white/80 pl-3 pr-3 text-xs dark:border-slate-700 dark:bg-slate-900/60", className)}>
-        <SelectValue placeholder="Goal profile" className="sr-only" />
+      <SelectTrigger
+        className={cn(
+          "h-8 w-36 rounded-full border-slate-300 bg-white/80 pl-3 pr-3 text-xs dark:border-slate-700 dark:bg-slate-900/60",
+          className,
+        )}
+        aria-label={`Goal profile: ${activeOption.label}`}
+      >
+        <span className="sr-only">{activeOption.label}</span>
         <div className="flex w-full items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <activeOption.Icon className="h-3.5 w-3.5" aria-hidden="true" />
