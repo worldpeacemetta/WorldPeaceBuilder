@@ -845,11 +845,13 @@ export default function MacroTrackerApp(){
                   </div>
                 </CardHeader>
                 <CardContent className="flex-1">
-                  <div className="grid h-full grid-cols-2 gap-4 content-center">
-                    <GoalDonut label="Calories" color={COLORS.kcal} actual={goalTotals.kcal} goal={goalTarget.kcal} unit="kcal" />
-                    <GoalDonut label="Protein" color={COLORS.protein} actual={goalTotals.protein} goal={goalTarget.protein} unit="g" />
-                    <GoalDonut label="Carbs" color={COLORS.carbs} actual={goalTotals.carbs} goal={goalTarget.carbs} unit="g" />
-                    <GoalDonut label="Fat" color={COLORS.fat} actual={goalTotals.fat} goal={goalTarget.fat} unit="g" />
+                  <div className="flex h-full items-center justify-center">
+                    <div className="grid h-full grid-cols-2 gap-4 content-center origin-center scale-90">
+                      <GoalDonut label="Calories" color={COLORS.kcal} actual={goalTotals.kcal} goal={goalTarget.kcal} unit="kcal" />
+                      <GoalDonut label="Protein" color={COLORS.protein} actual={goalTotals.protein} goal={goalTarget.protein} unit="g" />
+                      <GoalDonut label="Carbs" color={COLORS.carbs} actual={goalTotals.carbs} goal={goalTarget.carbs} unit="g" />
+                      <GoalDonut label="Fat" color={COLORS.fat} actual={goalTotals.fat} goal={goalTarget.fat} unit="g" />
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1417,7 +1419,7 @@ function WeeklyNutritionCard({ data }) {
         ) : (
           <div className="overflow-x-auto">
             <div className="min-w-max">
-              <div className="grid grid-cols-[auto_repeat(7,minmax(0,1fr))_auto] items-end gap-x-3 gap-y-3 text-[13px]">
+              <div className="grid grid-cols-[auto_repeat(7,minmax(0,1fr))_auto] items-end gap-x-3 gap-y-3 text-[13px] origin-top-left scale-90">
                 <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Macro</div>
                 {days.map((day) => (
                   <div key={day.iso} className="flex justify-center">
