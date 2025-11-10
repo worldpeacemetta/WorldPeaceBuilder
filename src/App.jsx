@@ -453,6 +453,7 @@ export default function MacroTrackerApp(){
   const stickyGoals = useMemo(() => goalValuesForDate(stickyDate), [goalValuesForDate, stickyDate]);
   const dashboardGoals = useMemo(() => goalValuesForDate(logDate), [goalValuesForDate, logDate]);
   const goalTarget = useMemo(() => goalValuesForDate(goalDate), [goalValuesForDate, goalDate]);
+  const logDateMode = resolveModeForDate(logDate);
   const splitMode = resolveModeForDate(splitDate);
   const goalDateMode = resolveModeForDate(goalDate);
   const topFoodsMode = resolveModeForDate(topFoodsDate);
@@ -760,7 +761,7 @@ export default function MacroTrackerApp(){
                 <div className="flex items-center justify-between gap-3">
                   <CardTitle>Goal vs Actual</CardTitle>
                   <div className="flex items-center gap-2">
-                    <GoalModeSelect value={goalDateMode} onChange={(mode)=>setGoalModeForDate(goalDate || todayISO(), mode)} />
+                    <GoalModeBadge value={goalDateMode} />
                     <DatePickerButton value={goalDate} onChange={(value)=>setGoalDate(value||todayISO())} className="w-44" />
                   </div>
                 </div>
@@ -822,7 +823,7 @@ export default function MacroTrackerApp(){
                 <div className="flex items-center justify-between gap-3">
                   <CardTitle className="flex items-center gap-2"><UtensilsCrossed className="h-5 w-5"/>Macro Split per Meal</CardTitle>
                   <div className="flex items-center gap-2">
-                    <GoalModeSelect value={splitMode} onChange={(mode)=>setGoalModeForDate(splitDate || todayISO(), mode)} />
+                    <GoalModeBadge value={splitMode} />
                     <DatePickerButton value={splitDate} onChange={(value)=>setSplitDate(value||todayISO())} className="w-44" />
                   </div>
                 </div>
@@ -852,7 +853,6 @@ export default function MacroTrackerApp(){
               selectedDate={topFoodsDate}
               onDateChange={(value)=>setTopFoodsDate(value||todayISO())}
               goalMode={topFoodsMode}
-              onGoalModeChange={(mode)=>setGoalModeForDate(topFoodsDate || todayISO(), mode)}
             />
 
             {/* Averages tiles (non-empty days only) */}
@@ -868,7 +868,10 @@ export default function MacroTrackerApp(){
           <TabsContent value="daily" className="mt-6 space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><History className="h-5 w-5"/>Log your intake</CardTitle>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <CardTitle className="flex items-center gap-2"><History className="h-5 w-5"/>Log your intake</CardTitle>
+                  <GoalModeSelect value={logDateMode} onChange={(mode)=>setGoalModeForDate(logDate || todayISO(), mode)} />
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid md:grid-cols-6 gap-3 items-end">
@@ -1259,6 +1262,29 @@ function GoalModeSelect({ value, onChange, className }) {
     </Select>
   );
 }
+
+function GoalModeBadge({ value, className }) {
+  const normalized = value === 'rest' ? 'rest' : 'train';
+  const activeOption = GOAL_MODE_OPTIONS.find((option) => option.value === normalized) || GOAL_MODE_OPTIONS[0];
+  return (
+    <div
+      className={cn(
+        "flex h-8 items-center justify-center gap-2 rounded-full border border-slate-300 bg-white/80 px-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300",
+        "pointer-events-none select-none",
+        className,
+      )}
+      title={activeOption.label}
+    >
+      <span className="sr-only">{activeOption.label}</span>
+      <activeOption.Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      <span
+        className="inline-flex h-1.5 w-1.5 rounded-full"
+        style={{ backgroundColor: activeOption.accent }}
+        aria-hidden="true"
+      />
+    </div>
+  );
+}
 function KpiCard({ title, value, goal }){
   return (
     <Card className="overflow-hidden">
@@ -1418,7 +1444,7 @@ function GoalDonut({ label, color, actual, goal, unit }) {
     </div>
   );
 }
-function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDateChange, goalMode, onGoalModeChange }){
+function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDateChange, goalMode }){
   const dayLabel = selectedDate ? format(new Date(selectedDate), 'PP') : 'Select a day';
   return (
     <Card>
@@ -1426,7 +1452,7 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
         <div className="flex items-center justify-between gap-3">
           <CardTitle>Top Foods by Macros — {dayLabel}</CardTitle>
           <div className="flex items-center gap-2">
-            <GoalModeSelect value={goalMode} onChange={(mode)=>onGoalModeChange(mode)} className="w-36" />
+            <GoalModeBadge value={goalMode} />
             <DatePickerButton value={selectedDate} onChange={onDateChange} className="w-44" />
             <Select value={topMacroKey} onValueChange={onMacroChange}>
               <SelectTrigger className="h-8 w-40"><SelectValue placeholder="Macro" /></SelectTrigger>
