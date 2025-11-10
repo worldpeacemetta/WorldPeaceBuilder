@@ -254,8 +254,13 @@ function sanitizeFood(food) {
   const servingSize = unit === "perServing" ? Math.max(1, toNumber(food.servingSize ?? 0, 1)) : undefined;
   const category = FOOD_CATEGORY_MAP[food.category]?.value ?? DEFAULT_CATEGORY;
   const components = sanitizeComponents(food.components);
+  const createdAt =
+    typeof food.createdAt === "string" && !Number.isNaN(Date.parse(food.createdAt))
+      ? food.createdAt
+      : new Date().toISOString();
   return {
     ...food,
+    createdAt,
     unit,
     servingSize,
     category,
@@ -380,7 +385,7 @@ const MEAL_ORDER = ['breakfast','lunch','dinner','snack','other'];
 export default function MacroTrackerApp(){
   const [theme, setTheme] = useState(load(K_THEME, 'system'));
   const [foods, setFoods] = useState(()=> ensureFoods(load(K_FOODS, DEFAULT_FOODS)));
-  const [foodSort, setFoodSort] = useState({ column: "name", direction: "asc" });
+  const [foodSort, setFoodSort] = useState({ column: "createdAt", direction: "desc" });
   const [entries, setEntries] = useState(load(K_ENTRIES, []));
   const [settings, setSettings] = useState(()=> ensureSettings(load(K_SETTINGS, DEFAULT_SETTINGS)));
   const [tab, setTab] = useState('dashboard');
@@ -413,6 +418,13 @@ export default function MacroTrackerApp(){
   const [goalDate, setGoalDate] = useState(todayISO());
   const [splitDate, setSplitDate] = useState(todayISO());
   const [topFoodsDate, setTopFoodsDate] = useState(todayISO());
+
+  useEffect(() => {
+    const targetDate = ISO_DATE_RE.test(logDate) ? logDate : todayISO();
+    setGoalDate((prev) => (prev === targetDate ? prev : targetDate));
+    setSplitDate((prev) => (prev === targetDate ? prev : targetDate));
+    setTopFoodsDate((prev) => (prev === targetDate ? prev : targetDate));
+  }, [logDate]);
 
   const stickyDate = stickyMode==='today'? todayISO(): logDate;
   const stickyTotals = useMemo(()=> totalsForDate(stickyDate), [entries,foods,stickyDate]);
@@ -467,6 +479,10 @@ export default function MacroTrackerApp(){
       let av;
       let bv;
       switch(foodSort.column){
+        case "createdAt":
+          av = Date.parse(a.createdAt ?? "") || 0;
+          bv = Date.parse(b.createdAt ?? "") || 0;
+          break;
         case "name":
           av = (a.name ?? "").toLowerCase();
           bv = (b.name ?? "").toLowerCase();
@@ -1803,6 +1819,7 @@ function AddFoodCard({ foods, onAdd }){
       protein: toNumber(basicForm.protein, 0),
       carbs: toNumber(basicForm.carbs, 0),
       fat: toNumber(basicForm.fat, 0),
+      createdAt: new Date().toISOString(),
     };
     onAdd(payload);
     setBasicForm(createBasicFoodForm());
@@ -1827,6 +1844,7 @@ function AddFoodCard({ foods, onAdd }){
       carbs: toNumber(recipeForm.carbs, 0),
       fat: toNumber(recipeForm.fat, 0),
       components: components.map((item) => ({ foodId: item.foodId, quantity: toNumber(item.quantity, 0) })),
+      createdAt: new Date().toISOString(),
     };
     onAdd(payload);
     setRecipeForm(createRecipeForm());
