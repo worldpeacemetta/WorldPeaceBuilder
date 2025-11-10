@@ -16,8 +16,8 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import {
   CartesianGrid,
-  Line,
   LineChart,
+  Area,
   BarChart,
   Bar,
   Pie,
@@ -914,32 +914,95 @@ export default function MacroTrackerApp(){
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={trendSeries} margin={{ left: 12, right: 12 }}>
                     <defs>
-                      <linearGradient id="trend-kcal" x1="0" y1="0" x2="0" y2="1">
+                      <linearGradient id="trend-kcal-stroke" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor={MACRO_THEME.kcal.gradientFrom} />
                         <stop offset="100%" stopColor={MACRO_THEME.kcal.gradientTo} />
                       </linearGradient>
-                      <linearGradient id="trend-protein" x1="0" y1="0" x2="0" y2="1">
+                      <linearGradient id="trend-protein-stroke" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor={MACRO_THEME.protein.gradientFrom} />
                         <stop offset="100%" stopColor={MACRO_THEME.protein.gradientTo} />
                       </linearGradient>
-                      <linearGradient id="trend-carbs" x1="0" y1="0" x2="0" y2="1">
+                      <linearGradient id="trend-carbs-stroke" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor={MACRO_THEME.carbs.gradientFrom} />
                         <stop offset="100%" stopColor={MACRO_THEME.carbs.gradientTo} />
                       </linearGradient>
-                      <linearGradient id="trend-fat" x1="0" y1="0" x2="0" y2="1">
+                      <linearGradient id="trend-fat-stroke" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor={MACRO_THEME.fat.gradientFrom} />
                         <stop offset="100%" stopColor={MACRO_THEME.fat.gradientTo} />
                       </linearGradient>
+                      <linearGradient id="trend-kcal-fill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={MACRO_THEME.kcal.gradientFrom} stopOpacity={0.35} />
+                        <stop offset="95%" stopColor={MACRO_THEME.kcal.gradientTo} stopOpacity={0.05} />
+                      </linearGradient>
+                      <linearGradient id="trend-protein-fill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={MACRO_THEME.protein.gradientFrom} stopOpacity={0.35} />
+                        <stop offset="95%" stopColor={MACRO_THEME.protein.gradientTo} stopOpacity={0.05} />
+                      </linearGradient>
+                      <linearGradient id="trend-carbs-fill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={MACRO_THEME.carbs.gradientFrom} stopOpacity={0.35} />
+                        <stop offset="95%" stopColor={MACRO_THEME.carbs.gradientTo} stopOpacity={0.05} />
+                      </linearGradient>
+                      <linearGradient id="trend-fat-fill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={MACRO_THEME.fat.gradientFrom} stopOpacity={0.35} />
+                        <stop offset="95%" stopColor={MACRO_THEME.fat.gradientTo} stopOpacity={0.05} />
+                      </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" tickFormatter={(d)=>d.slice(5)} />
-                    <YAxis />
+                    <XAxis dataKey="date" tickFormatter={(d)=>d.slice(5)} stroke="#94a3b8" tick={{ fill: '#64748b' }} axisLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} tickLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} />
+                    <YAxis stroke="#94a3b8" tick={{ fill: '#64748b' }} axisLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} tickLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} />
                     <Legend />
                     <RTooltip labelFormatter={(l)=>format(new Date(l), 'PP')} />
-                    {show.kcal && <Line type="monotone" name="kcal" dataKey="kcal" dot={false} strokeWidth={2} stroke="url(#trend-kcal)" />}
-                    {show.protein && <Line type="monotone" name="Protein (g)" dataKey="protein" dot={false} strokeWidth={2} stroke="url(#trend-protein)" />}
-                    {show.carbs && <Line type="monotone" name="Carbs (g)" dataKey="carbs" dot={false} strokeWidth={2} stroke="url(#trend-carbs)" />}
-                    {show.fat && <Line type="monotone" name="Fat (g)" dataKey="fat" dot={false} strokeWidth={2} stroke="url(#trend-fat)" />}
+                    {show.kcal && (
+                      <Area
+                        type="monotone"
+                        name="kcal"
+                        dataKey="kcal"
+                        stroke="url(#trend-kcal-stroke)"
+                        strokeWidth={3}
+                        fill="url(#trend-kcal-fill)"
+                        fillOpacity={1}
+                        dot={false}
+                        activeDot={{ r: 5 }}
+                      />
+                    )}
+                    {show.protein && (
+                      <Area
+                        type="monotone"
+                        name="Protein (g)"
+                        dataKey="protein"
+                        stroke="url(#trend-protein-stroke)"
+                        strokeWidth={3}
+                        fill="url(#trend-protein-fill)"
+                        fillOpacity={1}
+                        dot={false}
+                        activeDot={{ r: 5 }}
+                      />
+                    )}
+                    {show.carbs && (
+                      <Area
+                        type="monotone"
+                        name="Carbs (g)"
+                        dataKey="carbs"
+                        stroke="url(#trend-carbs-stroke)"
+                        strokeWidth={3}
+                        fill="url(#trend-carbs-fill)"
+                        fillOpacity={1}
+                        dot={false}
+                        activeDot={{ r: 5 }}
+                      />
+                    )}
+                    {show.fat && (
+                      <Area
+                        type="monotone"
+                        name="Fat (g)"
+                        dataKey="fat"
+                        stroke="url(#trend-fat-stroke)"
+                        strokeWidth={3}
+                        fill="url(#trend-fat-fill)"
+                        fillOpacity={1}
+                        dot={false}
+                        activeDot={{ r: 5 }}
+                      />
+                    )}
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
