@@ -1226,17 +1226,17 @@ function GoalModeToggle({ active, onChange }){
 
 function GoalModeSelect({ value, onChange, className }) {
   const normalized = value === 'rest' ? 'rest' : 'train';
-  const ActiveIcon = normalized === 'rest' ? BedDouble : Dumbbell;
-  const accent = normalized === 'rest' ? COLORS.cyan : COLORS.protein;
+  const activeOption = GOAL_MODE_OPTIONS.find((option) => option.value === normalized) || GOAL_MODE_OPTIONS[0];
   return (
     <Select value={normalized} onValueChange={onChange}>
       <SelectTrigger className={cn("h-8 w-36 rounded-full border-slate-300 bg-white/80 pl-3 pr-3 text-xs dark:border-slate-700 dark:bg-slate-900/60", className)}>
+        <SelectValue placeholder="Goal profile" className="sr-only" />
         <div className="flex w-full items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <ActiveIcon className="h-3.5 w-3.5" />
-            <SelectValue placeholder="Goal profile" />
+            <activeOption.Icon className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>{activeOption.label}</span>
           </div>
-          <span className="inline-flex h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} aria-hidden="true" />
+          <span className="inline-flex h-1.5 w-1.5 rounded-full" style={{ backgroundColor: activeOption.accent }} aria-hidden="true" />
         </div>
       </SelectTrigger>
       <SelectContent align="end">
