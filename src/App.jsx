@@ -104,7 +104,7 @@ const COLORS = {
   fat: MACRO_THEME.fat.base,
   gray: "#94a3b8", // slate-400
   cyan: "#0ea5e9",
-  violet: "#a855f7",
+  violet: "#9A7196",
   redDark: "#b91c1c",
 };
 
@@ -1931,30 +1931,6 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
   }, [topFoods, gradientPrefix]);
 
   const macroLabel = MACRO_LABELS[topMacroKey] ?? "Macro";
-  const labelRenderer = useCallback((props) => {
-    const { percent, cx, cy, midAngle, outerRadius } = props;
-    if (!percent || percent < 0.005) return null;
-    const value = percent * 100;
-    const formatted = value >= 10 ? `${Math.round(value)}%` : `${value.toFixed(1)}%`;
-    const RADIAN = Math.PI / 180;
-    const offsetRadius = outerRadius + 24;
-    const x = cx + offsetRadius * Math.cos(-midAngle * RADIAN);
-    const y = cy + offsetRadius * Math.sin(-midAngle * RADIAN);
-    return (
-      <text
-        x={x}
-        y={y}
-        fill="#64748b"
-        textAnchor={x >= cx ? "start" : "end"}
-        dominantBaseline="central"
-        fontSize={11}
-        style={{ fontWeight: 600, filter: "drop-shadow(0 1px 1px rgba(15,23,42,0.25))" }}
-      >
-        {formatted}
-      </text>
-    );
-  }, []);
-
   const leftItems = slices.slice(0, Math.min(2, slices.length));
   const rightItems = slices.slice(leftItems.length, leftItems.length + Math.min(2, Math.max(0, slices.length - leftItems.length)));
   const bottomItems = slices.slice(leftItems.length + rightItems.length);
@@ -2045,7 +2021,6 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
                   stroke="#ffffff"
                   strokeWidth={3}
                   labelLine={false}
-                  label={labelRenderer}
                 >
                   {slices.map((slice) => (
                     <Cell key={slice.gradientId} fill={`url(#${slice.gradientId})`} />
