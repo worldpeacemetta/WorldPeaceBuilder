@@ -121,6 +121,26 @@ function darkenHex(hex, factor = 0.75) {
   return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
 
+const RoundedTopBar = ({ x, y, width, height, fill, radius = 12 }) => {
+  const r = Math.min(radius, width / 2, height);
+  return (
+    <path
+      d={`M${x} ${y + height} L${x} ${y + r} Q${x} ${y} ${x + r} ${y} L${x + width - r} ${y} Q${x + width} ${y} ${x + width} ${y + r} L${x + width} ${y + height} Z`}
+      fill={fill}
+    />
+  );
+};
+
+const RoundedBottomBar = ({ x, y, width, height, fill, radius = 12 }) => {
+  const r = Math.min(radius, width / 2, height);
+  return (
+    <path
+      d={`M${x} ${y} L${x} ${y + height - r} Q${x} ${y + height} ${x + r} ${y + height} L${x + width - r} ${y + height} Q${x + width} ${y + height} ${x + width} ${y + height - r} L${x + width} ${y} Z`}
+      fill={fill}
+    />
+  );
+};
+
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const toISODate = (d) => format(d, "yyyy-MM-dd");
@@ -1022,7 +1042,12 @@ export default function MacroTrackerApp(){
               <div className="mt-4" />
               <CardContent className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={mealSplit} margin={{ left: 12, right: 12 }}>
+                  <BarChart
+                    data={mealSplit}
+                    margin={{ left: 12, right: 12 }}
+                    barCategoryGap={32}
+                    barGap={12}
+                  >
                     <defs>
                       <linearGradient id="split-protein" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor={MACRO_THEME.protein.gradientFrom} />
@@ -1037,14 +1062,37 @@ export default function MacroTrackerApp(){
                         <stop offset="100%" stopColor={MACRO_THEME.fat.gradientTo} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="meal" />
-                    <YAxis />
-                    <Legend />
+                    <XAxis dataKey="meal" axisLine={false} tickLine={false} />
+                    <YAxis axisLine={false} tickLine={false} />
+                    <Legend iconType="circle" />
                     <RTooltip />
-                    <Bar dataKey="protein" name="Protein (g)" stackId="g" fill="url(#split-protein)" />
-                    <Bar dataKey="carbs" name="Carbs (g)" stackId="g" fill="url(#split-carbs)" />
-                    <Bar dataKey="fat" name="Fat (g)" stackId="g" fill="url(#split-fat)" />
+                    <Bar
+                      dataKey="protein"
+                      name="Protein (g)"
+                      stackId="g"
+                      fill="url(#split-protein)"
+                      barSize={28}
+                      shape={(props)=>(
+                        <RoundedBottomBar {...props} radius={18} />
+                      )}
+                    />
+                    <Bar
+                      dataKey="carbs"
+                      name="Carbs (g)"
+                      stackId="g"
+                      fill="url(#split-carbs)"
+                      barSize={28}
+                    />
+                    <Bar
+                      dataKey="fat"
+                      name="Fat (g)"
+                      stackId="g"
+                      fill="url(#split-fat)"
+                      barSize={28}
+                      shape={(props)=>(
+                        <RoundedTopBar {...props} radius={18} />
+                      )}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
