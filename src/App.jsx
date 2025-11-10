@@ -4,7 +4,7 @@
 // 2) Sticky header KPIs show "X over" in dark red when exceeding goals.
 //    (Everything else left untouched.)
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,7 @@ import {
   ArrowDown,
   ArrowUpDown,
 } from "lucide-react";
-import { format, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval } from "date-fns";
+import { format, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval, startOfWeek, endOfWeek } from "date-fns";
 
 /*******************
  * Types (for readability only)
@@ -543,6 +543,66 @@ export default function MacroTrackerApp(){
 
   const goalTotals = useMemo(()=> totalsForDate(goalDate),[entries, foods, goalDate]);
 
+  const weeklyNutrition = useMemo(() => {
+    const targetISO = ISO_DATE_RE.test(goalDate) ? goalDate : todayISO();
+    const baseDate = new Date(targetISO);
+    const weekStartDate = startOfWeek(baseDate, { weekStartsOn: 1 });
+    const weekEndDate = endOfWeek(baseDate, { weekStartsOn: 1 });
+    const isoTodayValue = todayISO();
+
+    const days = rangeDays(weekStartDate, weekEndDate).map((date) => {
+      const iso = toISODate(date);
+      return {
+        iso,
+        label: format(date, "EEEEE"),
+        isToday: iso === isoTodayValue,
+        isSelected: iso === targetISO,
+      };
+    });
+
+    const macros = [
+      { key: "kcal", label: "Calories", unit: "kcal", color: COLORS.kcal },
+      { key: "protein", label: "Protein", unit: "g", color: COLORS.protein },
+      { key: "carbs", label: "Carbs", unit: "g", color: COLORS.carbs },
+      { key: "fat", label: "Fat", unit: "g", color: COLORS.fat },
+    ];
+
+    const rows = macros.map((macro) => {
+      let totalActual = 0;
+      let totalGoal = 0;
+
+      const cells = days.map((day) => {
+        const totals = totalsForDate(day.iso);
+        const goal = goalValuesForDate(day.iso);
+        const actualValue = Math.max(0, totals[macro.key] ?? 0);
+        const goalValue = Math.max(0, goal?.[macro.key] ?? 0);
+        totalActual += actualValue;
+        totalGoal += goalValue;
+        return {
+          iso: day.iso,
+          actual: actualValue,
+          goal: goalValue,
+        };
+      });
+
+      return {
+        key: macro.key,
+        label: macro.label,
+        unit: macro.unit,
+        color: macro.color,
+        cells,
+        totalActual,
+        totalGoal,
+      };
+    });
+
+    return {
+      days,
+      rows,
+      weekLabel: `${format(weekStartDate, "MMM d")} – ${format(weekEndDate, "MMM d")}`,
+    };
+  }, [goalDate, entries, foods, goalValuesForDate]);
+
   const entriesForSplitDate = useMemo(()=> entries.filter((e)=>e.date===splitDate),[entries, splitDate]);
 
   // Meal-split dataset for dashboard (stacked bar)
@@ -771,26 +831,29 @@ export default function MacroTrackerApp(){
               <KpiCard title="Fat" value={`${totalsForCard.fat.toFixed(0)} g`} goal={dashboardGoals.fat} />
             </div>
 
-            {/* Goal vs Actual */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between gap-3">
-                  <CardTitle>Goal vs Actual</CardTitle>
-                  <div className="flex items-center gap-2">
-                    <GoalModeBadge value={goalDateMode} />
-                    <DatePickerButton value={goalDate} onChange={(value)=>setGoalDate(value||todayISO())} className="w-44" />
+            <div className="grid lg:grid-cols-2 gap-4">
+              <Card className="h-full">
+                <CardHeader>
+                  <div className="flex items-center justify-between gap-3">
+                    <CardTitle>Goal vs Actual</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <GoalModeBadge value={goalDateMode} />
+                      <DatePickerButton value={goalDate} onChange={(value)=>setGoalDate(value||todayISO())} className="w-44" />
+                    </div>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <GoalDonut label="Calories" color={COLORS.kcal} actual={goalTotals.kcal} goal={goalTarget.kcal} unit="kcal" />
-                  <GoalDonut label="Protein" color={COLORS.protein} actual={goalTotals.protein} goal={goalTarget.protein} unit="g" />
-                  <GoalDonut label="Carbs" color={COLORS.carbs} actual={goalTotals.carbs} goal={goalTarget.carbs} unit="g" />
-                  <GoalDonut label="Fat" color={COLORS.fat} actual={goalTotals.fat} goal={goalTarget.fat} unit="g" />
-                </div>
-              </CardContent>
-            </Card>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <GoalDonut label="Calories" color={COLORS.kcal} actual={goalTotals.kcal} goal={goalTarget.kcal} unit="kcal" />
+                    <GoalDonut label="Protein" color={COLORS.protein} actual={goalTotals.protein} goal={goalTarget.protein} unit="g" />
+                    <GoalDonut label="Carbs" color={COLORS.carbs} actual={goalTotals.carbs} goal={goalTarget.carbs} unit="g" />
+                    <GoalDonut label="Fat" color={COLORS.fat} actual={goalTotals.fat} goal={goalTarget.fat} unit="g" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <WeeklyNutritionCard data={weeklyNutrition} />
+            </div>
 
             {/* Macros Trend */}
             <Card>
@@ -1330,6 +1393,140 @@ function TogglePill({ label, active, onClick, color }){
     <button onClick={onClick} className={`text-xs px-3 py-1 rounded-full border transition ${active? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900': 'bg-transparent text-slate-700 dark:text-slate-200'}`} style={{ borderColor: color }}>
       <span className="inline-block w-2 h-2 rounded-full mr-2" style={{ backgroundColor: color }} />{label}
     </button>
+  );
+}
+
+function WeeklyNutritionCard({ data }) {
+  const days = data?.days ?? [];
+  const rows = data?.rows ?? [];
+  const hasData = days.length > 0 && rows.length > 0;
+
+  return (
+    <Card className="h-full">
+      <CardHeader>
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle>Weekly Nutrition</CardTitle>
+          {data?.weekLabel && <span className="text-xs text-slate-500">{data.weekLabel}</span>}
+        </div>
+      </CardHeader>
+      <CardContent className="pt-4">
+        {!hasData ? (
+          <p className="text-sm text-slate-500">Log entries to see your weekly breakdown.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <div className="min-w-max">
+              <div className="grid grid-cols-[auto_repeat(7,minmax(0,1fr))_auto] items-end gap-x-3 gap-y-4">
+                <div className="text-xs font-medium text-slate-500">Macro</div>
+                {days.map((day) => (
+                  <div key={day.iso} className="flex justify-center">
+                    <div
+                      className={cn(
+                        "flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-slate-500 transition-colors",
+                        day.isSelected && "text-slate-900 dark:text-slate-100",
+                        day.isToday ? "border border-slate-400/80 dark:border-slate-500/80" : "border border-transparent",
+                        day.isSelected && "ring-2 ring-offset-2 ring-offset-transparent ring-slate-400/70 dark:ring-slate-500/70",
+                      )}
+                    >
+                      {day.label}
+                    </div>
+                  </div>
+                ))}
+                <div className="pr-1 text-right text-xs font-medium text-slate-500">Week total</div>
+                {rows.map((row) => (
+                  <Fragment key={row.key}>
+                    <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+                      <span className="inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: row.color }} aria-hidden="true" />
+                      <span>{row.label}</span>
+                    </div>
+                    {row.cells.map((cell, idx) => {
+                      const day = days[idx];
+                      return (
+                        <WeeklyNutritionCell
+                          key={`${row.key}-${cell.iso}`}
+                          color={row.color}
+                          unit={row.unit}
+                          actual={cell.actual}
+                          goal={cell.goal}
+                          isToday={day?.isToday}
+                          isSelected={day?.isSelected}
+                        />
+                      );
+                    })}
+                    <div className="text-right text-xs text-slate-600 dark:text-slate-300">
+                      <div className="font-semibold text-slate-900 dark:text-slate-100">
+                        {formatNumber(row.totalActual)}
+                        <span className="ml-1 text-[10px] font-normal uppercase text-slate-500">{row.unit}</span>
+                      </div>
+                      {row.totalGoal > 0 ? (
+                        <div className="text-[10px] text-slate-500">goal {formatNumber(row.totalGoal)}</div>
+                      ) : (
+                        <div className="text-[10px] text-slate-400">no goal</div>
+                      )}
+                    </div>
+                  </Fragment>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function WeeklyNutritionCell({ color, unit, actual, goal, isToday, isSelected }) {
+  const safeActual = Math.max(0, actual || 0);
+  const safeGoal = Math.max(0, goal || 0);
+  const hasGoal = safeGoal > 0;
+  const ratioRaw = hasGoal ? safeActual / safeGoal : safeActual > 0 ? 1 : 0;
+  const cappedRatio = Math.min(Math.max(ratioRaw, 0), 2);
+  const baseRatio = Math.min(cappedRatio, 1);
+  const overRatio = Math.max(0, cappedRatio - 1);
+  const baseHeight = baseRatio * 50;
+  const overHeight = overRatio * 50;
+  const overColor = darkenHex(color, 0.6);
+  const tooltip = hasGoal
+    ? `${formatNumber(safeActual)} ${unit} of ${formatNumber(safeGoal)} ${unit}`
+    : `${formatNumber(safeActual)} ${unit}`;
+
+  const ringClass = isToday
+    ? "ring-2 ring-offset-2 ring-offset-transparent ring-slate-400/70 dark:ring-slate-500/70"
+    : isSelected
+    ? "ring-1 ring-offset-2 ring-offset-transparent ring-slate-300/70 dark:ring-slate-600/70"
+    : "";
+
+  return (
+    <div className="flex justify-center">
+      <div
+        className={cn(
+          "relative flex h-28 w-10 items-end justify-center rounded-xl px-1 py-2 transition-all",
+          ringClass,
+        )}
+        title={tooltip}
+      >
+        <div className="relative h-full w-2" aria-hidden="true">
+          <div className="absolute inset-0 rounded-full bg-slate-200/60 dark:bg-slate-800/60" />
+          {hasGoal && (
+            <div
+              className="absolute left-1/2 w-4 -translate-x-1/2 rounded-full bg-slate-400/80 dark:bg-slate-500/70"
+              style={{ bottom: "50%", height: "2px" }}
+            />
+          )}
+          {baseHeight > 0 && (
+            <div
+              className="absolute bottom-0 left-0 right-0 mx-auto rounded-full"
+              style={{ height: `${baseHeight}%`, backgroundColor: color }}
+            />
+          )}
+          {overHeight > 0 && (
+            <div
+              className="absolute left-0 right-0 mx-auto rounded-full"
+              style={{ height: `${overHeight}%`, bottom: `${baseHeight}%`, backgroundColor: overColor }}
+            />
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
