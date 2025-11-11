@@ -4,7 +4,7 @@
 // 2) Sticky header KPIs show "X over" in dark red when exceeding goals.
 //    (Everything else left untouched.)
 
-import React, { Fragment, useCallback, useEffect, useMemo, useState, useId } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,11 +13,10 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { cn } from "@/lib/utils";
 import {
   CartesianGrid,
-  AreaChart,
-  Area,
+  Line,
+  LineChart,
   BarChart,
   Bar,
   Pie,
@@ -38,8 +37,6 @@ import {
   Download,
   Moon,
   SunMedium,
-  Dumbbell,
-  BedDouble,
   Database,
   BarChart3,
   BookOpenText,
@@ -51,7 +48,7 @@ import {
   ArrowDown,
   ArrowUpDown,
 } from "lucide-react";
-import { format, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval, startOfWeek, endOfWeek } from "date-fns";
+import { format, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval } from "date-fns";
 
 /*******************
  * Types (for readability only)
@@ -69,139 +66,17 @@ const K_ENTRIES = "mt_entries";
 const K_SETTINGS = "mt_settings";
 const K_THEME = "mt_theme"; // 'system' | 'light' | 'dark'
 
-// Pastel macro palette with gradient support
-const MACRO_THEME = {
-  kcal: {
-    base: "#9F1D35", // vivid burgundy
-    gradientFrom: "#F4CDD6",
-    gradientTo: "#C23E52",
-    dark: "#8D021F", // burgundy
-  },
-  protein: {
-    base: "#9CAF88", // sage-inspired green
-    gradientFrom: lightenHex("#9CAF88", 0.35),
-    gradientTo: "#819171",
-    dark: "#819171",
-  },
-  carbs: {
-    base: "#98c1d9",
-    gradientFrom: lightenHex("#98c1d9", 0.45),
-    gradientTo: darkenHex("#98c1d9", 0.75),
-    dark: "#3d5a80",
-  },
-  fat: {
-    base: "#fdba74",
-    gradientFrom: "#fef3c7",
-    gradientTo: "#fb923c",
-    dark: "#ea580c",
-  },
-};
-
+// Softer palette per your preference
 const COLORS = {
-  kcal: MACRO_THEME.kcal.base,
-  protein: MACRO_THEME.protein.base,
-  carbs: MACRO_THEME.carbs.base,
-  fat: MACRO_THEME.fat.base,
+  kcal: "#f87171", // red-400
+  protein: "#4ade80", // green-400
+  carbs: "#3b82f6", // blue-500
+  fat: "#f59e0b", // amber-500
   gray: "#94a3b8", // slate-400
-  cyan: "#0ea5e9",
-  violet: "#9A7196",
+  cyan: "#06b6d4",
+  violet: "#8b5cf6",
   redDark: "#b91c1c",
 };
-
-function darkenHex(hex, factor = 0.75) {
-  if (typeof hex !== "string" || !hex.startsWith("#")) return hex;
-  const value = hex.length === 4
-    ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
-    : hex;
-  const int = Number.parseInt(value.slice(1), 16);
-  if (Number.isNaN(int)) return hex;
-  const r = Math.max(0, Math.min(255, Math.floor(((int >> 16) & 0xff) * factor)));
-  const g = Math.max(0, Math.min(255, Math.floor(((int >> 8) & 0xff) * factor)));
-  const b = Math.max(0, Math.min(255, Math.floor((int & 0xff) * factor)));
-  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
-}
-
-function lightenHex(hex, amount = 0.25) {
-  if (typeof hex !== "string" || !hex.startsWith("#")) return hex;
-  const value = hex.length === 4
-    ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
-    : hex;
-  const int = Number.parseInt(value.slice(1), 16);
-  if (Number.isNaN(int)) return hex;
-  const r = Math.max(0, Math.min(255, Math.round(((int >> 16) & 0xff) + (255 - ((int >> 16) & 0xff)) * amount)));
-  const g = Math.max(0, Math.min(255, Math.round(((int >> 8) & 0xff) + (255 - ((int >> 8) & 0xff)) * amount)));
-  const b = Math.max(0, Math.min(255, Math.round((int & 0xff) + (255 - (int & 0xff)) * amount)));
-  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
-}
-
-const TOP_FOOD_THEMES = [
-  MACRO_THEME.kcal,
-  MACRO_THEME.protein,
-  MACRO_THEME.carbs,
-  MACRO_THEME.fat,
-  {
-    base: COLORS.cyan,
-    gradientFrom: lightenHex(COLORS.cyan, 0.45),
-    gradientTo: darkenHex(COLORS.cyan, 0.8),
-    dark: darkenHex(COLORS.cyan, 0.65),
-  },
-  {
-    base: COLORS.violet,
-    gradientFrom: lightenHex(COLORS.violet, 0.45),
-    gradientTo: darkenHex(COLORS.violet, 0.8),
-    dark: darkenHex(COLORS.violet, 0.65),
-  },
-];
-
-const MACRO_LABELS = {
-  kcal: "Calories",
-  protein: "Protein",
-  carbs: "Carbs",
-  fat: "Fat",
-};
-
-const RoundedTopBar = ({ x, y, width, height, fill, radius = 12 }) => {
-  const r = Math.min(radius, width / 2, height);
-  return (
-    <path
-      d={`M${x} ${y + height} L${x} ${y + r} Q${x} ${y} ${x + r} ${y} L${x + width - r} ${y} Q${x + width} ${y} ${x + width} ${y + r} L${x + width} ${y + height} Z`}
-      fill={fill}
-    />
-  );
-};
-
-const RoundedBottomBar = ({ x, y, width, height, fill, radius = 12 }) => {
-  const r = Math.min(radius, width / 2, height);
-  return (
-    <path
-      d={`M${x} ${y} L${x} ${y + height - r} Q${x} ${y + height} ${x + r} ${y + height} L${x + width - r} ${y + height} Q${x + width} ${y + height} ${x + width} ${y + height - r} L${x + width} ${y} Z`}
-      fill={fill}
-    />
-  );
-};
-
-const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-const toISODate = (d) => format(d, "yyyy-MM-dd");
-const todayISO = () => toISODate(new Date());
-
-function sanitizeGoalSchedule(value, fallbackMode, isoToday = todayISO()) {
-  if (!value || typeof value !== "object") {
-    return fallbackMode ? { [isoToday]: fallbackMode } : {};
-  }
-  const schedule = {};
-  Object.entries(value).forEach(([key, rawMode]) => {
-    if (!ISO_DATE_RE.test(key)) return;
-    const normalized = rawMode === "rest" ? "rest" : rawMode === "train" ? "train" : null;
-    if (normalized) {
-      schedule[key] = normalized;
-    }
-  });
-  if (fallbackMode && !schedule[isoToday]) {
-    schedule[isoToday] = fallbackMode;
-  }
-  return schedule;
-}
 
 const FOOD_CATEGORIES = [
   { value: "vegetable", label: "Vegetable", emoji: "🥦" },
@@ -233,14 +108,6 @@ const FOOD_CATEGORY_MAP = FOOD_CATEGORIES.reduce((acc, cat) => {
 }, {});
 
 const DEFAULT_CATEGORY = "other";
-const DEFAULT_GOALS = { kcal: 2400, protein: 160, carbs: 250, fat: 80 };
-const TREND_RANGE_LABELS = {
-  "7": "Last 7 days",
-  "14": "Last 14 days",
-  "30": "Last 30 days",
-  "90": "Last 3 months",
-  "365": "Last 12 months",
-};
 
 const getCategoryEmoji = (category) => FOOD_CATEGORY_MAP[category]?.emoji ?? FOOD_CATEGORY_MAP[DEFAULT_CATEGORY].emoji;
 const getCategoryLabel = (category) => FOOD_CATEGORY_MAP[category]?.label ?? FOOD_CATEGORY_MAP[DEFAULT_CATEGORY].label;
@@ -261,70 +128,6 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(num) ? num : fallback;
 }
 
-function sanitizeGoal(goal) {
-  const source = goal && typeof goal === "object" ? goal : DEFAULT_GOALS;
-  return {
-    kcal: toNumber(source.kcal, DEFAULT_GOALS.kcal),
-    protein: toNumber(source.protein, DEFAULT_GOALS.protein),
-    carbs: toNumber(source.carbs, DEFAULT_GOALS.carbs),
-    fat: toNumber(source.fat, DEFAULT_GOALS.fat),
-  };
-}
-
-function ensureDailyGoals(value) {
-  const isoToday = todayISO();
-  const hasValue = value && typeof value === "object";
-  const active = hasValue && value.active === "rest" ? "rest" : "train";
-
-  let trainGoal;
-  let restGoal;
-
-  if (hasValue && value.train && value.rest) {
-    trainGoal = sanitizeGoal(value.train);
-    restGoal = sanitizeGoal(value.rest);
-  } else if (hasValue) {
-    trainGoal = sanitizeGoal(value);
-    restGoal = value?.rest ? sanitizeGoal(value.rest) : { ...trainGoal };
-  } else {
-    trainGoal = sanitizeGoal(DEFAULT_GOALS);
-    restGoal = sanitizeGoal(DEFAULT_GOALS);
-  }
-
-  const schedule = sanitizeGoalSchedule(hasValue ? value.byDate : undefined, active, isoToday);
-  if (!schedule[isoToday]) {
-    schedule[isoToday] = active;
-  }
-
-  return {
-    train: trainGoal,
-    rest: restGoal,
-    active,
-    byDate: schedule,
-  };
-}
-
-const DEFAULT_SETTINGS = {
-  dailyGoals: ensureDailyGoals({
-    train: DEFAULT_GOALS,
-    rest: DEFAULT_GOALS,
-    active: "train",
-  }),
-  profile: { activity: "moderate" },
-};
-
-function ensureSettings(value) {
-  const base = value && typeof value === "object" ? value : {};
-  const profile = base.profile && typeof base.profile === "object"
-    ? { ...DEFAULT_SETTINGS.profile, ...base.profile }
-    : { ...DEFAULT_SETTINGS.profile };
-
-  return {
-    ...base,
-    dailyGoals: ensureDailyGoals(base.dailyGoals),
-    profile,
-  };
-}
-
 function sanitizeComponents(list) {
   if (!Array.isArray(list)) return [];
   return list
@@ -340,13 +143,8 @@ function sanitizeFood(food) {
   const servingSize = unit === "perServing" ? Math.max(1, toNumber(food.servingSize ?? 0, 1)) : undefined;
   const category = FOOD_CATEGORY_MAP[food.category]?.value ?? DEFAULT_CATEGORY;
   const components = sanitizeComponents(food.components);
-  const createdAt =
-    typeof food.createdAt === "string" && !Number.isNaN(Date.parse(food.createdAt))
-      ? food.createdAt
-      : new Date().toISOString();
   return {
     ...food,
-    createdAt,
     unit,
     servingSize,
     category,
@@ -368,6 +166,9 @@ const DEFAULT_FOODS = [
   sanitizeFood({ id: crypto.randomUUID(), name: "Apple", unit: "per100g", category: "fruit", kcal: 52, fat: 0.2, carbs: 14, protein: 0.3 }),
   sanitizeFood({ id: crypto.randomUUID(), name: "Whey Protein (1 scoop)", unit: "perServing", servingSize: 30, category: "supplement", kcal: 120, fat: 1.5, carbs: 3, protein: 24 }),
 ];
+
+const toISODate = (d) => format(d, "yyyy-MM-dd");
+const todayISO = () => toISODate(new Date());
 
 function load(k, fallback) {
   try { const raw = localStorage.getItem(k); return raw ? JSON.parse(raw) : fallback; } catch { return fallback; }
@@ -471,9 +272,9 @@ const MEAL_ORDER = ['breakfast','lunch','dinner','snack','other'];
 export default function MacroTrackerApp(){
   const [theme, setTheme] = useState(load(K_THEME, 'system'));
   const [foods, setFoods] = useState(()=> ensureFoods(load(K_FOODS, DEFAULT_FOODS)));
-  const [foodSort, setFoodSort] = useState({ column: "createdAt", direction: "desc" });
+  const [foodSort, setFoodSort] = useState({ column: "name", direction: "asc" });
   const [entries, setEntries] = useState(load(K_ENTRIES, []));
-  const [settings, setSettings] = useState(()=> ensureSettings(load(K_SETTINGS, DEFAULT_SETTINGS)));
+  const [settings, setSettings] = useState(load(K_SETTINGS, { dailyGoals:{kcal:2400,fat:80,carbs:250,protein:160}, profile:{activity:'moderate'} }));
   const [tab, setTab] = useState('dashboard');
 
   // Theme handling
@@ -501,62 +302,9 @@ export default function MacroTrackerApp(){
   const totalsForDate = (iso)=>{ const dayEntries = entries.filter(e=>e.date===iso); const rows = dayEntries.map(e=>{ const f=foods.find(x=>x.id===e.foodId); return f? scaleMacros(f,e.qty) : {kcal:0,fat:0,carbs:0,protein:0};}); return sumMacros(rows); };
 
   const [stickyMode, setStickyMode] = useState('today');
-  const [goalDate, setGoalDate] = useState(todayISO());
-  const [splitDate, setSplitDate] = useState(todayISO());
-  const [topFoodsDate, setTopFoodsDate] = useState(todayISO());
-
-  useEffect(() => {
-    const targetDate = ISO_DATE_RE.test(logDate) ? logDate : todayISO();
-    setGoalDate((prev) => (prev === targetDate ? prev : targetDate));
-    setSplitDate((prev) => (prev === targetDate ? prev : targetDate));
-    setTopFoodsDate((prev) => (prev === targetDate ? prev : targetDate));
-  }, [logDate]);
-
   const stickyDate = stickyMode==='today'? todayISO(): logDate;
   const stickyTotals = useMemo(()=> totalsForDate(stickyDate), [entries,foods,stickyDate]);
   const totalsForCard = useMemo(()=> totalsForDate(logDate), [rowsForDay]);
-
-  const activeGoalType = settings.dailyGoals?.active === 'rest' ? 'rest' : 'train';
-  const goalSchedule = settings.dailyGoals?.byDate ?? {};
-  const sortedScheduleKeys = useMemo(() => Object.keys(goalSchedule).sort(), [goalSchedule]);
-
-  const resolveModeForDate = useCallback((isoDate) => {
-    if (isoDate && goalSchedule[isoDate]) {
-      const mode = goalSchedule[isoDate];
-      if (mode === 'rest' || mode === 'train') {
-        return mode;
-      }
-    }
-    if (isoDate) {
-      for (let i = sortedScheduleKeys.length - 1; i >= 0; i -= 1) {
-        const key = sortedScheduleKeys[i];
-        if (key <= isoDate) {
-          const mode = goalSchedule[key];
-          if (mode === 'rest' || mode === 'train') {
-            return mode;
-          }
-        }
-      }
-    }
-    return activeGoalType;
-  }, [activeGoalType, goalSchedule, sortedScheduleKeys]);
-
-  const goalValuesForDate = useCallback((isoDate) => {
-    const mode = resolveModeForDate(isoDate);
-    const base = settings.dailyGoals?.[mode];
-    if (base) return base;
-    return settings.dailyGoals?.[activeGoalType] ?? DEFAULT_GOALS;
-  }, [activeGoalType, resolveModeForDate, settings.dailyGoals]);
-
-  const stickyGoals = useMemo(() => goalValuesForDate(stickyDate), [goalValuesForDate, stickyDate]);
-  const dashboardGoals = useMemo(() => goalValuesForDate(logDate), [goalValuesForDate, logDate]);
-  const goalTarget = useMemo(() => goalValuesForDate(goalDate), [goalValuesForDate, goalDate]);
-  const logDateMode = resolveModeForDate(logDate);
-  const splitMode = resolveModeForDate(splitDate);
-  const goalDateMode = resolveModeForDate(goalDate);
-  const topFoodsMode = resolveModeForDate(topFoodsDate);
-
-  const headerPillClass = "gap-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60 px-3 py-2 text-xs font-medium shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800";
 
   const sortedFoods = useMemo(()=>{
     const list = [...foods];
@@ -565,10 +313,6 @@ export default function MacroTrackerApp(){
       let av;
       let bv;
       switch(foodSort.column){
-        case "createdAt":
-          av = Date.parse(a.createdAt ?? "") || 0;
-          bv = Date.parse(b.createdAt ?? "") || 0;
-          break;
         case "name":
           av = (a.name ?? "").toLowerCase();
           bv = (b.name ?? "").toLowerCase();
@@ -611,7 +355,7 @@ export default function MacroTrackerApp(){
   }, [foods, foodSort]);
 
   // Trend
-  const [trendRange, setTrendRange] = useState('7');
+  const [trendRange, setTrendRange] = useState('30');
   const [show, setShow] = useState({kcal:true, protein:true, carbs:false, fat:false});
   const trendSeries = useMemo(()=>{
     const now = startOfDay(new Date()); const from = startOfRange(trendRange); const isoFrom = toISODate(from); const map={};
@@ -621,98 +365,24 @@ export default function MacroTrackerApp(){
 
   // Top foods (limit 5)
   const [topMacroKey, setTopMacroKey] = useState('kcal');
+  const [topScope, setTopScope] = useState('range');
   const topFoods = useMemo(()=>{
     const map = new Map();
-    entries
-      .filter(e=>e.date===topFoodsDate)
-      .forEach(e=>{
-        const f=foods.find(x=>x.id===e.foodId);
-        if(!f) return;
-        const m=scaleMacros(f,e.qty);
-        const current=(map.get(f.name)||0)+ (m?.[topMacroKey] ?? 0);
-        map.set(f.name,current);
-      });
-    const sorted = Array.from(map.entries()).map(([name,val])=>({name,val})).sort((a,b)=>b.val-a.val);
-    const total = sorted.reduce((acc,item)=>acc+(item.val??0),0);
-    const topFive = sorted.slice(0,5);
-    const topSum = topFive.reduce((acc,item)=>acc+(item.val??0),0);
-    const remainder = Math.max(0,total-topSum);
-    const items = remainder>0 ? [...topFive,{name:'Other',val:remainder,isOther:true}] : topFive;
-    return { items, total };
-  },[entries,foods,topFoodsDate,topMacroKey]);
-
-  const goalTotals = useMemo(()=> totalsForDate(goalDate),[entries, foods, goalDate]);
-
-  const weeklyNutrition = useMemo(() => {
-    const targetISO = ISO_DATE_RE.test(goalDate) ? goalDate : todayISO();
-    const baseDate = new Date(targetISO);
-    const weekStartDate = startOfWeek(baseDate, { weekStartsOn: 1 });
-    const weekEndDate = endOfWeek(baseDate, { weekStartsOn: 1 });
-    const isoTodayValue = todayISO();
-
-    const days = rangeDays(weekStartDate, weekEndDate).map((date) => {
-      const iso = toISODate(date);
-      return {
-        iso,
-        label: format(date, "EEEEE"),
-        isToday: iso === isoTodayValue,
-        isSelected: iso === targetISO,
-      };
-    });
-
-    const macros = [
-      { key: "kcal", label: "Calories", unit: "kcal", theme: MACRO_THEME.kcal },
-      { key: "protein", label: "Protein", unit: "g", theme: MACRO_THEME.protein },
-      { key: "carbs", label: "Carbs", unit: "g", theme: MACRO_THEME.carbs },
-      { key: "fat", label: "Fat", unit: "g", theme: MACRO_THEME.fat },
-    ];
-
-    const rows = macros.map((macro) => {
-      let selectedActual = 0;
-      let selectedGoal = 0;
-
-      const cells = days.map((day) => {
-        const totals = totalsForDate(day.iso);
-        const goal = goalValuesForDate(day.iso);
-        const actualValue = Math.max(0, totals[macro.key] ?? 0);
-        const goalValue = Math.max(0, goal?.[macro.key] ?? 0);
-        if (day.iso === targetISO) {
-          selectedActual = actualValue;
-          selectedGoal = goalValue;
-        }
-        return {
-          iso: day.iso,
-          actual: actualValue,
-          goal: goalValue,
-        };
-      });
-
-      return {
-        key: macro.key,
-        label: macro.label,
-        unit: macro.unit,
-        theme: macro.theme,
-        cells,
-        selectedActual,
-        selectedGoal,
-      };
-    });
-
-    return {
-      days,
-      rows,
-      weekLabel: `${format(weekStartDate, "MMM d")} – ${format(weekEndDate, "MMM d")}`,
-    };
-  }, [goalDate, entries, foods, goalValuesForDate]);
-
-  const entriesForSplitDate = useMemo(()=> entries.filter((e)=>e.date===splitDate),[entries, splitDate]);
+    if(topScope==='day'){
+      entries.filter(e=>e.date===logDate).forEach(e=>{ const f=foods.find(x=>x.id===e.foodId); if(!f) return; const m=scaleMacros(f,e.qty); map.set(f.name,(map.get(f.name)||0)+m[topMacroKey]); });
+    } else {
+      const from = startOfRange(trendRange); const isoFrom = toISODate(from);
+      entries.filter(e=>e.date>=isoFrom).forEach(e=>{ const f=foods.find(x=>x.id===e.foodId); if(!f) return; const m=scaleMacros(f,e.qty); map.set(f.name,(map.get(f.name)||0)+m[topMacroKey]); });
+    }
+    return Array.from(map.entries()).map(([name,val])=>({name,val})).sort((a,b)=>b.val-a.val).slice(0,5);
+  },[entries,foods,trendRange,logDate,topScope,topMacroKey]);
 
   // Meal-split dataset for dashboard (stacked bar)
   const mealSplit = useMemo(()=>{
     const byMeal = { breakfast:{kcal:0,protein:0,carbs:0,fat:0}, lunch:{kcal:0,protein:0,carbs:0,fat:0}, dinner:{kcal:0,protein:0,carbs:0,fat:0}, snack:{kcal:0,protein:0,carbs:0,fat:0}, other:{kcal:0,protein:0,carbs:0,fat:0} };
-    entriesForSplitDate.forEach(e=>{ const f=foods.find(x=>x.id===e.foodId); if(!f) return; const m=scaleMacros(f,e.qty); const key = e.meal||'other'; byMeal[key].kcal+=m.kcal; byMeal[key].protein+=m.protein; byMeal[key].carbs+=m.carbs; byMeal[key].fat+=m.fat; });
+    entriesForDay.forEach(e=>{ const f=foods.find(x=>x.id===e.foodId); if(!f) return; const m=scaleMacros(f,e.qty); const key = e.meal||'other'; byMeal[key].kcal+=m.kcal; byMeal[key].protein+=m.protein; byMeal[key].carbs+=m.carbs; byMeal[key].fat+=m.fat; });
     return MEAL_ORDER.map(k=>({ meal: MEAL_LABELS[k], ...byMeal[k] }));
-  },[entriesForSplitDate,foods]);
+  },[entriesForDay,foods]);
 
   // Mutators
   function addEntry(){ if(!selectedFood||!qty||qty<=0) return; const e={id:crypto.randomUUID(),date:logDate,foodId:selectedFood.id,qty,meal}; setEntries(prev=>[e,...prev]); setQty(0); setSelectedFoodId(null); setMeal(suggestMealByNow()); }
@@ -745,7 +415,7 @@ export default function MacroTrackerApp(){
   }
 
   function exportJSON(){ const blob = new Blob([JSON.stringify({foods,entries,settings},null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`macrotracker_backup_${todayISO()}.json`; a.click(); URL.revokeObjectURL(url); }
-  function importJSON(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(String(reader.result)); if(data.foods) setFoods(ensureFoods(data.foods)); if(data.entries) setEntries(data.entries); if(data.settings) setSettings(ensureSettings(data.settings));}catch{ alert('Invalid JSON file'); } }; reader.readAsText(file); }
+  function importJSON(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(String(reader.result)); if(data.foods) setFoods(ensureFoods(data.foods)); if(data.entries) setEntries(data.entries); if(data.settings) setSettings(data.settings);}catch{ alert('Invalid JSON file'); } }; reader.readAsText(file); }
 
   // Helper
   const left = (goal, actual)=> Math.max(0, (goal||0) - (actual||0));
@@ -768,44 +438,6 @@ export default function MacroTrackerApp(){
       : <ArrowDown className="h-3.5 w-3.5" />;
   };
 
-  const setGoalModeForDate = useCallback((isoDate, mode) => {
-    if (!isoDate || !ISO_DATE_RE.test(isoDate)) return;
-    const normalized = mode === 'rest' ? 'rest' : 'train';
-    setSettings((prev) => {
-      const goals = ensureDailyGoals(prev.dailyGoals);
-      const today = todayISO();
-      const byDate = { ...goals.byDate, [isoDate]: normalized };
-      return {
-        ...prev,
-        dailyGoals: {
-          ...goals,
-          active: isoDate === today ? normalized : goals.active,
-          byDate,
-        },
-      };
-    });
-  }, [setSettings]);
-
-  const setGoalValue = (type, key) => (value) => {
-    setSettings((prev) => {
-      const goals = ensureDailyGoals(prev.dailyGoals);
-      return {
-        ...prev,
-        dailyGoals: {
-          ...goals,
-          [type]: {
-            ...goals[type],
-            [key]: value,
-          },
-        },
-      };
-    });
-  };
-
-  const handleGoalTabChange = (value) => {
-    setGoalModeForDate(todayISO(), value === 'rest' ? 'rest' : 'train');
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 text-slate-900 dark:from-slate-900 dark:to-slate-950 dark:text-slate-100">
       <header className="sticky top-0 z-40 backdrop-blur border-b border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-900/60">
@@ -820,20 +452,13 @@ export default function MacroTrackerApp(){
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" className={headerPillClass} onClick={exportJSON}>
-              <Download className="h-4 w-4" />
-              <span>Export</span>
-            </Button>
-            <label className={`inline-flex items-center ${headerPillClass} cursor-pointer`}>
+            <Button variant="ghost" className="gap-2" onClick={exportJSON}><Download className="h-4 w-4" /> Export</Button>
+            <label className="inline-flex items-center gap-2 cursor-pointer px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800">
               <Upload className="h-4 w-4" />
               <span>Import</span>
               <input type="file" accept="application/json" className="hidden" onChange={(e)=>e.target.files&&importJSON(e.target.files[0])} />
             </label>
-            <GoalModeToggle active={activeGoalType} onChange={handleGoalTabChange} />
-            <Button variant="ghost" className={headerPillClass} onClick={()=>setTab('settings')}>
-              <SettingsIcon className="h-4 w-4"/>
-              <span>Settings</span>
-            </Button>
+            <Button variant="outline" className="gap-2" onClick={()=>setTab('settings')}><SettingsIcon className="h-4 w-4"/> Settings</Button>
             <Button variant="ghost" size="icon" onClick={()=>setTheme(theme==='dark'?'light': theme==='light'?'system':'dark')} title="Theme: dark/light/system">
               {theme==='dark'? <SunMedium className="h-5 w-5"/> : theme==='light'? <Moon className="h-5 w-5"/> : <SunMedium className="h-5 w-5"/>}
             </Button>
@@ -845,7 +470,7 @@ export default function MacroTrackerApp(){
           <div className="max-w-6xl mx-auto px-4 py-2 flex items-center justify-between gap-3">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm flex-1">
               {(() => {
-                const rem = stickyGoals.kcal - stickyTotals.kcal;
+                const rem = settings.dailyGoals.kcal - stickyTotals.kcal;
                 const over = rem < 0;
                 const sub = over ? `${Math.abs(rem).toFixed(0)} over` : `${rem.toFixed(0)} left`;
                 return (
@@ -859,7 +484,7 @@ export default function MacroTrackerApp(){
                 );
               })()}
               {(() => {
-                const rem = stickyGoals.protein - stickyTotals.protein;
+                const rem = settings.dailyGoals.protein - stickyTotals.protein;
                 const over = rem < 0;
                 const sub = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
                 return (
@@ -873,7 +498,7 @@ export default function MacroTrackerApp(){
                 );
               })()}
               {(() => {
-                const rem = stickyGoals.carbs - stickyTotals.carbs;
+                const rem = settings.dailyGoals.carbs - stickyTotals.carbs;
                 const over = rem < 0;
                 const sub = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
                 return (
@@ -887,7 +512,7 @@ export default function MacroTrackerApp(){
                 );
               })()}
               {(() => {
-                const rem = stickyGoals.fat - stickyTotals.fat;
+                const rem = settings.dailyGoals.fat - stickyTotals.fat;
                 const over = rem < 0;
                 const sub = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
                 return (
@@ -927,36 +552,10 @@ export default function MacroTrackerApp(){
           {/* DASHBOARD */}
           <TabsContent value="dashboard" className="mt-6 space-y-6">
             <div className="grid md:grid-cols-4 gap-4">
-              <KpiCard title="Calories" value={`${totalsForCard.kcal.toFixed(0)} kcal`} goal={dashboardGoals.kcal} />
-              <KpiCard title="Protein" value={`${totalsForCard.protein.toFixed(0)} g`} goal={dashboardGoals.protein} />
-              <KpiCard title="Carbs" value={`${totalsForCard.carbs.toFixed(0)} g`} goal={dashboardGoals.carbs} />
-              <KpiCard title="Fat" value={`${totalsForCard.fat.toFixed(0)} g`} goal={dashboardGoals.fat} />
-            </div>
-
-            <div className="grid lg:grid-cols-2 gap-4">
-              <Card className="h-full min-h-[360px] flex flex-col">
-                <CardHeader>
-                  <div className="flex items-center justify-between gap-3">
-                    <CardTitle>Goal vs Actual</CardTitle>
-                    <div className="flex items-center gap-2">
-                      <GoalModeBadge value={goalDateMode} />
-                      <DatePickerButton value={goalDate} onChange={(value)=>setGoalDate(value||todayISO())} className="w-44" />
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex-1">
-                  <div className="flex h-full items-center justify-center">
-                    <div className="grid h-full grid-cols-2 gap-4 content-center origin-center scale-90">
-                      <GoalDonut label="Calories" theme={MACRO_THEME.kcal} actual={goalTotals.kcal} goal={goalTarget.kcal} unit="kcal" />
-                      <GoalDonut label="Protein" theme={MACRO_THEME.protein} actual={goalTotals.protein} goal={goalTarget.protein} unit="g" />
-                      <GoalDonut label="Carbs" theme={MACRO_THEME.carbs} actual={goalTotals.carbs} goal={goalTarget.carbs} unit="g" />
-                      <GoalDonut label="Fat" theme={MACRO_THEME.fat} actual={goalTotals.fat} goal={goalTarget.fat} unit="g" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <WeeklyNutritionCard data={weeklyNutrition} />
+              <KpiCard title="Calories" value={`${totalsForCard.kcal.toFixed(0)} kcal`} goal={settings.dailyGoals.kcal} />
+              <KpiCard title="Protein" value={`${totalsForCard.protein.toFixed(0)} g`} goal={settings.dailyGoals.protein} />
+              <KpiCard title="Carbs" value={`${totalsForCard.carbs.toFixed(0)} g`} goal={settings.dailyGoals.carbs} />
+              <KpiCard title="Fat" value={`${totalsForCard.fat.toFixed(0)} g`} goal={settings.dailyGoals.fat} />
             </div>
 
             {/* Macros Trend */}
@@ -985,186 +584,58 @@ export default function MacroTrackerApp(){
               <div className="mt-4" />
               <CardContent className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={trendSeries} margin={{ left: 12, right: 12 }}>
-                    <defs>
-                      <linearGradient id="trend-kcal-stroke" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={MACRO_THEME.kcal.gradientFrom} />
-                        <stop offset="100%" stopColor={MACRO_THEME.kcal.gradientTo} />
-                      </linearGradient>
-                      <linearGradient id="trend-protein-stroke" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={MACRO_THEME.protein.gradientFrom} />
-                        <stop offset="100%" stopColor={MACRO_THEME.protein.gradientTo} />
-                      </linearGradient>
-                      <linearGradient id="trend-carbs-stroke" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={MACRO_THEME.carbs.gradientFrom} />
-                        <stop offset="100%" stopColor={MACRO_THEME.carbs.gradientTo} />
-                      </linearGradient>
-                      <linearGradient id="trend-fat-stroke" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={MACRO_THEME.fat.gradientFrom} />
-                        <stop offset="100%" stopColor={MACRO_THEME.fat.gradientTo} />
-                      </linearGradient>
-                      <linearGradient id="trend-kcal-fill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={MACRO_THEME.kcal.gradientFrom} stopOpacity={0.35} />
-                        <stop offset="95%" stopColor={MACRO_THEME.kcal.gradientTo} stopOpacity={0.05} />
-                      </linearGradient>
-                      <linearGradient id="trend-protein-fill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={MACRO_THEME.protein.gradientFrom} stopOpacity={0.35} />
-                        <stop offset="95%" stopColor={MACRO_THEME.protein.gradientTo} stopOpacity={0.05} />
-                      </linearGradient>
-                      <linearGradient id="trend-carbs-fill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={MACRO_THEME.carbs.gradientFrom} stopOpacity={0.35} />
-                        <stop offset="95%" stopColor={MACRO_THEME.carbs.gradientTo} stopOpacity={0.05} />
-                      </linearGradient>
-                      <linearGradient id="trend-fat-fill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={MACRO_THEME.fat.gradientFrom} stopOpacity={0.35} />
-                        <stop offset="95%" stopColor={MACRO_THEME.fat.gradientTo} stopOpacity={0.05} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="date" tickFormatter={(d)=>d.slice(5)} stroke="#94a3b8" tick={{ fill: '#64748b' }} axisLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} tickLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} />
-                    <YAxis stroke="#94a3b8" tick={{ fill: '#64748b' }} axisLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} tickLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} />
-                    <Legend iconType="circle" />
+                  <LineChart data={trendSeries} margin={{ left: 12, right: 12 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" tickFormatter={(d)=>d.slice(5)} />
+                    <YAxis />
+                    <Legend />
                     <RTooltip labelFormatter={(l)=>format(new Date(l), 'PP')} />
-                    {show.kcal && (
-                      <Area
-                        type="monotone"
-                        name="kcal"
-                        dataKey="kcal"
-                        stroke="url(#trend-kcal-stroke)"
-                        strokeWidth={3}
-                        fill="url(#trend-kcal-fill)"
-                        fillOpacity={1}
-                        dot={false}
-                        activeDot={{ r: 5 }}
-                      />
-                    )}
-                    {show.protein && (
-                      <Area
-                        type="monotone"
-                        name="Protein (g)"
-                        dataKey="protein"
-                        stroke="url(#trend-protein-stroke)"
-                        strokeWidth={3}
-                        fill="url(#trend-protein-fill)"
-                        fillOpacity={1}
-                        dot={false}
-                        activeDot={{ r: 5 }}
-                      />
-                    )}
-                    {show.carbs && (
-                      <Area
-                        type="monotone"
-                        name="Carbs (g)"
-                        dataKey="carbs"
-                        stroke="url(#trend-carbs-stroke)"
-                        strokeWidth={3}
-                        fill="url(#trend-carbs-fill)"
-                        fillOpacity={1}
-                        dot={false}
-                        activeDot={{ r: 5 }}
-                      />
-                    )}
-                    {show.fat && (
-                      <Area
-                        type="monotone"
-                        name="Fat (g)"
-                        dataKey="fat"
-                        stroke="url(#trend-fat-stroke)"
-                        strokeWidth={3}
-                        fill="url(#trend-fat-fill)"
-                        fillOpacity={1}
-                        dot={false}
-                        activeDot={{ r: 5 }}
-                      />
-                    )}
-                  </AreaChart>
+                    {show.kcal && <Line type="monotone" name="kcal" dataKey="kcal" dot={false} strokeWidth={2} stroke={COLORS.kcal} />}
+                    {show.protein && <Line type="monotone" name="Protein (g)" dataKey="protein" dot={false} strokeWidth={2} stroke={COLORS.protein} />}
+                    {show.carbs && <Line type="monotone" name="Carbs (g)" dataKey="carbs" dot={false} strokeWidth={2} stroke={COLORS.carbs} />}
+                    {show.fat && <Line type="monotone" name="Fat (g)" dataKey="fat" dot={false} strokeWidth={2} stroke={COLORS.fat} />}
+                  </LineChart>
                 </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Goal vs Actual (today) — donuts */}
+            <Card>
+              <CardHeader><CardTitle>Goal vs Actual (today)</CardTitle></CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <GoalDonut label="Calories" color={COLORS.kcal} actual={totalsForDate(todayISO()).kcal} goal={settings.dailyGoals.kcal} unit="kcal" />
+                  <GoalDonut label="Protein" color={COLORS.protein} actual={totalsForDate(todayISO()).protein} goal={settings.dailyGoals.protein} unit="g" />
+                  <GoalDonut label="Carbs" color={COLORS.carbs} actual={totalsForDate(todayISO()).carbs} goal={settings.dailyGoals.carbs} unit="g" />
+                  <GoalDonut label="Fat" color={COLORS.fat} actual={totalsForDate(todayISO()).fat} goal={settings.dailyGoals.fat} unit="g" />
+                </div>
               </CardContent>
             </Card>
 
             {/* Macro Split per Meal */}
             <Card>
-              <CardHeader className="pb-0">
-                <div className="flex items-center justify-between gap-3">
-                  <CardTitle className="flex items-center gap-2"><UtensilsCrossed className="h-5 w-5"/>Macro Split per Meal</CardTitle>
-                  <div className="flex items-center gap-2">
-                    <GoalModeBadge value={splitMode} />
-                    <DatePickerButton value={splitDate} onChange={(value)=>setSplitDate(value||todayISO())} className="w-44" />
-                  </div>
-                </div>
+              <CardHeader className="pb-0 flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2"><UtensilsCrossed className="h-5 w-5"/>Macro Split per Meal — {format(new Date(logDate), 'PP')}</CardTitle>
               </CardHeader>
               <div className="mt-4" />
               <CardContent className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={mealSplit}
-                    margin={{ left: 12, right: 12 }}
-                    barCategoryGap={24}
-                    barGap={16}
-                  >
-                    <defs>
-                      <linearGradient id="split-protein" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={MACRO_THEME.protein.gradientFrom} />
-                        <stop offset="100%" stopColor={MACRO_THEME.protein.gradientTo} />
-                      </linearGradient>
-                      <linearGradient id="split-carbs" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={MACRO_THEME.carbs.gradientFrom} />
-                        <stop offset="100%" stopColor={MACRO_THEME.carbs.gradientTo} />
-                      </linearGradient>
-                      <linearGradient id="split-fat" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={MACRO_THEME.fat.gradientFrom} />
-                        <stop offset="100%" stopColor={MACRO_THEME.fat.gradientTo} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="meal" axisLine={false} tickLine={false} />
-                    <YAxis axisLine={false} tickLine={false} tickFormatter={(value)=>`${formatNumber(value)} g`} />
-                    <Legend iconType="circle" />
-                    <RTooltip
-                      formatter={(value, key)=>[
-                        `${formatNumber(value)} g`,
-                        key === "protein" ? "Protein" : key === "carbs" ? "Carbs" : "Fat",
-                      ]}
-                    />
-                    <Bar
-                      dataKey="protein"
-                      name="Protein (g)"
-                      stackId="g"
-                      fill="url(#split-protein)"
-                      barSize={56}
-                      shape={(props)=>(
-                        <RoundedBottomBar {...props} radius={28} />
-                      )}
-                    />
-                    <Bar
-                      dataKey="carbs"
-                      name="Carbs (g)"
-                      stackId="g"
-                      fill="url(#split-carbs)"
-                      barSize={56}
-                    />
-                    <Bar
-                      dataKey="fat"
-                      name="Fat (g)"
-                      stackId="g"
-                      fill="url(#split-fat)"
-                      barSize={56}
-                      shape={(props)=>(
-                        <RoundedTopBar {...props} radius={28} />
-                      )}
-                    />
+                  <BarChart data={mealSplit} margin={{ left: 12, right: 12 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="meal" />
+                    <YAxis />
+                    <Legend />
+                    <RTooltip />
+                    <Bar dataKey="protein" name="Protein (g)" stackId="g" fill={COLORS.protein} />
+                    <Bar dataKey="carbs" name="Carbs (g)" stackId="g" fill={COLORS.carbs} />
+                    <Bar dataKey="fat" name="Fat (g)" stackId="g" fill={COLORS.fat} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
 
             {/* Top Foods by Macros (unchanged aside from existing top-5) */}
-            <TopFoodsCard
-              topFoods={topFoods}
-              topMacroKey={topMacroKey}
-              onMacroChange={setTopMacroKey}
-              selectedDate={topFoodsDate}
-              onDateChange={(value)=>setTopFoodsDate(value||todayISO())}
-              goalMode={topFoodsMode}
-            />
+            <TopFoodsCard topFoods={topFoods} topScope={topScope} topMacroKey={topMacroKey} onScopeChange={setTopScope} onMacroChange={setTopMacroKey} />
 
             {/* Averages tiles (non-empty days only) */}
             <div className="grid md:grid-cols-4 gap-4">
@@ -1179,10 +650,7 @@ export default function MacroTrackerApp(){
           <TabsContent value="daily" className="mt-6 space-y-6">
             <Card>
               <CardHeader>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <CardTitle className="flex items-center gap-2"><History className="h-5 w-5"/>Log your intake</CardTitle>
-                  <GoalModeSelect value={logDateMode} onChange={(mode)=>setGoalModeForDate(logDate || todayISO(), mode)} />
-                </div>
+                <CardTitle className="flex items-center gap-2"><History className="h-5 w-5"/>Log your intake</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid md:grid-cols-6 gap-3 items-end">
@@ -1395,34 +863,13 @@ export default function MacroTrackerApp(){
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
                     <h3 className="font-medium mb-2">Daily macro goals</h3>
-                    <p className="text-xs text-slate-500 mb-3">Switch between Train Day and Rest Day to edit targets and pick which set powers your dashboard.</p>
-                    <Tabs value={activeGoalType} onValueChange={handleGoalTabChange}>
-                      <TabsList className="grid grid-cols-2 w-full max-w-xs mb-3">
-                        <TabsTrigger value="train">Train Day</TabsTrigger>
-                        <TabsTrigger value="rest">Rest Day</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="train" className="mt-0">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="col-span-2">
-                            <LabeledNumber label="Calories (kcal)" value={settings.dailyGoals.train.kcal} onChange={setGoalValue('train','kcal')} />
-                          </div>
-                          <LabeledNumber label="Protein (g)" value={settings.dailyGoals.train.protein} onChange={setGoalValue('train','protein')} />
-                          <LabeledNumber label="Carbs (g)" value={settings.dailyGoals.train.carbs} onChange={setGoalValue('train','carbs')} />
-                          <LabeledNumber label="Fat (g)" value={settings.dailyGoals.train.fat} onChange={setGoalValue('train','fat')} />
-                        </div>
-                      </TabsContent>
-                      <TabsContent value="rest" className="mt-0">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="col-span-2">
-                            <LabeledNumber label="Calories (kcal)" value={settings.dailyGoals.rest.kcal} onChange={setGoalValue('rest','kcal')} />
-                          </div>
-                          <LabeledNumber label="Protein (g)" value={settings.dailyGoals.rest.protein} onChange={setGoalValue('rest','protein')} />
-                          <LabeledNumber label="Carbs (g)" value={settings.dailyGoals.rest.carbs} onChange={setGoalValue('rest','carbs')} />
-                          <LabeledNumber label="Fat (g)" value={settings.dailyGoals.rest.fat} onChange={setGoalValue('rest','fat')} />
-                        </div>
-                      </TabsContent>
-                    </Tabs>
-                    <p className="text-xs text-slate-500 mt-3">The active tab's goals feed the sticky macros, dashboard KPIs, and Goal vs Actual chart.</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <LabeledNumber label="Calories (kcal)" value={settings.dailyGoals.kcal} onChange={(v)=>setSettings({...settings, dailyGoals:{...settings.dailyGoals, kcal:v}})} />
+                      <div></div>
+                      <LabeledNumber label="Protein (g)" value={settings.dailyGoals.protein} onChange={(v)=>setSettings({...settings, dailyGoals:{...settings.dailyGoals, protein:v}})} />
+                      <LabeledNumber label="Carbs (g)" value={settings.dailyGoals.carbs} onChange={(v)=>setSettings({...settings, dailyGoals:{...settings.dailyGoals, carbs:v}})} />
+                      <LabeledNumber label="Fat (g)" value={settings.dailyGoals.fat} onChange={(v)=>setSettings({...settings, dailyGoals:{...settings.dailyGoals, fat:v}})} />
+                    </div>
                   </div>
                   <div>
                     <h3 className="font-medium mb-2">Appearance</h3>
@@ -1503,99 +950,6 @@ function LabeledNumber({ label, value, onChange }){
     </div>
   );
 }
-
-const GOAL_MODE_OPTIONS = [
-  { value: 'train', label: 'Train Day', Icon: Dumbbell, accent: COLORS.protein },
-  { value: 'rest', label: 'Rest Day', Icon: BedDouble, accent: COLORS.cyan },
-];
-
-function GoalModeToggle({ active, onChange }){
-  return (
-    <div
-      className="flex h-9 flex-shrink-0 items-center gap-1 rounded-full border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60 px-1 shadow-sm"
-      role="group"
-      aria-label="Select active goal profile"
-    >
-      {GOAL_MODE_OPTIONS.map(({ value, label, Icon, accent })=>{
-        const isActive = active===value;
-        return (
-          <button
-            key={value}
-            type="button"
-            onClick={()=>onChange(value)}
-            aria-pressed={isActive}
-            className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-slate-400 dark:focus-visible:ring-slate-500 ${isActive? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-sm': 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100'}`}
-          >
-            <span className="inline-flex items-center justify-center">
-              <Icon className={`h-3 w-3 ${isActive? '' : 'opacity-80'}`} />
-            </span>
-            <span>{label}</span>
-            <span className="ml-1 inline-flex h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} aria-hidden="true" />
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function GoalModeSelect({ value, onChange, className }) {
-  const normalized = value === 'rest' ? 'rest' : 'train';
-  const activeOption = GOAL_MODE_OPTIONS.find((option) => option.value === normalized) || GOAL_MODE_OPTIONS[0];
-  return (
-    <Select value={normalized} onValueChange={onChange}>
-      <SelectTrigger
-        className={cn(
-          "h-8 w-36 rounded-full border-slate-300 bg-white/80 pl-3 pr-3 text-xs dark:border-slate-700 dark:bg-slate-900/60",
-          className,
-        )}
-        aria-label={`Goal profile: ${activeOption.label}`}
-      >
-        <span className="sr-only">{activeOption.label}</span>
-        <div className="flex w-full items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <activeOption.Icon className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>{activeOption.label}</span>
-          </div>
-          <span className="inline-flex h-1.5 w-1.5 rounded-full" style={{ backgroundColor: activeOption.accent }} aria-hidden="true" />
-        </div>
-      </SelectTrigger>
-      <SelectContent align="end">
-        {GOAL_MODE_OPTIONS.map(({ value: option, label, Icon: OptionIcon, accent: optionAccent }) => (
-          <SelectItem key={option} value={option}>
-            <div className="flex items-center gap-2">
-              <OptionIcon className="h-4 w-4" />
-              <span>{label}</span>
-              <span className="ml-auto inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: optionAccent }} aria-hidden="true" />
-            </div>
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-function GoalModeBadge({ value, className }) {
-  const normalized = value === 'rest' ? 'rest' : 'train';
-  const activeOption = GOAL_MODE_OPTIONS.find((option) => option.value === normalized) || GOAL_MODE_OPTIONS[0];
-  return (
-    <div
-      className={cn(
-        "flex h-8 items-center justify-center gap-2 rounded-full border border-slate-300 bg-white/80 px-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300",
-        "pointer-events-none select-none",
-        className,
-      )}
-      title={activeOption.label}
-    >
-      <span className="sr-only">{activeOption.label}</span>
-      <activeOption.Icon className="h-3.5 w-3.5" aria-hidden="true" />
-      <span
-        className="inline-flex h-1.5 w-1.5 rounded-full"
-        style={{ backgroundColor: activeOption.accent }}
-        aria-hidden="true"
-      />
-    </div>
-  );
-}
 function KpiCard({ title, value, goal }){
   return (
     <Card className="overflow-hidden">
@@ -1625,146 +979,6 @@ function TogglePill({ label, active, onClick, color }){
     <button onClick={onClick} className={`text-xs px-3 py-1 rounded-full border transition ${active? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900': 'bg-transparent text-slate-700 dark:text-slate-200'}`} style={{ borderColor: color }}>
       <span className="inline-block w-2 h-2 rounded-full mr-2" style={{ backgroundColor: color }} />{label}
     </button>
-  );
-}
-
-function WeeklyNutritionCard({ data }) {
-  const days = data?.days ?? [];
-  const rows = data?.rows ?? [];
-  const hasData = days.length > 0 && rows.length > 0;
-
-  return (
-    <Card className="h-full min-h-[360px] flex flex-col">
-      <CardHeader>
-        <div className="flex items-center justify-between gap-3">
-          <CardTitle>Weekly Nutrition</CardTitle>
-          {data?.weekLabel && <span className="text-xs text-slate-500">{data.weekLabel}</span>}
-        </div>
-      </CardHeader>
-      <CardContent className="flex-1 pt-3 pb-4">
-        {!hasData ? (
-          <p className="text-sm text-slate-500">Log entries to see your weekly breakdown.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <div className="min-w-max">
-              <div className="grid grid-cols-[auto_repeat(7,minmax(0,1fr))_auto] items-end gap-x-3 gap-y-3 text-[13px] origin-top-left scale-90 mt-3">
-                <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Macro</div>
-                {days.map((day) => (
-                  <div key={day.iso} className="flex justify-center">
-                    <div
-                      className={cn(
-                        "flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold text-slate-500 transition-colors",
-                        day.isSelected && "text-slate-900 dark:text-slate-100",
-                        day.isToday ? "border border-slate-400/80 dark:border-slate-500/80" : "border border-transparent",
-                        day.isSelected && "ring-2 ring-offset-2 ring-offset-transparent ring-slate-400/70 dark:ring-slate-500/70",
-                      )}
-                    >
-                      {day.label}
-                    </div>
-                  </div>
-                ))}
-                <div className="pr-1 text-right text-[11px] font-medium uppercase tracking-wide text-slate-500">Selected day</div>
-                {rows.map((row) => (
-                  <Fragment key={row.key}>
-                    <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
-                      <span
-                        className="inline-flex h-2 w-2 rounded-full"
-                        style={{ backgroundImage: `linear-gradient(135deg, ${row.theme.gradientFrom}, ${row.theme.gradientTo})` }}
-                        aria-hidden="true"
-                      />
-                      <span>{row.label}</span>
-                    </div>
-                    {row.cells.map((cell, idx) => {
-                      const day = days[idx];
-                      return (
-                        <WeeklyNutritionCell
-                          key={`${row.key}-${cell.iso}`}
-                          theme={row.theme}
-                          unit={row.unit}
-                          actual={cell.actual}
-                          goal={cell.goal}
-                          isToday={day?.isToday}
-                          isSelected={day?.isSelected}
-                        />
-                      );
-                    })}
-                    <div className="text-right text-xs text-slate-600 dark:text-slate-300">
-                      <div className="font-semibold text-slate-900 dark:text-slate-100">
-                        {formatNumber(row.selectedActual)}
-                        <span className="ml-1 text-[10px] font-normal uppercase text-slate-500">{row.unit}</span>
-                      </div>
-                      {row.selectedGoal > 0 ? (
-                        <div className="text-[10px] text-slate-500">goal {formatNumber(row.selectedGoal)}</div>
-                      ) : (
-                        <div className="text-[10px] text-slate-400">no goal</div>
-                      )}
-                    </div>
-                  </Fragment>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function WeeklyNutritionCell({ theme, unit, actual, goal, isToday, isSelected }) {
-  const palette = theme ?? MACRO_THEME.kcal;
-  const safeActual = Math.max(0, actual || 0);
-  const safeGoal = Math.max(0, goal || 0);
-  const hasGoal = safeGoal > 0;
-  const ratioRaw = hasGoal ? safeActual / safeGoal : safeActual > 0 ? 1 : 0;
-  const cappedRatio = Math.min(Math.max(ratioRaw, 0), 2);
-  const baseRatio = Math.min(cappedRatio, 1);
-  const overRatio = Math.max(0, cappedRatio - 1);
-  const baseHeight = baseRatio * 50;
-  const overHeight = overRatio * 50;
-  const baseGradient = `linear-gradient(180deg, ${palette.gradientFrom}, ${palette.gradientTo})`;
-  const overGradient = `linear-gradient(180deg, ${palette.gradientTo}, ${palette.dark})`;
-  const tooltip = hasGoal
-    ? `${formatNumber(safeActual)} ${unit} of ${formatNumber(safeGoal)} ${unit}`
-    : `${formatNumber(safeActual)} ${unit}`;
-
-  const ringClass = isToday
-    ? "ring-2 ring-offset-2 ring-offset-transparent ring-slate-400/70 dark:ring-slate-500/70"
-    : isSelected
-    ? "ring-1 ring-offset-2 ring-offset-transparent ring-slate-300/70 dark:ring-slate-600/70"
-    : "";
-
-  return (
-    <div className="flex justify-center">
-      <div
-        className={cn(
-          "relative flex h-24 w-9 items-end justify-center rounded-xl px-1.5 py-2 transition-all",
-          ringClass,
-        )}
-        title={tooltip}
-      >
-        <div className="relative h-full w-[10px]" aria-hidden="true">
-          <div className="absolute inset-0 rounded-full bg-slate-200/60 dark:bg-slate-800/60" />
-          {hasGoal && (
-            <div
-              className="absolute left-1/2 w-3 -translate-x-1/2 rounded-full bg-slate-400/80 dark:bg-slate-500/70"
-              style={{ bottom: "50%", height: "2px" }}
-            />
-          )}
-          {baseHeight > 0 && (
-            <div
-              className="absolute bottom-0 left-0 right-0 mx-auto rounded-full"
-              style={{ height: `${baseHeight}%`, backgroundImage: baseGradient }}
-            />
-          )}
-          {overHeight > 0 && (
-            <div
-              className="absolute left-0 right-0 mx-auto rounded-full"
-              style={{ height: `${overHeight}%`, bottom: `${baseHeight}%`, backgroundImage: overGradient }}
-            />
-          )}
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -1814,178 +1028,52 @@ function AvgTile({ label, entries, foods, days, from }){
     </Card>
   );
 }
-function GoalDonut({ label, theme, actual, goal, unit }) {
-  const a = Math.max(0, actual || 0);
-  const g = Math.max(0, goal || 0);
-  const pctRaw = g > 0 ? (a / g) * 100 : 0;
-  const pct = Number.isFinite(pctRaw) ? Math.round(pctRaw) : 0;
+function GoalDonut({ label, color, actual, goal, unit }){
+  const a = Math.max(0, actual||0);
+  const g = Math.max(0, goal||0);
+  const pct = pctOf(a,g); // can exceed 100 now
+  const remaining = Math.max(0, g-a);
 
-  const basePct = g > 0 ? Math.min(Math.max(pctRaw, 0), 100) : a > 0 ? 100 : 0;
-  const overPct = g > 0 ? Math.min(Math.max(pctRaw - 100, 0), 100) : 0;
-
-  const radius = 52;
-  const strokeWidth = 14;
-  const circumference = 2 * Math.PI * radius;
-  const gradientId = useId();
-  const baseGradientId = `${gradientId}-base`;
-  const overGradientId = `${gradientId}-over`;
-  const textColor = theme.dark;
-
-  const dashFor = (percent) => {
-    if (percent <= 0) return `0 ${circumference}`;
-    if (percent >= 100) return `${circumference} 0.0001`;
-    const length = (percent / 100) * circumference;
-    return `${length} ${circumference - length}`;
-  };
-
-  const baseDasharray = dashFor(basePct);
-  const overDasharray = dashFor(overPct);
-
-  const hasGoal = g > 0;
+  const pieData = g>0
+    ? [{name:'Actual', value:a, fill:color}, {name:'Remaining', value:remaining, fill:COLORS.gray}]
+    : [{name:'Empty', value:1, fill:COLORS.gray}];
 
   return (
     <div className="flex flex-col items-center justify-center">
-      <div className="mb-1 text-base font-medium">{label}</div>
-      <div className="relative h-32 w-32">
-        <svg viewBox="0 0 120 120" className="h-full w-full">
-          <defs>
-            <linearGradient id={baseGradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={theme.gradientFrom} />
-              <stop offset="100%" stopColor={theme.gradientTo} />
-            </linearGradient>
-            <linearGradient id={overGradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={theme.gradientTo} />
-              <stop offset="100%" stopColor={theme.dark} />
-            </linearGradient>
-          </defs>
-          <circle
-            cx="60"
-            cy="60"
-            r={radius}
-            stroke={COLORS.gray}
-            strokeWidth={strokeWidth}
-            fill="transparent"
-            opacity={0.35}
-          />
-          {basePct > 0 && (
-            <circle
-              cx="60"
-              cy="60"
-              r={radius}
-              stroke={`url(#${baseGradientId})`}
-              strokeWidth={strokeWidth}
-              fill="transparent"
-              strokeDasharray={baseDasharray}
-              transform="rotate(-90 60 60)"
-              strokeLinecap="butt"
-            />
-          )}
-          {overPct > 0 && (
-            <circle
-              cx="60"
-              cy="60"
-              r={radius}
-              stroke={`url(#${overGradientId})`}
-              strokeWidth={strokeWidth}
-              fill="transparent"
-              strokeDasharray={overDasharray}
-              transform="rotate(-90 60 60)"
-              strokeLinecap="butt"
-            />
-          )}
-        </svg>
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="text-lg font-semibold" style={{ color: textColor }}>{Number.isFinite(pct) ? `${pct}%` : "0%"}</div>
+      <div className="text-sm font-medium mb-1">{label}</div>
+      <div className="relative w-32 h-32">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie data={pieData} dataKey="value" innerRadius={40} outerRadius={55} startAngle={90} endAngle={-270}>
+              {pieData.map((d,i)=>(<Cell key={i} fill={d.fill} />))}
+            </Pie>
+            <RTooltip formatter={(v,n)=>[`${Math.round(v)} ${unit}`, n]} />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="text-lg font-semibold" style={{ color }}>{Number.isFinite(pct)? `${pct}%` : '0%'}</div>
         </div>
       </div>
-      <div className="mt-1 text-xs text-slate-500">
-        {hasGoal ? (
-          <span>{Math.round(a)} / {Math.round(g)} {unit}</span>
-        ) : (
-          <span>{Math.round(a)} {unit}</span>
-        )}
-      </div>
+      <div className="mt-1 text-xs text-slate-500">{Math.round(a)} / {Math.round(g)} {unit}</div>
     </div>
   );
 }
-function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDateChange, goalMode }) {
-  const dayLabel = selectedDate ? format(new Date(selectedDate), "PP") : "Select a day";
-  const gradientPrefix = useId();
-  const unit = topMacroKey === "kcal" ? "kcal" : "g";
-
-  const { slices, total } = useMemo(() => {
-    const items = topFoods?.items ?? [];
-    const total = Math.max(0, topFoods?.total ?? 0);
-    const mapped = items.map((item, index) => {
-      const theme = TOP_FOOD_THEMES[index % TOP_FOOD_THEMES.length];
-      const gradientFrom = theme.gradientFrom ?? lightenHex(theme.base, 0.45);
-      const gradientTo = theme.gradientTo ?? darkenHex(theme.base, 0.8);
-      const share = total > 0 ? (item?.val ?? 0) / total : 0;
-      const percentage = share * 100;
-      return {
-        ...item,
-        share,
-        percentage,
-        theme,
-        gradientFrom,
-        gradientTo,
-        gradientId: `${gradientPrefix}-slice-${index}`,
-      };
-    });
-    return { slices: mapped, total };
-  }, [topFoods, gradientPrefix]);
-
-  const macroLabel = MACRO_LABELS[topMacroKey] ?? "Macro";
-  const leftItems = slices.slice(0, Math.min(2, slices.length));
-  const rightItems = slices.slice(leftItems.length, leftItems.length + Math.min(2, Math.max(0, slices.length - leftItems.length)));
-  const bottomItems = slices.slice(leftItems.length + rightItems.length);
-
-  const renderLegendItem = useCallback(
-    (item, index, positionKey) => {
-      const percentValue =
-        item.percentage >= 10 || item.percentage === 0
-          ? Math.round(item.percentage)
-          : Number(item.percentage.toFixed(1));
-      const badgeLabel = item.isOther ? "•" : index + 1;
-
-      return (
-        <div key={`${item.name}-${positionKey}`} className="relative rounded-2xl p-[1px]">
-          <div
-            className="absolute inset-0 rounded-2xl opacity-80"
-            style={{ background: `linear-gradient(135deg, ${item.gradientFrom}, ${item.gradientTo})` }}
-          />
-          <div className="relative flex items-center gap-3 rounded-[1.1rem] bg-white/90 px-4 py-3 shadow-sm backdrop-blur">
-            <span
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white shadow-sm"
-              style={{ background: `linear-gradient(135deg, ${item.gradientTo}, ${item.theme.base})` }}
-            >
-              {badgeLabel}
-            </span>
-            <div>
-              <div className="font-semibold text-slate-900">{item.name}</div>
-              <div className="text-xs text-slate-600">
-                {formatNumber(item.val)} {unit} · {percentValue}% of total
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    },
-    [unit]
-  );
-
+function TopFoodsCard({ topFoods, topScope, topMacroKey, onScopeChange, onMacroChange }){
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
-          <CardTitle>Top Foods by Macros — {dayLabel}</CardTitle>
+          <CardTitle>Top Foods by Macros — current {topScope==='day'?'day':'range'}</CardTitle>
           <div className="flex items-center gap-2">
-            <GoalModeBadge value={goalMode} />
-            <DatePickerButton value={selectedDate} onChange={onDateChange} className="w-44" />
+            <Select value={topScope} onValueChange={onScopeChange}>
+              <SelectTrigger className="h-8 w-36"><SelectValue placeholder="Scope" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="range">Range</SelectItem>
+                <SelectItem value="day">Selected day</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={topMacroKey} onValueChange={onMacroChange}>
-              <SelectTrigger className="h-8 w-40">
-                <SelectValue placeholder="Macro" />
-              </SelectTrigger>
+              <SelectTrigger className="h-8 w-40"><SelectValue placeholder="Macro" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="kcal">Calories</SelectItem>
                 <SelectItem value="protein">Protein</SelectItem>
@@ -1997,64 +1085,15 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
         </div>
       </CardHeader>
       <CardContent className="h-80">
-        <div className="grid h-full w-full grid-cols-[1fr_auto_1fr] grid-rows-[1fr_auto] items-center gap-6">
-          <div className="flex w-full flex-col items-stretch justify-center gap-3">
-            {leftItems.map((item, index) => renderLegendItem(item, index, `left-${index}`))}
-          </div>
-          <div className="relative row-span-2 flex h-full w-[260px] min-w-[220px] items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%" style={{ overflow: "visible" }}>
-              <PieChart margin={{ top: 32, right: 40, bottom: 32, left: 40 }} style={{ overflow: "visible" }}>
-                <defs>
-                  {slices.map((slice) => (
-                    <radialGradient key={slice.gradientId} id={slice.gradientId} cx="50%" cy="50%" r="65%">
-                      <stop offset="0%" stopColor={slice.gradientFrom} />
-                      <stop offset="100%" stopColor={slice.gradientTo} />
-                    </radialGradient>
-                  ))}
-                </defs>
-                <RTooltip
-                  formatter={(value) => [`${formatNumber(value)} ${unit}`, "Contribution"]}
-                  contentStyle={{ borderRadius: "12px", border: "1px solid rgba(148, 163, 184, 0.25)", boxShadow: "0 12px 24px rgba(15, 23, 42, 0.08)" }}
-                />
-                <Pie
-                  data={slices}
-                  dataKey="val"
-                  nameKey="name"
-                  innerRadius={58}
-                  outerRadius={92}
-                  paddingAngle={slices.length > 1 ? 3 : 0}
-                  stroke="#ffffff"
-                  strokeWidth={3}
-                  labelLine={false}
-                >
-                  {slices.map((slice) => (
-                    <Cell key={slice.gradientId} fill={`url(#${slice.gradientId})`} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 text-center">
-              <span className="text-xs uppercase tracking-wide text-slate-400">{macroLabel}</span>
-              <span className="text-lg font-semibold text-slate-800">
-                {formatNumber(total)} {unit}
-              </span>
-            </div>
-          </div>
-          <div className="flex w-full flex-col items-stretch justify-center gap-3">
-            {rightItems.map((item, index) => renderLegendItem(item, index + leftItems.length, `right-${index}`))}
-          </div>
-          <div className="col-span-3 flex flex-wrap items-center justify-center gap-3">
-            {bottomItems.length === 0 ? (
-              slices.length === 0 ? (
-                <p className="text-sm text-slate-500">No foods logged for this day.</p>
-              ) : null
-            ) : (
-              bottomItems.map((item, index) =>
-                renderLegendItem(item, index + leftItems.length + rightItems.length, `bottom-${index}`)
-              )
-            )}
-          </div>
-        </div>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Legend />
+            <RTooltip formatter={(v)=>[v, topMacroKey==='kcal'? 'kcal':'g']} />
+            <Pie dataKey="val" nameKey="name" data={topFoods} innerRadius={50} outerRadius={90} label>
+              {topFoods.map((_,i)=>(<Cell key={i} fill={[COLORS.kcal, COLORS.protein, COLORS.carbs, COLORS.fat, COLORS.cyan, COLORS.violet][i%6]} />))}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
       </CardContent>
     </Card>
   );
@@ -2063,20 +1102,6 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
 /*******************
  * Inline components
  *******************/
-function DatePickerButton({ value, onChange, className }){
-  return (
-    <div className="relative">
-      <CalendarIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-      <Input
-        type="date"
-        value={value ?? ''}
-        onChange={(event)=>onChange(event.target.value)}
-        max={todayISO()}
-        className={cn("h-8 rounded-full border-slate-300 pl-9 pr-3 text-xs", className)}
-      />
-    </div>
-  );
-}
 function FoodInput({ foods, selectedFoodId, onSelect }){
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -2382,7 +1407,6 @@ function AddFoodCard({ foods, onAdd }){
       protein: toNumber(basicForm.protein, 0),
       carbs: toNumber(basicForm.carbs, 0),
       fat: toNumber(basicForm.fat, 0),
-      createdAt: new Date().toISOString(),
     };
     onAdd(payload);
     setBasicForm(createBasicFoodForm());
@@ -2407,7 +1431,6 @@ function AddFoodCard({ foods, onAdd }){
       carbs: toNumber(recipeForm.carbs, 0),
       fat: toNumber(recipeForm.fat, 0),
       components: components.map((item) => ({ foodId: item.foodId, quantity: toNumber(item.quantity, 0) })),
-      createdAt: new Date().toISOString(),
     };
     onAdd(payload);
     setRecipeForm(createRecipeForm());
