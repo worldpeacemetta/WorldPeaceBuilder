@@ -693,6 +693,100 @@ export default function MacroTrackerApp(){
     return list;
   }, [foods, foodSort]);
 
+  const activeGoalType = settings.dailyGoals?.active === 'rest' ? 'rest' : 'train';
+  const goalSchedule = settings.dailyGoals?.byDate ?? {};
+  const sortedScheduleKeys = useMemo(() => Object.keys(goalSchedule).sort(), [goalSchedule]);
+
+  const resolveModeForDate = useCallback((isoDate) => {
+    if (isoDate && goalSchedule[isoDate]) {
+      const mode = goalSchedule[isoDate];
+      if (mode === 'rest' || mode === 'train') {
+        return mode;
+      }
+    }
+    if (isoDate) {
+      for (let i = sortedScheduleKeys.length - 1; i >= 0; i -= 1) {
+        const key = sortedScheduleKeys[i];
+        if (key <= isoDate) {
+          const mode = goalSchedule[key];
+          if (mode === 'rest' || mode === 'train') {
+            return mode;
+          }
+        }
+      }
+    }
+    return activeGoalType;
+  }, [activeGoalType, goalSchedule, sortedScheduleKeys]);
+
+  const goalValuesForDate = useCallback((isoDate) => {
+    const mode = resolveModeForDate(isoDate);
+    const base = settings.dailyGoals?.[mode];
+    if (base) return base;
+    return settings.dailyGoals?.[activeGoalType] ?? DEFAULT_GOALS;
+  }, [activeGoalType, resolveModeForDate, settings.dailyGoals]);
+
+  const stickyGoals = useMemo(() => goalValuesForDate(stickyDate), [goalValuesForDate, stickyDate]);
+  const dashboardGoals = useMemo(() => goalValuesForDate(logDate), [goalValuesForDate, logDate]);
+  const goalTarget = useMemo(() => goalValuesForDate(goalDate), [goalValuesForDate, goalDate]);
+  const logDateMode = resolveModeForDate(logDate);
+  const splitMode = resolveModeForDate(splitDate);
+  const goalDateMode = resolveModeForDate(goalDate);
+  const topFoodsMode = resolveModeForDate(topFoodsDate);
+
+  const headerPillClass = "gap-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60 px-3 py-2 text-xs font-medium shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800";
+
+  const sortedFoods = useMemo(()=>{
+    const list = [...foods];
+    list.sort((a, b)=>{
+      const dir = foodSort.direction === "asc" ? 1 : -1;
+      let av;
+      let bv;
+      switch(foodSort.column){
+        case "createdAt":
+          av = Date.parse(a.createdAt ?? "") || 0;
+          bv = Date.parse(b.createdAt ?? "") || 0;
+          break;
+        case "name":
+          av = (a.name ?? "").toLowerCase();
+          bv = (b.name ?? "").toLowerCase();
+          break;
+        case "category":
+          av = getCategoryLabel(a.category ?? DEFAULT_CATEGORY).toLowerCase();
+          bv = getCategoryLabel(b.category ?? DEFAULT_CATEGORY).toLowerCase();
+          break;
+        case "unit":
+          av = a.unit === "perServing" ? `per ${formatNumber(a.servingSize ?? 1)} g serving` : "per 100 g";
+          bv = b.unit === "perServing" ? `per ${formatNumber(b.servingSize ?? 1)} g serving` : "per 100 g";
+          av = av.toLowerCase();
+          bv = bv.toLowerCase();
+          break;
+        case "kcal":
+          av = a.kcal ?? 0;
+          bv = b.kcal ?? 0;
+          break;
+        case "protein":
+          av = a.protein ?? 0;
+          bv = b.protein ?? 0;
+          break;
+        case "carbs":
+          av = a.carbs ?? 0;
+          bv = b.carbs ?? 0;
+          break;
+        case "fat":
+          av = a.fat ?? 0;
+          bv = b.fat ?? 0;
+          break;
+        default:
+          av = 0;
+          bv = 0;
+      }
+      if(av < bv) return -1 * dir;
+      if(av > bv) return 1 * dir;
+      return 0;
+    });
+    return list;
+  }, [foods, foodSort]);
+
   // Trend
   const [trendRange, setTrendRange] = useState('7');
   const [show, setShow] = useState({kcal:true, protein:true, carbs:false, fat:false});
