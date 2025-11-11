@@ -470,18 +470,50 @@ const MEAL_ORDER = ['breakfast','lunch','dinner','snack','other'];
  *******************/
 export default function MacroTrackerApp(){
   const [theme, setTheme] = useState(load(K_THEME, 'system'));
+  const [systemPrefersDark, setSystemPrefersDark] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  });
+  const resolvedTheme = theme === 'system' ? (systemPrefersDark ? 'dark' : 'light') : theme;
   const [foods, setFoods] = useState(()=> ensureFoods(load(K_FOODS, DEFAULT_FOODS)));
   const [foodSort, setFoodSort] = useState({ column: "createdAt", direction: "desc" });
   const [entries, setEntries] = useState(load(K_ENTRIES, []));
   const [settings, setSettings] = useState(()=> ensureSettings(load(K_SETTINGS, DEFAULT_SETTINGS)));
   const [tab, setTab] = useState('dashboard');
+  const isDarkMode = resolvedTheme === 'dark';
+  const cycleTheme = useCallback(() => {
+    setTheme((current) => {
+      if (current === 'dark') return 'light';
+      if (current === 'light') return 'system';
+      return 'dark';
+    });
+  }, []);
+  const nextTheme = theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark';
+  const nextThemeLabel = nextTheme === 'system' ? 'System' : nextTheme === 'dark' ? 'Dark' : 'Light';
+  const themeTooltip = useMemo(() => {
+    const label = isDarkMode ? 'Dark' : 'Light';
+    return theme === 'system'
+      ? `Theme: System (${label}) — next: ${nextThemeLabel}`
+      : `Theme: ${label} — next: ${nextThemeLabel}`;
+  }, [isDarkMode, nextThemeLabel, theme]);
 
   // Theme handling
-  useEffect(()=>{
-    const root = document.documentElement; const mql = window.matchMedia('(prefers-color-scheme: dark)');
-    const apply = ()=>{ const dark = theme==='system'? mql.matches : theme==='dark'; root.classList.toggle('dark', dark); };
-    apply(); if(theme==='system'){ mql.addEventListener('change', apply); return ()=> mql.removeEventListener('change', apply);} save(K_THEME, theme);
-  },[theme]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mql = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleChange = (event) => setSystemPrefersDark(event.matches);
+    setSystemPrefersDark(mql.matches);
+    mql.addEventListener("change", handleChange);
+    return () => mql.removeEventListener("change", handleChange);
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    const dark = theme === 'system' ? systemPrefersDark : theme === 'dark';
+    root.classList.toggle("dark", dark);
+    save(K_THEME, theme);
+  }, [theme, systemPrefersDark]);
 
   useEffect(()=>save(K_FOODS, foods),[foods]);
   useEffect(()=>save(K_ENTRIES, entries),[entries]);
@@ -834,8 +866,14 @@ export default function MacroTrackerApp(){
               <SettingsIcon className="h-4 w-4"/>
               <span>Settings</span>
             </Button>
-            <Button variant="ghost" size="icon" onClick={()=>setTheme(theme==='dark'?'light': theme==='light'?'system':'dark')} title="Theme: dark/light/system">
-              {theme==='dark'? <SunMedium className="h-5 w-5"/> : theme==='light'? <Moon className="h-5 w-5"/> : <SunMedium className="h-5 w-5"/>}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={cycleTheme}
+              title={themeTooltip}
+              aria-label={`Cycle theme (next: ${nextThemeLabel})`}
+            >
+              {isDarkMode ? <Moon className="h-5 w-5" /> : <SunMedium className="h-5 w-5" />}
             </Button>
           </div>
         </div>
@@ -1429,9 +1467,17 @@ export default function MacroTrackerApp(){
                     <div className="flex items-center justify-between rounded-xl border p-4 border-slate-200 dark:border-slate-700">
                       <div>
                         <div className="font-medium">Dark mode</div>
-                        <div className="text-sm text-slate-500">Follow system or toggle in header</div>
+                        <div className="text-sm text-slate-500">
+                          {theme === 'system'
+                            ? `Following system preference (${isDarkMode ? 'Dark' : 'Light'})`
+                            : `Manual ${isDarkMode ? 'Dark' : 'Light'} theme`}
+                        </div>
                       </div>
-                      <Switch checked={theme==='dark'} onCheckedChange={(b)=>setTheme(b? 'dark':'light')} />
+                      <Switch
+                        checked={isDarkMode}
+                        onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+                        aria-label="Toggle dark mode"
+                      />
                     </div>
                   </div>
                 </div>
