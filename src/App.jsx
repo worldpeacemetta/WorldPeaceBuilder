@@ -28,6 +28,7 @@ import {
   YAxis,
   Legend,
   Cell,
+  LabelList,
 } from "recharts";
 import {
   Calendar as CalendarIcon,
@@ -310,7 +311,26 @@ const DEFAULT_SETTINGS = {
     active: "train",
   }),
   profile: { activity: "moderate" },
+  profileHistory: [],
 };
+
+function ensureBodyHistory(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => {
+      const date = typeof entry?.date === "string" && ISO_DATE_RE.test(entry.date) ? entry.date : null;
+      if (!date) return null;
+      const weightKg = toNumber(entry?.weightKg, 0);
+      const bodyFatPct = entry?.bodyFatPct == null ? null : toNumber(entry.bodyFatPct, 0);
+      const recordedAt =
+        typeof entry?.recordedAt === "string" && !Number.isNaN(Date.parse(entry.recordedAt))
+          ? entry.recordedAt
+          : `${date}T00:00:00.000Z`;
+      return { date, weightKg, bodyFatPct, recordedAt };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
 
 function ensureSettings(value) {
   const base = value && typeof value === "object" ? value : {};
@@ -322,6 +342,7 @@ function ensureSettings(value) {
     ...base,
     dailyGoals: ensureDailyGoals(base.dailyGoals),
     profile,
+    profileHistory: ensureBodyHistory(base.profileHistory),
   };
 }
 
@@ -481,21 +502,21 @@ export default function MacroTrackerApp(){
   const [settings, setSettings] = useState(()=> ensureSettings(load(K_SETTINGS, DEFAULT_SETTINGS)));
   const [tab, setTab] = useState('dashboard');
   const isDarkMode = resolvedTheme === 'dark';
-  const cycleTheme = useCallback(() => {
+  const isFollowingSystem = theme === 'system';
+  const toggleTheme = useCallback(() => {
     setTheme((current) => {
-      if (current === 'dark') return 'light';
-      if (current === 'light') return 'system';
-      return 'dark';
+      const resolved = current === 'system' ? (systemPrefersDark ? 'dark' : 'light') : current;
+      return resolved === 'dark' ? 'light' : 'dark';
     });
-  }, []);
-  const nextTheme = theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark';
-  const nextThemeLabel = nextTheme === 'system' ? 'System' : nextTheme === 'dark' ? 'Dark' : 'Light';
+  }, [systemPrefersDark]);
+  const followSystemTheme = useCallback(() => setTheme('system'), []);
   const themeTooltip = useMemo(() => {
     const label = isDarkMode ? 'Dark' : 'Light';
-    return theme === 'system'
-      ? `Theme: System (${label}) — next: ${nextThemeLabel}`
-      : `Theme: ${label} — next: ${nextThemeLabel}`;
-  }, [isDarkMode, nextThemeLabel, theme]);
+    const nextLabel = isDarkMode ? 'Light' : 'Dark';
+    return isFollowingSystem
+      ? `Following system (${label}). Click to switch to ${nextLabel} manually.`
+      : `Manual ${label} mode — click to switch to ${nextLabel}.`;
+  }, [isDarkMode, isFollowingSystem]);
 
   // Theme handling
   useEffect(() => {
@@ -547,6 +568,127 @@ export default function MacroTrackerApp(){
   const stickyDate = stickyMode==='today'? todayISO(): logDate;
   const stickyTotals = useMemo(()=> totalsForDate(stickyDate), [entries,foods,stickyDate]);
   const totalsForCard = useMemo(()=> totalsForDate(logDate), [rowsForDay]);
+
+  const profileHistory = useMemo(() => ensureBodyHistory(settings.profileHistory), [settings.profileHistory]);
+
+  const weightTrendSummary = useMemo(() => {
+    if (!profileHistory.length) {
+      return { data: [], latestWeight: null, latestDate: null };
+    }
+    const today = startOfDay(new Date());
+    const start = subDays(today, 29);
+    const startIso = toISODate(start);
+    const endIso = toISODate(today);
+    const data = profileHistory
+      .filter((entry) => entry.date >= startIso && entry.date <= endIso)
+      .map((entry) => ({
+        date: entry.date,
+        label: format(new Date(`${entry.date}T00:00:00`), "MMM d"),
+        weight: Number.isFinite(entry.weightKg) ? +Number(entry.weightKg).toFixed(1) : 0,
+      }));
+    const latest = profileHistory[profileHistory.length - 1];
+    return {
+      data,
+      latestWeight: Number.isFinite(latest?.weightKg) ? +Number(latest.weightKg).toFixed(1) : null,
+      latestDate: latest ? format(new Date(`${latest.date}T00:00:00`), "PP") : null,
+    };
+  }, [profileHistory]);
+
+  const loggingSummary = useMemo(() => {
+    const today = startOfDay(new Date());
+    const start = subDays(today, 29);
+    const entryDates = new Set(entries.map((entry) => entry.date));
+    const days = eachDayOfInterval({ start, end: today });
+    const grid = days.map((day) => {
+      const iso = toISODate(day);
+      return {
+        iso,
+        label: format(day, "MMM d"),
+        logged: entryDates.has(iso),
+      };
+    });
+    const totalLogged = grid.filter((item) => item.logged).length;
+    const thisWeekStart = startOfWeek(today, { weekStartsOn: 1 });
+    const thisWeekEnd = endOfWeek(today, { weekStartsOn: 1 });
+    const thisWeekDays = eachDayOfInterval({ start: thisWeekStart, end: thisWeekEnd });
+    const thisWeekLogged = thisWeekDays.reduce((count, day) => {
+      const iso = toISODate(day);
+      return count + (entryDates.has(iso) ? 1 : 0);
+    }, 0);
+    return {
+      grid,
+      totalLogged,
+      totalDays: grid.length,
+      thisWeekLogged,
+    };
+  }, [entries]);
+
+  const totalsByDate = useMemo(() => {
+    const map = new Map();
+    if (!entries.length) return map;
+    const foodMap = new Map(foods.map((food) => [food.id, food]));
+    entries.forEach((entry) => {
+      const food = foodMap.get(entry.foodId);
+      if (!food) return;
+      const macros = scaleMacros(food, entry.qty);
+      const current = map.get(entry.date) ?? { kcal: 0, fat: 0, carbs: 0, protein: 0 };
+      current.kcal += macros.kcal;
+      current.fat += macros.fat;
+      current.carbs += macros.carbs;
+      current.protein += macros.protein;
+      map.set(entry.date, current);
+    });
+    return map;
+  }, [entries, foods]);
+
+  const averageSummaries = useMemo(() => {
+    const today = startOfDay(new Date());
+    const todayIso = toISODate(today);
+    const allDates = Array.from(totalsByDate.keys());
+
+    const computeForDates = (dates) => {
+      if (!dates.length) {
+        return { kcal: 0, protein: 0, carbs: 0, fat: 0 };
+      }
+      const totals = dates.reduce(
+        (acc, date) => {
+          const value = totalsByDate.get(date) ?? { kcal: 0, fat: 0, carbs: 0, protein: 0 };
+          return {
+            kcal: acc.kcal + value.kcal,
+            protein: acc.protein + value.protein,
+            carbs: acc.carbs + value.carbs,
+            fat: acc.fat + value.fat,
+          };
+        },
+        { kcal: 0, protein: 0, carbs: 0, fat: 0 }
+      );
+      const count = Math.max(1, dates.length);
+      return {
+        kcal: +(totals.kcal / count).toFixed(0),
+        protein: +(totals.protein / count).toFixed(1),
+        carbs: +(totals.carbs / count).toFixed(1),
+        fat: +(totals.fat / count).toFixed(1),
+      };
+    };
+
+    const recentDates = (count) =>
+      allDates
+        .slice()
+        .sort((a, b) => b.localeCompare(a))
+        .slice(0, count);
+
+    const rangeDates = (fromDate) => {
+      const fromIso = toISODate(startOfDay(fromDate));
+      return allDates.filter((date) => date >= fromIso && date <= todayIso).sort();
+    };
+
+    return [
+      { key: "7d", label: "Avg (7d)", averages: computeForDates(recentDates(7)) },
+      { key: "mtd", label: "Avg (MTD)", averages: computeForDates(rangeDates(startOfMonth(today))) },
+      { key: "qtd", label: "Avg (QTD)", averages: computeForDates(rangeDates(startOfQuarter(today))) },
+      { key: "ytd", label: "Avg (YTD)", averages: computeForDates(rangeDates(startOfYear(today))) },
+    ];
+  }, [totalsByDate]);
 
   const activeGoalType = settings.dailyGoals?.active === 'rest' ? 'rest' : 'train';
   const goalSchedule = settings.dailyGoals?.byDate ?? {};
@@ -838,6 +980,36 @@ export default function MacroTrackerApp(){
     setGoalModeForDate(todayISO(), value === 'rest' ? 'rest' : 'train');
   };
 
+  const handleSaveBodyProfile = useCallback(() => {
+    setSettings((prev) => {
+      const profile = prev.profile ?? {};
+      const weightValue = toNumber(profile.weightKg, 0);
+      const bodyFatValue =
+        profile.bodyFatPct == null || Number.isNaN(profile.bodyFatPct)
+          ? null
+          : toNumber(profile.bodyFatPct, 0);
+      const now = new Date();
+      const date = toISODate(now);
+      const history = ensureBodyHistory(prev.profileHistory);
+      const withoutToday = history.filter((entry) => entry.date !== date);
+      const nextHistory = [...withoutToday, {
+        date,
+        weightKg: weightValue,
+        bodyFatPct: bodyFatValue,
+        recordedAt: now.toISOString(),
+      }].sort((a, b) => a.date.localeCompare(b.date));
+      return {
+        ...prev,
+        profile: {
+          ...profile,
+          weightKg: weightValue,
+          bodyFatPct: bodyFatValue,
+        },
+        profileHistory: nextHistory,
+      };
+    });
+  }, [setSettings]);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 text-slate-900 dark:from-slate-900 dark:to-slate-950 dark:text-slate-100">
       <header className="sticky top-0 z-40 backdrop-blur border-b border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-900/60">
@@ -869,9 +1041,10 @@ export default function MacroTrackerApp(){
             <Button
               variant="ghost"
               size="icon"
-              onClick={cycleTheme}
+              onClick={toggleTheme}
               title={themeTooltip}
-              aria-label={`Cycle theme (next: ${nextThemeLabel})`}
+              aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+              aria-pressed={isDarkMode}
             >
               {isDarkMode ? <Moon className="h-5 w-5" /> : <SunMedium className="h-5 w-5" />}
             </Button>
@@ -1206,10 +1379,17 @@ export default function MacroTrackerApp(){
 
             {/* Averages tiles (non-empty days only) */}
             <div className="grid md:grid-cols-4 gap-4">
-              <AvgTile label="Avg (7d)" entries={entries} foods={foods} days={7} />
-              <AvgTile label="Avg (MTD)" entries={entries} foods={foods} from={startOfMonth(new Date())} />
-              <AvgTile label="Avg (QTD)" entries={entries} foods={foods} from={startOfQuarter(new Date())} />
-              <AvgTile label="Avg (YTD)" entries={entries} foods={foods} from={startOfYear(new Date())} />
+              {averageSummaries.map((summary) => (
+                <AverageSummaryCard key={summary.key} label={summary.label} averages={summary.averages} />
+              ))}
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <WeightTrendCard
+                data={weightTrendSummary.data}
+                latestWeight={weightTrendSummary.latestWeight}
+                latestDate={weightTrendSummary.latestDate}
+              />
+              <FoodLoggingCard summary={loggingSummary} />
             </div>
           </TabsContent>
 
@@ -1467,17 +1647,27 @@ export default function MacroTrackerApp(){
                     <div className="flex items-center justify-between rounded-xl border p-4 border-slate-200 dark:border-slate-700">
                       <div>
                         <div className="font-medium">Dark mode</div>
-                        <div className="text-sm text-slate-500">
-                          {theme === 'system'
+                        <div className="text-sm text-slate-500 dark:text-slate-400">
+                          {isFollowingSystem
                             ? `Following system preference (${isDarkMode ? 'Dark' : 'Light'})`
                             : `Manual ${isDarkMode ? 'Dark' : 'Light'} theme`}
                         </div>
                       </div>
-                      <Switch
-                        checked={isDarkMode}
-                        onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
-                        aria-label="Toggle dark mode"
-                      />
+                      <div className="flex items-center gap-3">
+                        <Switch
+                          checked={isDarkMode}
+                          onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+                          aria-label="Toggle dark mode"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={followSystemTheme}
+                          disabled={isFollowingSystem}
+                        >
+                          Use system
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1514,6 +1704,12 @@ export default function MacroTrackerApp(){
                             <SelectItem value="athlete">Athlete</SelectItem>
                           </SelectContent>
                         </Select>
+                      </div>
+                      <div className="col-span-2 flex flex-col items-end gap-2 pt-1">
+                        <Button onClick={handleSaveBodyProfile} className="self-end">Save</Button>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                          {weightTrendSummary.latestDate ? `Last saved ${weightTrendSummary.latestDate}` : 'No history recorded yet.'}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -1814,48 +2010,207 @@ function WeeklyNutritionCell({ theme, unit, actual, goal, isToday, isSelected })
   );
 }
 
-// Averages computed over non-empty days (unchanged)
-function AvgTile({ label, entries, foods, days, from }){
-  const todayIso = toISODate(startOfDay(new Date()));
-
-  const totalsByDate = useMemo(()=>{
-    const map = new Map();
-    entries.forEach(e=>{
-      const f = foods.find(x=>x.id===e.foodId); if(!f) return;
-      const m = scaleMacros(f, e.qty);
-      const t = map.get(e.date) || {kcal:0,fat:0,carbs:0,protein:0};
-      t.kcal+=m.kcal; t.fat+=m.fat; t.carbs+=m.carbs; t.protein+=m.protein;
-      map.set(e.date, t);
-    });
-    return map;
-  }, [entries, foods]);
-
-  let dates = [];
-  if (days) {
-    dates = Array.from(totalsByDate.keys()).sort((a,b)=> b.localeCompare(a)).slice(0, days);
-  } else if (from) {
-    const fromIso = toISODate(startOfDay(from));
-    dates = Array.from(totalsByDate.keys()).filter(d => d >= fromIso && d <= todayIso).sort();
-  }
-
-  const count = Math.max(1, dates.length);
-  const total = dates.reduce((acc, d)=>{
-    const t = totalsByDate.get(d) || {kcal:0,fat:0,carbs:0,protein:0};
-    return { kcal: acc.kcal + t.kcal, fat: acc.fat + t.fat, carbs: acc.carbs + t.carbs, protein: acc.protein + t.protein };
-  }, {kcal:0,fat:0,carbs:0,protein:0});
-
-  const avg = dates.length === 0
-    ? { kcal:0, fat:0, carbs:0, protein:0 }
-    : { kcal:+(total.kcal/count).toFixed(0), fat:+(total.fat/count).toFixed(1), carbs:+(total.carbs/count).toFixed(1), protein:+(total.protein/count).toFixed(1) };
+function AverageSummaryCard({ label, averages }) {
+  const gradientPrefix = useId();
+  const data = [
+    {
+      key: "kcal",
+      label: "Calories",
+      unit: "kcal",
+      value: averages?.kcal ?? 0,
+      gradientFrom: MACRO_THEME.kcal.gradientFrom,
+      gradientTo: MACRO_THEME.kcal.gradientTo,
+    },
+    {
+      key: "protein",
+      label: "Protein",
+      unit: "g",
+      value: averages?.protein ?? 0,
+      gradientFrom: MACRO_THEME.protein.gradientFrom,
+      gradientTo: MACRO_THEME.protein.gradientTo,
+    },
+    {
+      key: "carbs",
+      label: "Carbs",
+      unit: "g",
+      value: averages?.carbs ?? 0,
+      gradientFrom: MACRO_THEME.carbs.gradientFrom,
+      gradientTo: MACRO_THEME.carbs.gradientTo,
+    },
+    {
+      key: "fat",
+      label: "Fat",
+      unit: "g",
+      value: averages?.fat ?? 0,
+      gradientFrom: MACRO_THEME.fat.gradientFrom,
+      gradientTo: MACRO_THEME.fat.gradientTo,
+    },
+  ];
+  const chartData = data.map((item) => ({ ...item, gradientId: `${gradientPrefix}-${item.key}` }));
+  const maxValue = chartData.reduce((max, item) => Math.max(max, item.value ?? 0), 0);
+  const domainMax = maxValue > 0 ? maxValue * 1.1 : 1;
 
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">{label}</CardTitle></CardHeader>
-      <CardContent className="pt-0 grid grid-cols-4 gap-2 text-center">
-        <div><div className="text-xs text-slate-500">kcal</div><div className="text-lg font-semibold">{avg.kcal}</div></div>
-        <div><div className="text-xs text-slate-500">P</div><div className="text-lg font-semibold">{avg.protein}</div></div>
-        <div><div className="text-xs text-slate-500">C</div><div className="text-lg font-semibold">{avg.carbs}</div></div>
-        <div><div className="text-xs text-slate-500">F</div><div className="text-lg font-semibold">{avg.fat}</div></div>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm text-slate-500 dark:text-slate-400">{label}</CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="h-48 text-slate-500 dark:text-slate-300">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={chartData}
+              layout="vertical"
+              margin={{ top: 12, right: 36, left: 16, bottom: 12 }}
+              barCategoryGap={18}
+            >
+              <defs>
+                {chartData.map((item) => (
+                  <linearGradient key={item.gradientId} id={item.gradientId} x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor={item.gradientFrom} />
+                    <stop offset="100%" stopColor={item.gradientTo} />
+                  </linearGradient>
+                ))}
+              </defs>
+              <XAxis type="number" domain={[0, domainMax]} hide />
+              <YAxis
+                type="category"
+                dataKey="label"
+                axisLine={false}
+                tickLine={false}
+                width={72}
+                tick={{ fill: "currentColor", fontSize: 12 }}
+              />
+              <RTooltip
+                formatter={(value, _name, props) => [
+                  `${formatNumber(value)} ${props?.payload?.unit ?? ""}`.trim(),
+                  props?.payload?.label ?? "",
+                ]}
+              />
+              <Bar dataKey="value" radius={16} barSize={22}>
+                <LabelList dataKey="value" position="right" content={(props) => <AverageBarValueLabel {...props} />} />
+                {chartData.map((item) => (
+                  <Cell key={item.gradientId} fill={`url(#${item.gradientId})`} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AverageBarValueLabel({ x = 0, y = 0, width = 0, height = 0, value, payload }) {
+  if (value == null) return null;
+  const textX = x + width + 8;
+  const textY = y + height / 2;
+  const unit = payload?.unit ? ` ${payload.unit}` : "";
+  return (
+    <text
+      x={textX}
+      y={textY}
+      dominantBaseline="middle"
+      className="fill-slate-600 dark:fill-slate-200 text-[12px] font-semibold"
+    >
+      {`${formatNumber(value)}${unit}`}
+    </text>
+  );
+}
+
+function WeightTrendCard({ data, latestWeight, latestDate }) {
+  const gradientId = useId();
+  const hasData = Array.isArray(data) && data.length > 0;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle>Weight Trend</CardTitle>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Last Month</p>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="h-56">
+          {hasData ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data} margin={{ top: 12, right: 16, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id={`${gradientId}-fill`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#a855f7" stopOpacity={0.65} />
+                    <stop offset="100%" stopColor="#a855f7" stopOpacity={0.05} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.25)" />
+                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "currentColor", fontSize: 12 }} />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "currentColor", fontSize: 12 }}
+                  tickFormatter={(value) => `${formatNumber(value)} kg`}
+                  width={56}
+                />
+                <RTooltip
+                  formatter={(value) => [`${formatNumber(value)} kg`, "Weight"]}
+                  labelFormatter={(label) => label}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="weight"
+                  stroke="#a855f7"
+                  strokeWidth={3}
+                  fill={`url(#${gradientId}-fill)`}
+                  activeDot={{ r: 5 }}
+                  dot={{ r: 3 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex h-full items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+              Log a weight to see trends.
+            </div>
+          )}
+        </div>
+        <div className="mt-4 text-3xl font-semibold text-slate-900 dark:text-slate-100">
+          {latestWeight != null ? formatNumber(latestWeight) : "—"}
+          <span className="ml-2 text-sm font-medium text-slate-500 dark:text-slate-400">kg</span>
+        </div>
+        <div className="text-xs text-slate-500 dark:text-slate-400">
+          {latestDate ? `Latest entry on ${latestDate}` : "No entries recorded yet."}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function FoodLoggingCard({ summary }) {
+  const { grid = [], totalLogged = 0, totalDays = 0, thisWeekLogged = 0 } = summary ?? {};
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle>Food Logging</CardTitle>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Last 30 Days</p>
+      </CardHeader>
+      <CardContent className="pt-0 space-y-4">
+        <div className="grid grid-cols-6 gap-2">
+          {grid.map((day) => (
+            <div
+              key={day.iso}
+              className={cn(
+                "h-5 w-5 rounded-md border transition",
+                day.logged
+                  ? "border-transparent bg-sky-500/90 shadow-sm shadow-sky-500/40 dark:bg-sky-500/70"
+                  : "border-slate-200/70 bg-slate-200/50 dark:border-slate-700 dark:bg-slate-800/70"
+              )}
+              title={`${day.label} — ${day.logged ? "Logged" : "No log"}`}
+            />
+          ))}
+        </div>
+        <div className="flex items-baseline justify-between text-sm">
+          <span className="font-semibold text-slate-900 dark:text-slate-100">
+            {totalLogged}/{totalDays} days
+          </span>
+          <span className="text-xs text-slate-500 dark:text-slate-400">{thisWeekLogged}/7 this week</span>
+        </div>
       </CardContent>
     </Card>
   );
@@ -2000,16 +2355,16 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
             className="absolute inset-0 rounded-2xl opacity-80"
             style={{ background: `linear-gradient(135deg, ${item.gradientFrom}, ${item.gradientTo})` }}
           />
-          <div className="relative flex items-center gap-3 rounded-[1.1rem] bg-white/90 px-4 py-3 shadow-sm backdrop-blur">
+          <div className="relative flex items-center gap-3 rounded-[1.1rem] border border-white/60 bg-white/90 px-4 py-3 shadow-sm backdrop-blur dark:border-slate-800/70 dark:bg-slate-900/70">
             <span
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white shadow-sm"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white shadow-sm shadow-slate-900/20"
               style={{ background: `linear-gradient(135deg, ${item.gradientTo}, ${item.theme.base})` }}
             >
               {badgeLabel}
             </span>
             <div>
-              <div className="font-semibold text-slate-900">{item.name}</div>
-              <div className="text-xs text-slate-600">
+              <div className="font-semibold text-slate-900 dark:text-slate-100">{item.name}</div>
+              <div className="text-xs text-slate-600 dark:text-slate-400">
                 {formatNumber(item.val)} {unit} · {percentValue}% of total
               </div>
             </div>
@@ -2080,8 +2435,8 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
               </PieChart>
             </ResponsiveContainer>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 text-center">
-              <span className="text-xs uppercase tracking-wide text-slate-400">{macroLabel}</span>
-              <span className="text-lg font-semibold text-slate-800">
+              <span className="text-xs uppercase tracking-wide text-slate-400 dark:text-slate-500">{macroLabel}</span>
+              <span className="text-lg font-semibold text-slate-800 dark:text-slate-100">
                 {formatNumber(total)} {unit}
               </span>
             </div>
