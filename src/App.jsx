@@ -28,7 +28,6 @@ import {
   YAxis,
   Legend,
   Cell,
-  LabelList,
 } from "recharts";
 import {
   Calendar as CalendarIcon,
@@ -51,6 +50,8 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  Scale,
+  CakeSlice,
 } from "lucide-react";
 import { format, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval, startOfWeek, endOfWeek } from "date-fns";
 
@@ -559,6 +560,9 @@ export default function MacroTrackerApp(){
   const [meal, setMeal] = useState(/** @type {MealKey} */(suggestMealByNow()));
 
   const selectedFood = useMemo(()=> foods.find(f=>f.id===selectedFoodId)||null, [selectedFoodId,foods]);
+  const QuantityIcon = selectedFood?.unit === "perServing" ? CakeSlice : Scale;
+  const quantityLabelSuffix = selectedFood ? (selectedFood.unit === "per100g" ? "(g)" : "(servings)") : "";
+  const quantityPlaceholder = selectedFood ? (selectedFood.unit === "per100g" ? "e.g. 150" : "e.g. 1.5") : "";
 
   const entriesForDay = useMemo(()=> entries.filter(e=>e.date===logDate),[entries,logDate]);
   const rowsForDay = useMemo(()=> entriesForDay.map(e=>{ const f = foods.find(x=>x.id===e.foodId); if(!f) return { id:e.id, foodId:e.foodId, label:e.label??'Unknown', category:DEFAULT_CATEGORY, qty:e.qty, meal:e.meal||'other', kcal:0,fat:0,carbs:0,protein:0}; const m=scaleMacros(f,e.qty); return { id:e.id, foodId:e.foodId, label:f.name, category:f.category, qty:e.qty, meal:e.meal||'other', ...m}; }),[entriesForDay,foods]);
@@ -1079,56 +1083,60 @@ export default function MacroTrackerApp(){
               {(() => {
                 const rem = stickyGoals.kcal - stickyTotals.kcal;
                 const over = rem < 0;
-                const sub = over ? `${Math.abs(rem).toFixed(0)} over` : `${rem.toFixed(0)} left`;
+                const remaining = over ? `${Math.abs(rem).toFixed(0)} over` : `${rem.toFixed(0)} left`;
                 return (
                   <StripKpi
                     label="Calories"
-                    value={`${stickyTotals.kcal.toFixed(0)} kcal`}
-                    sub={sub}
                     color={COLORS.kcal}
-                    subColor={over ? COLORS.redDark : undefined}
+                    actual={`${stickyTotals.kcal.toFixed(0)} kcal`}
+                    goal={`${stickyGoals.kcal.toFixed(0)} kcal`}
+                    remaining={remaining}
+                    over={over}
                   />
                 );
               })()}
               {(() => {
                 const rem = stickyGoals.protein - stickyTotals.protein;
                 const over = rem < 0;
-                const sub = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
+                const remaining = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
                 return (
                   <StripKpi
                     label="Protein"
-                    value={`${stickyTotals.protein.toFixed(0)} g`}
-                    sub={sub}
                     color={COLORS.protein}
-                    subColor={over ? COLORS.redDark : undefined}
+                    actual={`${stickyTotals.protein.toFixed(0)} g`}
+                    goal={`${stickyGoals.protein.toFixed(0)} g`}
+                    remaining={remaining}
+                    over={over}
                   />
                 );
               })()}
               {(() => {
                 const rem = stickyGoals.carbs - stickyTotals.carbs;
                 const over = rem < 0;
-                const sub = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
+                const remaining = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
                 return (
                   <StripKpi
                     label="Carbs"
-                    value={`${stickyTotals.carbs.toFixed(0)} g`}
-                    sub={sub}
                     color={COLORS.carbs}
-                    subColor={over ? COLORS.redDark : undefined}
+                    actual={`${stickyTotals.carbs.toFixed(0)} g`}
+                    goal={`${stickyGoals.carbs.toFixed(0)} g`}
+                    remaining={remaining}
+                    over={over}
                   />
                 );
               })()}
               {(() => {
                 const rem = stickyGoals.fat - stickyTotals.fat;
                 const over = rem < 0;
-                const sub = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
+                const remaining = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
                 return (
                   <StripKpi
                     label="Fat"
-                    value={`${stickyTotals.fat.toFixed(0)} g`}
-                    sub={sub}
                     color={COLORS.fat}
-                    subColor={over ? COLORS.redDark : undefined}
+                    actual={`${stickyTotals.fat.toFixed(0)} g`}
+                    goal={`${stickyGoals.fat.toFixed(0)} g`}
+                    remaining={remaining}
+                    over={over}
                   />
                 );
               })()}
@@ -1158,13 +1166,6 @@ export default function MacroTrackerApp(){
 
           {/* DASHBOARD */}
           <TabsContent value="dashboard" className="mt-6 space-y-6">
-            <div className="grid md:grid-cols-4 gap-4">
-              <KpiCard title="Calories" value={`${totalsForCard.kcal.toFixed(0)} kcal`} goal={dashboardGoals.kcal} />
-              <KpiCard title="Protein" value={`${totalsForCard.protein.toFixed(0)} g`} goal={dashboardGoals.protein} />
-              <KpiCard title="Carbs" value={`${totalsForCard.carbs.toFixed(0)} g`} goal={dashboardGoals.carbs} />
-              <KpiCard title="Fat" value={`${totalsForCard.fat.toFixed(0)} g`} goal={dashboardGoals.fat} />
-            </div>
-
             <div className="grid lg:grid-cols-2 gap-4">
               <Card className="h-full min-h-[360px] flex flex-col">
                 <CardHeader>
@@ -1528,8 +1529,18 @@ export default function MacroTrackerApp(){
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-sm">Quantity {selectedFood ? (selectedFood.unit === "per100g" ? "(g)" : "(servings)") : ""}</Label>
-                    <Input type="number" inputMode="decimal" value={qty||""} onChange={(e)=>setQty(parseFloat(e.target.value))} placeholder={selectedFood ? (selectedFood.unit === "per100g" ? "e.g. 150" : "e.g. 1.5") : ""} />
+                    <Label className="text-sm">Quantity {quantityLabelSuffix}</Label>
+                    <div className="relative mt-1">
+                      <QuantityIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" aria-hidden="true" />
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        className="pl-9"
+                        value={qty||""}
+                        onChange={(e)=>setQty(parseFloat(e.target.value))}
+                        placeholder={quantityPlaceholder}
+                      />
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <Button className="w-full" onClick={addEntry} disabled={!selectedFood || !qty || qty <= 0}><Plus className="h-4 w-4"/> Add</Button>
@@ -1937,27 +1948,35 @@ function GoalModeBadge({ value, className }) {
     </div>
   );
 }
-function KpiCard({ title, value, goal }){
-  return (
-    <Card className="overflow-hidden">
-      <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">{title}</CardTitle></CardHeader>
-      <CardContent className="pt-0 flex items-end justify-between">
-        <div className="text-3xl font-semibold">{value}</div>
-        {Number.isFinite(goal)? (<div className="text-xs text-slate-500">Goal: {goal}</div>): null}
-      </CardContent>
-    </Card>
-  );
-}
-
 // PATCH: accept optional subColor for "X over" red
-function StripKpi({ label, value, color, sub, subColor }){
+function StripKpi({ label, color, actual, goal, remaining, over }) {
   return (
-    <div className="flex flex-col rounded-lg px-3 py-2 bg-white/70 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800">
-      <div className="flex items-center justify-between">
-        <span className="text-xs" style={{ color }}>{label}</span>
-        <span className="font-semibold" style={{ color }}>{value}</span>
+    <div className="flex min-h-[96px] flex-col justify-between rounded-xl border border-slate-200 bg-white/80 px-4 py-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/70">
+      <div className="flex items-start justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wide" style={{ color }}>
+          {label}
+        </span>
+        {goal ? (
+          <span className="text-[11px] font-medium text-slate-500 dark:text-slate-300">Goal {goal}</span>
+        ) : null}
       </div>
-      {sub && <div className="text-[11px] mt-0.5" style={{ color: subColor || '#64748b' }}>{sub}</div>}
+      <div className="mt-4 flex items-end justify-between">
+        {remaining ? (
+          <span
+            className={cn(
+              "text-sm font-medium",
+              over ? "text-red-600 dark:text-red-400" : "text-slate-600 dark:text-slate-300",
+            )}
+          >
+            {remaining}
+          </span>
+        ) : (
+          <span className="text-sm text-slate-500 dark:text-slate-400">&nbsp;</span>
+        )}
+        <span className="text-2xl font-semibold" style={{ color }}>
+          {actual}
+        </span>
+      </div>
     </div>
   );
 }
@@ -2110,7 +2129,6 @@ function WeeklyNutritionCell({ theme, unit, actual, goal, isToday, isSelected })
 }
 
 function AverageSummaryCard({ label, averages, scaleMax }) {
-  const gradientPrefix = useId();
   const data = [
     {
       key: "kcal",
@@ -2145,102 +2163,44 @@ function AverageSummaryCard({ label, averages, scaleMax }) {
       gradientTo: MACRO_THEME.fat.gradientTo,
     },
   ];
-  const chartData = data.map((item) => {
-    const maxForMetric = scaleMax?.[item.key];
-    const safeMax = maxForMetric != null && maxForMetric > 0
-      ? maxForMetric
-      : item.value != null && item.value > 0
-        ? item.value
-        : 1;
-    const normalizedValue = safeMax > 0 ? (item.value ?? 0) / safeMax : 0;
-    return {
-      ...item,
-      gradientId: `${gradientPrefix}-${item.key}`,
-      scaledValue: normalizedValue,
-    };
-  });
 
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm text-slate-500 dark:text-slate-400">{label}</CardTitle>
       </CardHeader>
-      <CardContent className="pt-0">
-        <div className="h-48 text-slate-500 dark:text-slate-300">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={chartData}
-              layout="vertical"
-              margin={{ top: 12, right: 88, left: 16, bottom: 12 }}
-              barCategoryGap={18}
-            >
-              <defs>
-                {chartData.map((item) => (
-                  <linearGradient key={item.gradientId} id={item.gradientId} x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor={item.gradientFrom} />
-                    <stop offset="100%" stopColor={item.gradientTo} />
-                  </linearGradient>
-                ))}
-              </defs>
-              <XAxis type="number" domain={[0, 1]} hide />
-              <YAxis
-                type="category"
-                dataKey="label"
-                axisLine={false}
-                tickLine={false}
-                width={72}
-                tick={{ fill: "currentColor", fontSize: 12 }}
-              />
-              <RTooltip
-                content={({ active, payload }) => {
-                  if (!active || !payload?.length) return null;
-                  const datum = payload[0]?.payload;
-                  if (!datum) return null;
-                  const valueText = datum.unit
-                    ? `${formatNumber(datum.value ?? 0)} ${datum.unit}`
-                    : formatNumber(datum.value ?? 0);
-                  return (
-                    <ChartTooltipContainer title={datum.label}>
-                      <div className="flex items-center justify-between gap-6">
-                        <span className="text-slate-200">{datum.label}</span>
-                        <span className="font-semibold text-slate-100">{valueText}</span>
-                      </div>
-                    </ChartTooltipContainer>
-                  );
-                }}
-              />
-              <Bar dataKey="scaledValue" radius={16} barSize={22}>
-                <LabelList dataKey="value" position="right" content={(props) => <AverageBarValueLabel {...props} />} />
-                {chartData.map((item) => (
-                  <Cell key={item.gradientId} fill={`url(#${item.gradientId})`} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+      <CardContent className="pt-0 pb-4 pl-2 pr-4">
+        <div className="space-y-4">
+          {data.map((item) => {
+            const maxForMetric = scaleMax?.[item.key];
+            const safeMax = maxForMetric != null && maxForMetric > 0
+              ? maxForMetric
+              : item.value != null && item.value > 0
+                ? item.value
+                : 1;
+            const normalized = safeMax > 0 ? Math.min(1, (item.value ?? 0) / safeMax) : 0;
+            const valueText = `${formatNumber(item.value ?? 0)} ${item.unit}`.trim();
+            return (
+              <div key={item.key} className="flex items-center gap-3">
+                <span className="w-20 text-sm font-medium text-slate-600 dark:text-slate-300">{item.label}</span>
+                <div className="relative flex-1">
+                  <div className="h-3 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${normalized * 100}%`,
+                        backgroundImage: `linear-gradient(90deg, ${item.gradientFrom}, ${item.gradientTo})`,
+                      }}
+                    />
+                  </div>
+                </div>
+                <span className="w-20 text-right text-sm font-semibold text-slate-700 dark:text-slate-100">{valueText}</span>
+              </div>
+            );
+          })}
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function AverageBarValueLabel({ x = 0, y = 0, width = 0, height = 0, value, payload, viewBox }) {
-  if (value == null) return null;
-  const chartRight = viewBox
-    ? (viewBox.x ?? 0) + (viewBox.width ?? 0)
-    : x + width;
-  const textX = chartRight - 8;
-  const textY = y + height / 2;
-  const unit = payload?.unit ? ` ${payload.unit}` : "";
-  return (
-    <text
-      x={textX}
-      y={textY}
-      textAnchor="end"
-      dominantBaseline="middle"
-      className="fill-slate-600 dark:fill-slate-200 text-[12px] font-semibold"
-    >
-      {`${formatNumber(value)}${unit}`}
-    </text>
   );
 }
 
@@ -2367,9 +2327,9 @@ function FoodLoggingCard({ summary }) {
         <CardTitle>Food Logging</CardTitle>
         <p className="text-sm text-slate-500 dark:text-slate-400">Last 30 Days</p>
       </CardHeader>
-      <CardContent className="space-y-3 pt-0">
+      <CardContent className="space-y-3 pt-0 pb-3">
         <div ref={containerRef} className="relative" onMouseLeave={clearHover}>
-          <div className="grid grid-cols-6 gap-1.5">
+          <div className="grid grid-cols-6 gap-2 py-1">
             {grid.map((day) => {
               const isoDate = `${day.iso}T00:00:00`;
               const fullLabel = format(new Date(isoDate), "PP");
@@ -2384,7 +2344,7 @@ function FoodLoggingCard({ summary }) {
                   onFocus={(event) => handlePointHover(day, event)}
                   onBlur={clearHover}
                   className={cn(
-                    "h-4 w-4 rounded-md border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60",
+                    "h-6 w-6 rounded-md border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 sm:h-7 sm:w-7",
                     day.logged
                       ? "border-transparent bg-sky-500/90 shadow-sm shadow-sky-500/40 dark:bg-sky-500/70"
                       : "border-slate-200/70 bg-slate-200/60 dark:border-slate-700 dark:bg-slate-800/70",
