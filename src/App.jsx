@@ -50,8 +50,11 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  ArrowUpRight,
   Scale,
   CakeSlice,
+  Scissors,
+  Equal,
 } from "lucide-react";
 import { format, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval, startOfWeek, endOfWeek } from "date-fns";
 
@@ -109,6 +112,66 @@ const COLORS = {
   violet: "#9A7196",
   redDark: "#b91c1c",
 };
+
+const SETUP_MODES = ["dual", "bulking", "cutting", "maintenance"];
+const DEFAULT_MODE_ENTRY = Object.freeze({ setup: "dual", profile: "train" });
+const SETUP_LABELS = {
+  dual: "Train Day / Rest Day",
+  bulking: "Bulking",
+  cutting: "Cutting",
+  maintenance: "Maintenance",
+};
+
+function normalizeSetupMode(value) {
+  return SETUP_MODES.includes(value) ? value : "dual";
+}
+
+function normalizeDualProfile(value) {
+  return value === "rest" ? "rest" : "train";
+}
+
+function cloneModeEntry(entry) {
+  if (!entry) {
+    return { setup: "dual", profile: "train" };
+  }
+  if (typeof entry === "string") {
+    if (entry === "train" || entry === "rest") {
+      return { setup: "dual", profile: normalizeDualProfile(entry) };
+    }
+    if (SETUP_MODES.includes(entry)) {
+      return { setup: normalizeSetupMode(entry) };
+    }
+    return { setup: "dual", profile: "train" };
+  }
+  const setup = normalizeSetupMode(entry.setup ?? entry.mode ?? entry.value);
+  if (setup === "dual") {
+    return { setup: "dual", profile: normalizeDualProfile(entry.profile ?? entry.variant ?? entry.state ?? entry.day) };
+  }
+  return { setup };
+}
+
+function coerceModeEntry(raw, fallback = DEFAULT_MODE_ENTRY) {
+  if (raw == null) {
+    return cloneModeEntry(fallback);
+  }
+  if (typeof raw === "string") {
+    if (raw === "train" || raw === "rest") {
+      return { setup: "dual", profile: normalizeDualProfile(raw) };
+    }
+    if (SETUP_MODES.includes(raw)) {
+      return { setup: normalizeSetupMode(raw) };
+    }
+    return cloneModeEntry(fallback);
+  }
+  if (typeof raw === "object") {
+    const candidateSetup = normalizeSetupMode(raw.setup ?? raw.mode ?? raw.value ?? (typeof raw.profile === "string" ? "dual" : undefined));
+    if (candidateSetup === "dual") {
+      return { setup: "dual", profile: normalizeDualProfile(raw.profile ?? raw.variant ?? raw.state ?? raw.day) };
+    }
+    return { setup: candidateSetup };
+  }
+  return cloneModeEntry(fallback);
+}
 
 const TOOLTIP_CONTAINER_CLASSES =
   "rounded-lg border border-slate-700/60 bg-slate-800/95 px-3 py-2 text-xs leading-relaxed text-slate-100 shadow-xl backdrop-blur-sm dark:border-slate-600/50 dark:bg-slate-900/90";
@@ -199,20 +262,22 @@ const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const toISODate = (d) => format(d, "yyyy-MM-dd");
 const todayISO = () => toISODate(new Date());
 
-function sanitizeGoalSchedule(value, fallbackMode, isoToday = todayISO()) {
-  if (!value || typeof value !== "object") {
-    return fallbackMode ? { [isoToday]: fallbackMode } : {};
-  }
+function sanitizeGoalSchedule(value, fallbackEntry, isoToday = todayISO()) {
   const schedule = {};
-  Object.entries(value).forEach(([key, rawMode]) => {
-    if (!ISO_DATE_RE.test(key)) return;
-    const normalized = rawMode === "rest" ? "rest" : rawMode === "train" ? "train" : null;
-    if (normalized) {
-      schedule[key] = normalized;
+  if (value && typeof value === "object") {
+    Object.entries(value).forEach(([key, rawValue]) => {
+      if (!ISO_DATE_RE.test(key)) return;
+      const normalized = coerceModeEntry(rawValue);
+      if (normalized) {
+        schedule[key] = normalized;
+      }
+    });
+  }
+  if (fallbackEntry) {
+    const safeFallback = coerceModeEntry(fallbackEntry);
+    if (safeFallback && !schedule[isoToday]) {
+      schedule[isoToday] = safeFallback;
     }
-  });
-  if (fallbackMode && !schedule[isoToday]) {
-    schedule[isoToday] = fallbackMode;
   }
   return schedule;
 }
@@ -288,40 +353,56 @@ function sanitizeGoal(goal) {
 function ensureDailyGoals(value) {
   const isoToday = todayISO();
   const hasValue = value && typeof value === "object";
-  const active = hasValue && value.active === "rest" ? "rest" : "train";
+  const rawSetup = hasValue ? value.setup ?? value.mode ?? value.activeSetup : undefined;
 
-  let trainGoal;
-  let restGoal;
+  const resolveDualGoal = (key) => {
+    if (!hasValue) return undefined;
+    if (value?.dual && typeof value.dual === "object" && value.dual[key]) {
+      return value.dual[key];
+    }
+    if (value?.[key]) {
+      return value[key];
+    }
+    return undefined;
+  };
 
-  if (hasValue && value.train && value.rest) {
-    trainGoal = sanitizeGoal(value.train);
-    restGoal = sanitizeGoal(value.rest);
-  } else if (hasValue) {
-    trainGoal = sanitizeGoal(value);
-    restGoal = value?.rest ? sanitizeGoal(value.rest) : { ...trainGoal };
-  } else {
-    trainGoal = sanitizeGoal(DEFAULT_GOALS);
-    restGoal = sanitizeGoal(DEFAULT_GOALS);
-  }
+  const trainGoal = sanitizeGoal(resolveDualGoal("train"));
+  const restGoal = sanitizeGoal(resolveDualGoal("rest") ?? resolveDualGoal("train"));
+  const activeProfile = normalizeDualProfile(
+    hasValue && value?.dual && typeof value.dual === "object" ? value.dual.active : value?.active
+  );
 
-  const schedule = sanitizeGoalSchedule(hasValue ? value.byDate : undefined, active, isoToday);
-  if (!schedule[isoToday]) {
-    schedule[isoToday] = active;
-  }
+  const ensureSingle = (mode) => sanitizeGoal((hasValue && value?.[mode]) || (hasValue && value?.single?.[mode]));
+
+  const setup = normalizeSetupMode(rawSetup ?? (hasValue ? "dual" : undefined));
+  const fallbackEntry = setup === "dual" ? { setup: "dual", profile: activeProfile } : { setup };
+  const schedule = sanitizeGoalSchedule(hasValue ? value?.byDate : undefined, fallbackEntry, isoToday);
 
   return {
-    train: trainGoal,
-    rest: restGoal,
-    active,
+    setup,
+    dual: {
+      train: trainGoal,
+      rest: restGoal,
+      active: activeProfile,
+    },
+    bulking: ensureSingle("bulking"),
+    cutting: ensureSingle("cutting"),
+    maintenance: ensureSingle("maintenance"),
     byDate: schedule,
   };
 }
 
 const DEFAULT_SETTINGS = {
   dailyGoals: ensureDailyGoals({
-    train: DEFAULT_GOALS,
-    rest: DEFAULT_GOALS,
-    active: "train",
+    setup: "dual",
+    dual: {
+      train: DEFAULT_GOALS,
+      rest: DEFAULT_GOALS,
+      active: "train",
+    },
+    bulking: DEFAULT_GOALS,
+    cutting: DEFAULT_GOALS,
+    maintenance: DEFAULT_GOALS,
   }),
   profile: { activity: "moderate" },
   profileHistory: [],
@@ -715,45 +796,74 @@ export default function MacroTrackerApp(){
     return summaries.map((summary) => ({ ...summary, scaleMax: macroMaxima }));
   }, [totalsByDate]);
 
-  const activeGoalType = settings.dailyGoals?.active === 'rest' ? 'rest' : 'train';
-  const goalSchedule = settings.dailyGoals?.byDate ?? {};
+  const dailyGoals = settings.dailyGoals ?? ensureDailyGoals(DEFAULT_SETTINGS.dailyGoals);
+  const activeSetup = normalizeSetupMode(dailyGoals?.setup);
+  const activeDualProfile = normalizeDualProfile(dailyGoals?.dual?.active);
+  const defaultModeEntry = useMemo(
+    () => cloneModeEntry({ setup: activeSetup, profile: activeDualProfile }),
+    [activeSetup, activeDualProfile]
+  );
+
+  const goalSchedule = dailyGoals?.byDate ?? {};
   const sortedScheduleKeys = useMemo(() => Object.keys(goalSchedule).sort(), [goalSchedule]);
 
-  const resolveModeForDate = useCallback((isoDate) => {
-    if (isoDate && goalSchedule[isoDate]) {
-      const mode = goalSchedule[isoDate];
-      if (mode === 'rest' || mode === 'train') {
-        return mode;
+  const resolveModeEntry = useCallback(
+    (isoDate) => {
+      const fallback = cloneModeEntry(defaultModeEntry);
+      if (!isoDate || !ISO_DATE_RE.test(isoDate)) {
+        return fallback;
       }
-    }
-    if (isoDate) {
+      const direct = goalSchedule[isoDate];
+      if (direct) {
+        return coerceModeEntry(direct, fallback);
+      }
       for (let i = sortedScheduleKeys.length - 1; i >= 0; i -= 1) {
         const key = sortedScheduleKeys[i];
         if (key <= isoDate) {
-          const mode = goalSchedule[key];
-          if (mode === 'rest' || mode === 'train') {
-            return mode;
+          const entry = goalSchedule[key];
+          if (entry) {
+            return coerceModeEntry(entry, fallback);
           }
         }
       }
-    }
-    return activeGoalType;
-  }, [activeGoalType, goalSchedule, sortedScheduleKeys]);
+      return fallback;
+    },
+    [defaultModeEntry, goalSchedule, sortedScheduleKeys]
+  );
 
-  const goalValuesForDate = useCallback((isoDate) => {
-    const mode = resolveModeForDate(isoDate);
-    const base = settings.dailyGoals?.[mode];
-    if (base) return base;
-    return settings.dailyGoals?.[activeGoalType] ?? DEFAULT_GOALS;
-  }, [activeGoalType, resolveModeForDate, settings.dailyGoals]);
+  const getGoalsForEntry = useCallback(
+    (entry) => {
+      const setup = entry?.setup;
+      if (setup === "dual") {
+        const profile = entry?.profile === "rest" ? "rest" : "train";
+        return dailyGoals?.dual?.[profile] ?? DEFAULT_GOALS;
+      }
+      if (setup && setup !== "dual" && dailyGoals?.[setup]) {
+        return dailyGoals[setup];
+      }
+      return dailyGoals?.dual?.train ?? DEFAULT_GOALS;
+    },
+    [dailyGoals]
+  );
 
-  const stickyGoals = useMemo(() => goalValuesForDate(stickyDate), [goalValuesForDate, stickyDate]);
-  const dashboardGoals = useMemo(() => goalValuesForDate(logDate), [goalValuesForDate, logDate]);
-  const goalTarget = useMemo(() => goalValuesForDate(goalDate), [goalValuesForDate, goalDate]);
-  const logDateMode = resolveModeForDate(logDate);
-  const splitMode = resolveModeForDate(splitDate);
-  const goalDateMode = resolveModeForDate(goalDate);
-  const topFoodsMode = resolveModeForDate(topFoodsDate);
+  const goalValuesForDate = useCallback(
+    (isoDate) => {
+      const entry = resolveModeEntry(isoDate);
+      return getGoalsForEntry(entry);
+    },
+    [getGoalsForEntry, resolveModeEntry]
+  );
+
+  const stickyEntry = useMemo(() => resolveModeEntry(stickyDate), [resolveModeEntry, stickyDate]);
+  const stickyGoals = useMemo(() => getGoalsForEntry(stickyEntry), [getGoalsForEntry, stickyEntry]);
+  const dashboardEntry = useMemo(() => resolveModeEntry(logDate), [resolveModeEntry, logDate]);
+  const dashboardGoals = useMemo(() => getGoalsForEntry(dashboardEntry), [getGoalsForEntry, dashboardEntry]);
+  const goalTargetEntry = useMemo(() => resolveModeEntry(goalDate), [resolveModeEntry, goalDate]);
+  const goalTarget = useMemo(() => getGoalsForEntry(goalTargetEntry), [getGoalsForEntry, goalTargetEntry]);
+  const logDateEntry = dashboardEntry;
+  const splitEntry = useMemo(() => resolveModeEntry(splitDate), [resolveModeEntry, splitDate]);
+  const goalDateEntry = goalTargetEntry;
+  const topFoodsEntry = useMemo(() => resolveModeEntry(topFoodsDate), [resolveModeEntry, topFoodsDate]);
 
   const headerPillClass = "gap-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60 px-3 py-2 text-xs font-medium shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800";
 
@@ -967,43 +1077,114 @@ export default function MacroTrackerApp(){
       : <ArrowDown className="h-3.5 w-3.5" />;
   };
 
-  const setGoalModeForDate = useCallback((isoDate, mode) => {
-    if (!isoDate || !ISO_DATE_RE.test(isoDate)) return;
-    const normalized = mode === 'rest' ? 'rest' : 'train';
-    setSettings((prev) => {
-      const goals = ensureDailyGoals(prev.dailyGoals);
-      const today = todayISO();
-      const byDate = { ...goals.byDate, [isoDate]: normalized };
-      return {
-        ...prev,
-        dailyGoals: {
-          ...goals,
-          active: isoDate === today ? normalized : goals.active,
-          byDate,
-        },
-      };
-    });
-  }, [setSettings]);
+  const setModeEntryForDate = useCallback(
+    (isoDate, entry) => {
+      if (!isoDate || !ISO_DATE_RE.test(isoDate)) return;
+      const normalized = cloneModeEntry(coerceModeEntry(entry));
+      setSettings((prev) => {
+        const goals = ensureDailyGoals(prev.dailyGoals);
+        const today = todayISO();
+        const nextByDate = { ...goals.byDate, [isoDate]: normalized };
+        const nextGoals = { ...goals, byDate: nextByDate };
+        if (isoDate === today) {
+          nextGoals.setup = normalized.setup;
+          if (normalized.setup === "dual") {
+            nextGoals.dual = {
+              ...goals.dual,
+              active: normalizeDualProfile(normalized.profile),
+            };
+          }
+        }
+        return {
+          ...prev,
+          dailyGoals: nextGoals,
+        };
+      });
+    },
+    [setSettings]
+  );
 
-  const setGoalValue = (type, key) => (value) => {
+  const updateMacroGoal = (modeKey, macroKey) => (value) => {
+    const numericValue = Number.isFinite(value) ? value : 0;
     setSettings((prev) => {
       const goals = ensureDailyGoals(prev.dailyGoals);
-      return {
-        ...prev,
-        dailyGoals: {
-          ...goals,
-          [type]: {
-            ...goals[type],
-            [key]: value,
+      const nextGoals = { ...goals };
+      if (modeKey.startsWith("dual.")) {
+        const profileKey = modeKey.split(".")[1] === "rest" ? "rest" : "train";
+        nextGoals.dual = {
+          ...goals.dual,
+          [profileKey]: {
+            ...goals.dual?.[profileKey],
+            [macroKey]: numericValue,
           },
-        },
+        };
+      } else if (SETUP_MODES.includes(modeKey)) {
+        nextGoals[modeKey] = {
+          ...goals[modeKey],
+          [macroKey]: numericValue,
+        };
+      }
+      return {
+        ...prev,
+        dailyGoals: nextGoals,
       };
     });
   };
 
-  const handleGoalTabChange = (value) => {
-    setGoalModeForDate(todayISO(), value === 'rest' ? 'rest' : 'train');
-  };
+  const handleDualProfileChange = useCallback(
+    (value) => {
+      const profile = value === "rest" ? "rest" : "train";
+      setSettings((prev) => {
+        const goals = ensureDailyGoals(prev.dailyGoals);
+        const today = todayISO();
+        const nextByDate = {
+          ...goals.byDate,
+          [today]: cloneModeEntry({ setup: "dual", profile }),
+        };
+        return {
+          ...prev,
+          dailyGoals: {
+            ...goals,
+            setup: "dual",
+            dual: {
+              ...goals.dual,
+              active: profile,
+            },
+            byDate: nextByDate,
+          },
+        };
+      });
+    },
+    [setSettings]
+  );
+
+  const handleSetupChange = useCallback(
+    (mode) => {
+      const nextSetup = normalizeSetupMode(mode);
+      setSettings((prev) => {
+        const goals = ensureDailyGoals(prev.dailyGoals);
+        const today = todayISO();
+        const profile = nextSetup === "dual" ? normalizeDualProfile(goals.dual?.active) : undefined;
+        const nextByDate = {
+          ...goals.byDate,
+          [today]: cloneModeEntry({ setup: nextSetup, profile }),
+        };
+        return {
+          ...prev,
+          dailyGoals: {
+            ...goals,
+            setup: nextSetup,
+            dual: {
+              ...goals.dual,
+              active: profile ?? goals.dual.active,
+            },
+            byDate: nextByDate,
+          },
+        };
+      });
+    },
+    [setSettings]
+  );
 
   const handleSaveBodyProfile = useCallback(() => {
     setSettings((prev) => {
@@ -1058,7 +1239,11 @@ export default function MacroTrackerApp(){
               <span>Import</span>
               <input type="file" accept="application/json" className="hidden" onChange={(e)=>e.target.files&&importJSON(e.target.files[0])} />
             </label>
-            <GoalModeToggle active={activeGoalType} onChange={handleGoalTabChange} />
+            {activeSetup === "dual" ? (
+              <GoalModeToggle active={activeDualProfile} onChange={handleDualProfileChange} />
+            ) : (
+              <GoalModeBadge value={{ setup: activeSetup }} className="h-9 px-4" />
+            )}
             <Button variant="ghost" className={headerPillClass} onClick={()=>setTab('settings')}>
               <SettingsIcon className="h-4 w-4"/>
               <span>Settings</span>
@@ -1157,11 +1342,11 @@ export default function MacroTrackerApp(){
 
       <main className="max-w-6xl mx-auto px-4 py-6">
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid grid-cols-4 w-full md:w-auto">
-            <TabsTrigger value="dashboard" className="gap-2"><BarChart3 className="h-4 w-4"/>Dashboard</TabsTrigger>
-            <TabsTrigger value="daily" className="gap-2"><BookOpenText className="h-4 w-4"/>Daily Log</TabsTrigger>
-            <TabsTrigger value="foods" className="gap-2"><Database className="h-4 w-4"/>Food DB</TabsTrigger>
-            <TabsTrigger value="settings" className="gap-2"><SettingsIcon className="h-4 w-4"/>Settings</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-4 rounded-full border border-slate-200 bg-white/80 p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900/70 md:w-auto">
+            <TabsTrigger value="dashboard" className="gap-2 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><BarChart3 className="h-4 w-4"/>Dashboard</TabsTrigger>
+            <TabsTrigger value="daily" className="gap-2 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><BookOpenText className="h-4 w-4"/>Daily Log</TabsTrigger>
+            <TabsTrigger value="foods" className="gap-2 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><Database className="h-4 w-4"/>Food DB</TabsTrigger>
+            <TabsTrigger value="settings" className="gap-2 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><SettingsIcon className="h-4 w-4"/>Settings</TabsTrigger>
           </TabsList>
 
           {/* DASHBOARD */}
@@ -1172,7 +1357,7 @@ export default function MacroTrackerApp(){
                   <div className="flex items-center justify-between gap-3">
                     <CardTitle>Goal vs Actual</CardTitle>
                     <div className="flex items-center gap-2">
-                      <GoalModeBadge value={goalDateMode} />
+                      <GoalModeBadge value={goalDateEntry} />
                       <DatePickerButton value={goalDate} onChange={(value)=>setGoalDate(value||todayISO())} className="w-44" />
                     </div>
                   </div>
@@ -1367,7 +1552,7 @@ export default function MacroTrackerApp(){
                 <div className="flex items-center justify-between gap-3">
                   <CardTitle className="flex items-center gap-2"><UtensilsCrossed className="h-5 w-5"/>Macro Split per Meal</CardTitle>
                   <div className="flex items-center gap-2">
-                    <GoalModeBadge value={splitMode} />
+                    <GoalModeBadge value={splitEntry} />
                     <DatePickerButton value={splitDate} onChange={(value)=>setSplitDate(value||todayISO())} className="w-44" />
                   </div>
                 </div>
@@ -1469,7 +1654,7 @@ export default function MacroTrackerApp(){
               onMacroChange={setTopMacroKey}
               selectedDate={topFoodsDate}
               onDateChange={(value)=>setTopFoodsDate(value||todayISO())}
-              goalMode={topFoodsMode}
+              goalMode={topFoodsEntry}
             />
 
             {/* Averages tiles (non-empty days only) */}
@@ -1499,7 +1684,7 @@ export default function MacroTrackerApp(){
               <CardHeader>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <CardTitle className="flex items-center gap-2"><History className="h-5 w-5"/>Log your intake</CardTitle>
-                  <GoalModeSelect value={logDateMode} onChange={(mode)=>setGoalModeForDate(logDate || todayISO(), mode)} />
+                  <GoalModeSelect value={logDateEntry} onChange={(entry)=>setModeEntryForDate(logDate || todayISO(), entry)} />
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1723,34 +1908,69 @@ export default function MacroTrackerApp(){
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
                     <h3 className="font-medium mb-2">Daily macro goals</h3>
-                    <p className="text-xs text-slate-500 mb-3">Switch between Train Day and Rest Day to edit targets and pick which set powers your dashboard.</p>
-                    <Tabs value={activeGoalType} onValueChange={handleGoalTabChange}>
-                      <TabsList className="grid grid-cols-2 w-full max-w-xs mb-3">
-                        <TabsTrigger value="train">Train Day</TabsTrigger>
-                        <TabsTrigger value="rest">Rest Day</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="train" className="mt-0">
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-xs text-slate-500 max-w-xs sm:max-w-md">
+                        Choose your approach and tune the macros for each profile. Days remember their assigned setup so history stays intact.
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Setup</Label>
+                        <Select value={activeSetup} onValueChange={handleSetupChange}>
+                          <SelectTrigger className="h-8 w-44"><SelectValue placeholder="Setup" /></SelectTrigger>
+                          <SelectContent>
+                            {SETUP_MODES.map((mode) => (
+                              <SelectItem key={mode} value={mode}>
+                                {SETUP_LABELS[mode]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    {activeSetup === "dual" ? (
+                      <>
+                        <Tabs value={activeDualProfile} onValueChange={handleDualProfileChange}>
+                          <TabsList className="mb-3 grid w-full max-w-xs grid-cols-2 rounded-full border border-slate-200 bg-white/80 p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
+                            <TabsTrigger value="train" className="rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900">Train Day</TabsTrigger>
+                            <TabsTrigger value="rest" className="rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900">Rest Day</TabsTrigger>
+                          </TabsList>
+                          <TabsContent value="train" className="mt-0">
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="col-span-2">
+                                <LabeledNumber label="Calories (kcal)" value={dailyGoals.dual.train.kcal} onChange={updateMacroGoal('dual.train','kcal')} />
+                              </div>
+                              <LabeledNumber label="Protein (g)" value={dailyGoals.dual.train.protein} onChange={updateMacroGoal('dual.train','protein')} />
+                              <LabeledNumber label="Carbs (g)" value={dailyGoals.dual.train.carbs} onChange={updateMacroGoal('dual.train','carbs')} />
+                              <LabeledNumber label="Fat (g)" value={dailyGoals.dual.train.fat} onChange={updateMacroGoal('dual.train','fat')} />
+                            </div>
+                          </TabsContent>
+                          <TabsContent value="rest" className="mt-0">
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="col-span-2">
+                                <LabeledNumber label="Calories (kcal)" value={dailyGoals.dual.rest.kcal} onChange={updateMacroGoal('dual.rest','kcal')} />
+                              </div>
+                              <LabeledNumber label="Protein (g)" value={dailyGoals.dual.rest.protein} onChange={updateMacroGoal('dual.rest','protein')} />
+                              <LabeledNumber label="Carbs (g)" value={dailyGoals.dual.rest.carbs} onChange={updateMacroGoal('dual.rest','carbs')} />
+                              <LabeledNumber label="Fat (g)" value={dailyGoals.dual.rest.fat} onChange={updateMacroGoal('dual.rest','fat')} />
+                            </div>
+                          </TabsContent>
+                        </Tabs>
+                        <p className="text-xs text-slate-500 mt-3">The highlighted profile powers the sticky macros, dashboard KPIs, and Goal vs Actual chart.</p>
+                      </>
+                    ) : (
+                      <div className="space-y-3">
                         <div className="grid grid-cols-2 gap-3">
                           <div className="col-span-2">
-                            <LabeledNumber label="Calories (kcal)" value={settings.dailyGoals.train.kcal} onChange={setGoalValue('train','kcal')} />
+                            <LabeledNumber label="Calories (kcal)" value={dailyGoals[activeSetup]?.kcal ?? 0} onChange={updateMacroGoal(activeSetup,'kcal')} />
                           </div>
-                          <LabeledNumber label="Protein (g)" value={settings.dailyGoals.train.protein} onChange={setGoalValue('train','protein')} />
-                          <LabeledNumber label="Carbs (g)" value={settings.dailyGoals.train.carbs} onChange={setGoalValue('train','carbs')} />
-                          <LabeledNumber label="Fat (g)" value={settings.dailyGoals.train.fat} onChange={setGoalValue('train','fat')} />
+                          <LabeledNumber label="Protein (g)" value={dailyGoals[activeSetup]?.protein ?? 0} onChange={updateMacroGoal(activeSetup,'protein')} />
+                          <LabeledNumber label="Carbs (g)" value={dailyGoals[activeSetup]?.carbs ?? 0} onChange={updateMacroGoal(activeSetup,'carbs')} />
+                          <LabeledNumber label="Fat (g)" value={dailyGoals[activeSetup]?.fat ?? 0} onChange={updateMacroGoal(activeSetup,'fat')} />
                         </div>
-                      </TabsContent>
-                      <TabsContent value="rest" className="mt-0">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="col-span-2">
-                            <LabeledNumber label="Calories (kcal)" value={settings.dailyGoals.rest.kcal} onChange={setGoalValue('rest','kcal')} />
-                          </div>
-                          <LabeledNumber label="Protein (g)" value={settings.dailyGoals.rest.protein} onChange={setGoalValue('rest','protein')} />
-                          <LabeledNumber label="Carbs (g)" value={settings.dailyGoals.rest.carbs} onChange={setGoalValue('rest','carbs')} />
-                          <LabeledNumber label="Fat (g)" value={settings.dailyGoals.rest.fat} onChange={setGoalValue('rest','fat')} />
-                        </div>
-                      </TabsContent>
-                    </Tabs>
-                    <p className="text-xs text-slate-500 mt-3">The active tab's goals feed the sticky macros, dashboard KPIs, and Goal vs Actual chart.</p>
+                        <p className="text-xs text-slate-500">
+                          {SETUP_LABELS[activeSetup]} powers the dashboard whenever this setup is active.
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <h3 className="font-medium mb-2">Appearance</h3>
@@ -1785,7 +2005,7 @@ export default function MacroTrackerApp(){
                 {/* Profile */}
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
-                    <h3 className="font-medium mb-2">Body profile</h3>
+                    <h3 className="font-medium mb-2">Profile</h3>
                     <div className="grid grid-cols-2 gap-3">
                       <LabeledNumber label="Age (years)" value={settings.profile?.age ?? 0} onChange={(v)=>setSettings({...settings, profile:{...settings.profile, age:v}})} />
                       <div>
@@ -1856,10 +2076,15 @@ function LabeledNumber({ label, value, onChange }){
   );
 }
 
-const GOAL_MODE_OPTIONS = [
-  { value: 'train', label: 'Train Day', Icon: Dumbbell, accent: COLORS.protein },
-  { value: 'rest', label: 'Rest Day', Icon: BedDouble, accent: COLORS.cyan },
+const PROFILE_MODE_OPTIONS = [
+  { value: "train", label: "Train Day", Icon: Dumbbell, accent: COLORS.protein },
+  { value: "rest", label: "Rest Day", Icon: BedDouble, accent: COLORS.cyan },
+  { value: "bulking", label: "Bulking", Icon: ArrowUpRight, accent: COLORS.kcal },
+  { value: "cutting", label: "Cutting", Icon: Scissors, accent: COLORS.redDark },
+  { value: "maintenance", label: "Maintenance", Icon: Equal, accent: COLORS.gray },
 ];
+
+const DUAL_PROFILE_OPTIONS = PROFILE_MODE_OPTIONS.slice(0, 2);
 
 function GoalModeToggle({ active, onChange }){
   return (
@@ -1868,7 +2093,7 @@ function GoalModeToggle({ active, onChange }){
       role="group"
       aria-label="Select active goal profile"
     >
-      {GOAL_MODE_OPTIONS.map(({ value, label, Icon, accent })=>{
+      {DUAL_PROFILE_OPTIONS.map(({ value, label, Icon, accent })=>{
         const isActive = active===value;
         return (
           <button
@@ -1891,13 +2116,23 @@ function GoalModeToggle({ active, onChange }){
 }
 
 function GoalModeSelect({ value, onChange, className }) {
-  const normalized = value === 'rest' ? 'rest' : 'train';
-  const activeOption = GOAL_MODE_OPTIONS.find((option) => option.value === normalized) || GOAL_MODE_OPTIONS[0];
+  const entry = coerceModeEntry(value);
+  const optionKey = entry.setup === "dual" ? (entry.profile === "rest" ? "rest" : "train") : entry.setup;
+  const activeOption = PROFILE_MODE_OPTIONS.find((option) => option.value === optionKey) || PROFILE_MODE_OPTIONS[0];
   return (
-    <Select value={normalized} onValueChange={onChange}>
+    <Select
+      value={activeOption.value}
+      onValueChange={(selected) => {
+        if (selected === "train" || selected === "rest") {
+          onChange(cloneModeEntry({ setup: "dual", profile: selected }));
+        } else {
+          onChange(cloneModeEntry({ setup: selected }));
+        }
+      }}
+    >
       <SelectTrigger
         className={cn(
-          "h-8 w-36 rounded-full border-slate-300 bg-white/80 pl-3 pr-3 text-xs dark:border-slate-700 dark:bg-slate-900/60",
+          "h-8 w-44 rounded-full border-slate-300 bg-white/80 pl-3 pr-3 text-xs dark:border-slate-700 dark:bg-slate-900/60",
           className,
         )}
         aria-label={`Goal profile: ${activeOption.label}`}
@@ -1912,7 +2147,7 @@ function GoalModeSelect({ value, onChange, className }) {
         </div>
       </SelectTrigger>
       <SelectContent align="end">
-        {GOAL_MODE_OPTIONS.map(({ value: option, label, Icon: OptionIcon, accent: optionAccent }) => (
+        {PROFILE_MODE_OPTIONS.map(({ value: option, label, Icon: OptionIcon, accent: optionAccent }) => (
           <SelectItem key={option} value={option}>
             <div className="flex items-center gap-2">
               <OptionIcon className="h-4 w-4" />
@@ -1927,12 +2162,13 @@ function GoalModeSelect({ value, onChange, className }) {
 }
 
 function GoalModeBadge({ value, className }) {
-  const normalized = value === 'rest' ? 'rest' : 'train';
-  const activeOption = GOAL_MODE_OPTIONS.find((option) => option.value === normalized) || GOAL_MODE_OPTIONS[0];
+  const entry = coerceModeEntry(value);
+  const optionKey = entry.setup === "dual" ? (entry.profile === "rest" ? "rest" : "train") : entry.setup;
+  const activeOption = PROFILE_MODE_OPTIONS.find((option) => option.value === optionKey) || PROFILE_MODE_OPTIONS[0];
   return (
     <div
       className={cn(
-        "flex h-8 items-center justify-center gap-2 rounded-full border border-slate-300 bg-white/80 px-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300",
+        "flex h-8 items-center justify-center gap-2 rounded-full border border-slate-300 bg-white/80 px-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300 whitespace-nowrap",
         "pointer-events-none select-none",
         className,
       )}
@@ -1940,6 +2176,7 @@ function GoalModeBadge({ value, className }) {
     >
       <span className="sr-only">{activeOption.label}</span>
       <activeOption.Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      <span className="font-medium">{activeOption.label}</span>
       <span
         className="inline-flex h-1.5 w-1.5 rounded-full"
         style={{ backgroundColor: activeOption.accent }}
@@ -2995,9 +3232,9 @@ function AddFoodCard({ foods, onAdd }){
       <CardHeader><CardTitle>Add Food to Database</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full max-w-xs grid-cols-2">
-            <TabsTrigger value="single">Add Food</TabsTrigger>
-            <TabsTrigger value="recipe">Add Home Recipe</TabsTrigger>
+          <TabsList className="grid w-full max-w-xs grid-cols-2 rounded-full border border-slate-200 bg-white/80 p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
+            <TabsTrigger value="single" className="rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900">Add Food</TabsTrigger>
+            <TabsTrigger value="recipe" className="rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900">Add Home Recipe</TabsTrigger>
           </TabsList>
 
           <TabsContent value="single" className="mt-4">
