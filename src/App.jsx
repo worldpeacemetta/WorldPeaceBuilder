@@ -4,7 +4,7 @@
 // 2) Sticky header KPIs show "X over" in dark red when exceeding goals.
 //    (Everything else left untouched.)
 
-import React, { Fragment, useCallback, useEffect, useMemo, useState, useId } from "react";
+import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState, useId } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -108,6 +108,18 @@ const COLORS = {
   violet: "#9A7196",
   redDark: "#b91c1c",
 };
+
+const TOOLTIP_CONTAINER_CLASSES =
+  "rounded-lg border border-slate-700/60 bg-slate-800/95 px-3 py-2 text-xs leading-relaxed text-slate-100 shadow-xl backdrop-blur-sm dark:border-slate-600/50 dark:bg-slate-900/90";
+
+function ChartTooltipContainer({ title, children }) {
+  return (
+    <div className={TOOLTIP_CONTAINER_CLASSES}>
+      {title ? <div className="mb-1 text-[11px] font-semibold text-slate-200">{title}</div> : null}
+      <div className="space-y-1">{children}</div>
+    </div>
+  );
+}
 
 function darkenHex(hex, factor = 0.75) {
   if (typeof hex !== "string" || !hex.startsWith("#")) return hex;
@@ -1243,7 +1255,54 @@ export default function MacroTrackerApp(){
                     <XAxis dataKey="date" tickFormatter={(d)=>d.slice(5)} stroke="#94a3b8" tick={{ fill: '#64748b' }} axisLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} tickLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} />
                     <YAxis stroke="#94a3b8" tick={{ fill: '#64748b' }} axisLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} tickLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} />
                     <Legend iconType="circle" />
-                    <RTooltip labelFormatter={(l)=>format(new Date(l), 'PP')} />
+                    <RTooltip
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload?.length) return null;
+                        const rawLabel =
+                          (typeof label === "string" && label.length ? label : undefined)
+                          ?? payload[0]?.payload?.date;
+                        let title = rawLabel ?? "";
+                        if (typeof rawLabel === "string" && ISO_DATE_RE.test(rawLabel)) {
+                          const parsed = new Date(`${rawLabel}T00:00:00`);
+                          if (!Number.isNaN(parsed.getTime())) {
+                            title = format(parsed, "PP");
+                          }
+                        } else if (rawLabel instanceof Date && !Number.isNaN(rawLabel.getTime?.())) {
+                          title = format(rawLabel, "PP");
+                        }
+
+                        return (
+                          <ChartTooltipContainer title={title}>
+                            {payload.map((item) => {
+                              if (!item) return null;
+                              const key = item.dataKey ?? item.name ?? "value";
+                              const isCalories = key === "kcal";
+                              const unit = isCalories ? "kcal" : "g";
+                              const macroLabel = item.name ?? MACRO_LABELS[key] ?? key;
+                              const swatchColor =
+                                MACRO_THEME[key]?.dark
+                                ?? MACRO_THEME[key]?.gradientTo
+                                ?? (typeof item.color === "string" && !item.color.startsWith("url(") ? item.color : undefined)
+                                ?? COLORS[key]
+                                ?? "#38bdf8";
+
+                              return (
+                                <div key={key} className="flex items-center gap-2">
+                                  <span
+                                    className="h-2.5 w-2.5 rounded-full"
+                                    style={{ backgroundColor: swatchColor }}
+                                  />
+                                  <span className="flex-1 text-slate-200">{macroLabel}</span>
+                                  <span className="font-semibold text-slate-100">
+                                    {`${formatNumber(item.value ?? 0)} ${unit}`}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </ChartTooltipContainer>
+                        );
+                      }}
+                    />
                     {show.kcal && (
                       <Area
                         type="monotone"
@@ -1339,10 +1398,36 @@ export default function MacroTrackerApp(){
                     <YAxis axisLine={false} tickLine={false} tickFormatter={(value)=>`${formatNumber(value)} g`} />
                     <Legend iconType="circle" />
                     <RTooltip
-                      formatter={(value, key)=>[
-                        `${formatNumber(value)} g`,
-                        key === "protein" ? "Protein" : key === "carbs" ? "Carbs" : "Fat",
-                      ]}
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload?.length) return null;
+                        const mealLabel = (typeof label === "string" && label.length)
+                          ? label
+                          : payload[0]?.payload?.meal ?? "";
+                        const macroOrder = [
+                          { key: "carbs", label: "Carbs", color: MACRO_THEME.carbs.dark ?? MACRO_THEME.carbs.base },
+                          { key: "protein", label: "Protein", color: MACRO_THEME.protein.dark ?? MACRO_THEME.protein.base },
+                          { key: "fat", label: "Fat", color: MACRO_THEME.fat.dark ?? MACRO_THEME.fat.base },
+                        ];
+
+                        return (
+                          <ChartTooltipContainer title={mealLabel}>
+                            {macroOrder.map((macro) => {
+                              const match = payload.find((item) => item?.dataKey === macro.key);
+                              const value = match?.value ?? 0;
+                              return (
+                                <div key={macro.key} className="flex items-center gap-2">
+                                  <span
+                                    className="h-2.5 w-2.5 rounded-full"
+                                    style={{ backgroundColor: macro.color }}
+                                  />
+                                  <span className="flex-1 text-slate-200">{macro.label}</span>
+                                  <span className="font-semibold text-slate-100">{`${formatNumber(value)} g`}</span>
+                                </div>
+                              );
+                            })}
+                          </ChartTooltipContainer>
+                        );
+                      }}
                     />
                     <Bar
                       dataKey="protein"
@@ -2086,7 +2171,7 @@ function AverageSummaryCard({ label, averages, scaleMax }) {
             <BarChart
               data={chartData}
               layout="vertical"
-              margin={{ top: 12, right: 36, left: 16, bottom: 12 }}
+              margin={{ top: 12, right: 88, left: 16, bottom: 12 }}
               barCategoryGap={18}
             >
               <defs>
@@ -2107,10 +2192,22 @@ function AverageSummaryCard({ label, averages, scaleMax }) {
                 tick={{ fill: "currentColor", fontSize: 12 }}
               />
               <RTooltip
-                formatter={(_value, _name, props) => [
-                  `${formatNumber(props?.payload?.value ?? 0)} ${props?.payload?.unit ?? ""}`.trim(),
-                  props?.payload?.label ?? "",
-                ]}
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const datum = payload[0]?.payload;
+                  if (!datum) return null;
+                  const valueText = datum.unit
+                    ? `${formatNumber(datum.value ?? 0)} ${datum.unit}`
+                    : formatNumber(datum.value ?? 0);
+                  return (
+                    <ChartTooltipContainer title={datum.label}>
+                      <div className="flex items-center justify-between gap-6">
+                        <span className="text-slate-200">{datum.label}</span>
+                        <span className="font-semibold text-slate-100">{valueText}</span>
+                      </div>
+                    </ChartTooltipContainer>
+                  );
+                }}
               />
               <Bar dataKey="scaledValue" radius={16} barSize={22}>
                 <LabelList dataKey="value" position="right" content={(props) => <AverageBarValueLabel {...props} />} />
@@ -2126,15 +2223,19 @@ function AverageSummaryCard({ label, averages, scaleMax }) {
   );
 }
 
-function AverageBarValueLabel({ x = 0, y = 0, width = 0, height = 0, value, payload }) {
+function AverageBarValueLabel({ x = 0, y = 0, width = 0, height = 0, value, payload, viewBox }) {
   if (value == null) return null;
-  const textX = x + width + 8;
+  const chartRight = viewBox
+    ? (viewBox.x ?? 0) + (viewBox.width ?? 0)
+    : x + width;
+  const textX = chartRight - 8;
   const textY = y + height / 2;
   const unit = payload?.unit ? ` ${payload.unit}` : "";
   return (
     <text
       x={textX}
       y={textY}
+      textAnchor="end"
       dominantBaseline="middle"
       className="fill-slate-600 dark:fill-slate-200 text-[12px] font-semibold"
     >
@@ -2149,12 +2250,12 @@ function WeightTrendCard({ data, latestWeight, latestDate }) {
 
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-1.5">
         <CardTitle>Weight Trend</CardTitle>
         <p className="text-sm text-slate-500 dark:text-slate-400">Last Month</p>
       </CardHeader>
-      <CardContent className="pt-0">
-        <div className="h-56">
+      <CardContent className="space-y-3 pt-0">
+        <div className="h-44">
           {hasData ? (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data} margin={{ top: 12, right: 16, left: 0, bottom: 0 }}>
@@ -2174,8 +2275,31 @@ function WeightTrendCard({ data, latestWeight, latestDate }) {
                   width={56}
                 />
                 <RTooltip
-                  formatter={(value) => [`${formatNumber(value)} kg`, "Weight"]}
-                  labelFormatter={(label) => label}
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const point = payload[0]?.payload;
+                    if (!point) return null;
+                    const iso = typeof point.date === "string" ? point.date : null;
+                    let title = point.label ?? iso ?? "";
+                    if (iso && ISO_DATE_RE.test(iso)) {
+                      const parsed = new Date(`${iso}T00:00:00`);
+                      if (!Number.isNaN(parsed.getTime())) {
+                        title = format(parsed, "PP");
+                      }
+                    }
+                    const displayValue = Number.isFinite(point.weight)
+                      ? point.weight
+                      : payload[0]?.value ?? 0;
+
+                    return (
+                      <ChartTooltipContainer title={title}>
+                        <div className="flex items-center justify-between gap-6">
+                          <span className="text-slate-200">Weight</span>
+                          <span className="font-semibold text-slate-100">{`${formatNumber(displayValue)} kg`}</span>
+                        </div>
+                      </ChartTooltipContainer>
+                    );
+                  }}
                 />
                 <Area
                   type="monotone"
@@ -2194,9 +2318,9 @@ function WeightTrendCard({ data, latestWeight, latestDate }) {
             </div>
           )}
         </div>
-        <div className="mt-4 text-3xl font-semibold text-slate-900 dark:text-slate-100">
-          {latestWeight != null ? formatNumber(latestWeight) : "—"}
-          <span className="ml-2 text-sm font-medium text-slate-500 dark:text-slate-400">kg</span>
+        <div className="flex items-baseline gap-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">
+          <span>{latestWeight != null ? formatNumber(latestWeight) : "—"}</span>
+          <span className="text-sm font-medium text-slate-500 dark:text-slate-400">kg</span>
         </div>
         <div className="text-xs text-slate-500 dark:text-slate-400">
           {latestDate ? `Latest entry on ${latestDate}` : "No entries recorded yet."}
@@ -2208,27 +2332,81 @@ function WeightTrendCard({ data, latestWeight, latestDate }) {
 
 function FoodLoggingCard({ summary }) {
   const { grid = [], totalLogged = 0, totalDays = 0, thisWeekLogged = 0 } = summary ?? {};
+  const containerRef = useRef(null);
+  const [hoveredDay, setHoveredDay] = useState(null);
+
+  const handlePointHover = (day, event) => {
+    if (!containerRef.current) return;
+    const parentRect = containerRef.current.getBoundingClientRect();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const nextState = {
+      day,
+      position: {
+        x: rect.left - parentRect.left + rect.width / 2,
+        y: rect.top - parentRect.top,
+      },
+    };
+    setHoveredDay((prev) => {
+      if (
+        prev
+        && prev.day?.iso === day.iso
+        && Math.abs(prev.position.x - nextState.position.x) < 0.25
+        && Math.abs(prev.position.y - nextState.position.y) < 0.25
+      ) {
+        return prev;
+      }
+      return nextState;
+    });
+  };
+
+  const clearHover = () => setHoveredDay(null);
 
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-1.5">
         <CardTitle>Food Logging</CardTitle>
         <p className="text-sm text-slate-500 dark:text-slate-400">Last 30 Days</p>
       </CardHeader>
-      <CardContent className="pt-0 space-y-4">
-        <div className="grid grid-cols-6 gap-2">
-          {grid.map((day) => (
+      <CardContent className="space-y-3 pt-0">
+        <div ref={containerRef} className="relative" onMouseLeave={clearHover}>
+          <div className="grid grid-cols-6 gap-1.5">
+            {grid.map((day) => {
+              const isoDate = `${day.iso}T00:00:00`;
+              const fullLabel = format(new Date(isoDate), "PP");
+              const statusLabel = day.logged ? "Logged" : "No log";
+              return (
+                <button
+                  key={day.iso}
+                  type="button"
+                  onMouseEnter={(event) => handlePointHover(day, event)}
+                  onMouseMove={(event) => handlePointHover(day, event)}
+                  onMouseLeave={clearHover}
+                  onFocus={(event) => handlePointHover(day, event)}
+                  onBlur={clearHover}
+                  className={cn(
+                    "h-4 w-4 rounded-md border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60",
+                    day.logged
+                      ? "border-transparent bg-sky-500/90 shadow-sm shadow-sky-500/40 dark:bg-sky-500/70"
+                      : "border-slate-200/70 bg-slate-200/60 dark:border-slate-700 dark:bg-slate-800/70",
+                  )}
+                  aria-label={`${statusLabel} on ${fullLabel}`}
+                  aria-pressed={day.logged}
+                />
+              );
+            })}
+          </div>
+          {hoveredDay ? (
             <div
-              key={day.iso}
-              className={cn(
-                "h-5 w-5 rounded-md border transition",
-                day.logged
-                  ? "border-transparent bg-sky-500/90 shadow-sm shadow-sky-500/40 dark:bg-sky-500/70"
-                  : "border-slate-200/70 bg-slate-200/50 dark:border-slate-700 dark:bg-slate-800/70"
-              )}
-              title={`${day.label} — ${day.logged ? "Logged" : "No log"}`}
-            />
-          ))}
+              className="pointer-events-none absolute z-20"
+              style={{ left: hoveredDay.position.x, top: hoveredDay.position.y }}
+            >
+              <div className="-translate-x-1/2 -translate-y-full pb-2">
+                <ChartTooltipContainer title={format(new Date(`${hoveredDay.day.iso}T00:00:00`), "PP")}>
+                  <div className="font-semibold text-slate-100">{hoveredDay.day.logged ? "Logged" : "No log"}</div>
+                </ChartTooltipContainer>
+              </div>
+            </div>
+          ) : null}
         </div>
         <div className="flex items-baseline justify-between text-sm">
           <span className="font-semibold text-slate-900 dark:text-slate-100">
@@ -2439,8 +2617,20 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
                   ))}
                 </defs>
                 <RTooltip
-                  formatter={(value) => [`${formatNumber(value)} ${unit}`, "Contribution"]}
-                  contentStyle={{ borderRadius: "12px", border: "1px solid rgba(148, 163, 184, 0.25)", boxShadow: "0 12px 24px rgba(15, 23, 42, 0.08)" }}
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const datum = payload[0]?.payload;
+                    if (!datum) return null;
+                    const valueText = `${formatNumber(datum.val ?? payload[0]?.value ?? 0)} ${unit}`;
+                    return (
+                      <ChartTooltipContainer title={datum.name}>
+                        <div className="flex items-center justify-between gap-6">
+                          <span className="text-slate-200">Contribution</span>
+                          <span className="font-semibold text-slate-100">{valueText}</span>
+                        </div>
+                      </ChartTooltipContainer>
+                    );
+                  }}
                 />
                 <Pie
                   data={slices}
