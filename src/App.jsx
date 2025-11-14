@@ -682,12 +682,21 @@ export default function MacroTrackerApp(){
       return allDates.filter((date) => date >= fromIso && date <= todayIso).sort();
     };
 
-    return [
-      { key: "7d", label: "Avg (7d)", averages: computeForDates(recentDates(7)) },
-      { key: "mtd", label: "Avg (MTD)", averages: computeForDates(rangeDates(startOfMonth(today))) },
-      { key: "qtd", label: "Avg (QTD)", averages: computeForDates(rangeDates(startOfQuarter(today))) },
-      { key: "ytd", label: "Avg (YTD)", averages: computeForDates(rangeDates(startOfYear(today))) },
+    const summaries = [
+      { key: "7d", label: "Average (7d)", averages: computeForDates(recentDates(7)) },
+      { key: "mtd", label: "Average (MTD)", averages: computeForDates(rangeDates(startOfMonth(today))) },
+      { key: "qtd", label: "Average (QTD)", averages: computeForDates(rangeDates(startOfQuarter(today))) },
+      { key: "ytd", label: "Average (YTD)", averages: computeForDates(rangeDates(startOfYear(today))) },
     ];
+
+    const macroKeys = ["kcal", "protein", "carbs", "fat"];
+    const macroMaxima = macroKeys.reduce((acc, key) => {
+      const maxValue = summaries.reduce((max, summary) => Math.max(max, summary.averages?.[key] ?? 0), 0);
+      acc[key] = maxValue > 0 ? maxValue : 1;
+      return acc;
+    }, {});
+
+    return summaries.map((summary) => ({ ...summary, scaleMax: macroMaxima }));
   }, [totalsByDate]);
 
   const activeGoalType = settings.dailyGoals?.active === 'rest' ? 'rest' : 'train';
@@ -1380,7 +1389,12 @@ export default function MacroTrackerApp(){
             {/* Averages tiles (non-empty days only) */}
             <div className="grid md:grid-cols-4 gap-4">
               {averageSummaries.map((summary) => (
-                <AverageSummaryCard key={summary.key} label={summary.label} averages={summary.averages} />
+                <AverageSummaryCard
+                  key={summary.key}
+                  label={summary.label}
+                  averages={summary.averages}
+                  scaleMax={summary.scaleMax}
+                />
               ))}
             </div>
             <div className="grid md:grid-cols-2 gap-4">
@@ -2010,7 +2024,7 @@ function WeeklyNutritionCell({ theme, unit, actual, goal, isToday, isSelected })
   );
 }
 
-function AverageSummaryCard({ label, averages }) {
+function AverageSummaryCard({ label, averages, scaleMax }) {
   const gradientPrefix = useId();
   const data = [
     {
@@ -2046,9 +2060,20 @@ function AverageSummaryCard({ label, averages }) {
       gradientTo: MACRO_THEME.fat.gradientTo,
     },
   ];
-  const chartData = data.map((item) => ({ ...item, gradientId: `${gradientPrefix}-${item.key}` }));
-  const maxValue = chartData.reduce((max, item) => Math.max(max, item.value ?? 0), 0);
-  const domainMax = maxValue > 0 ? maxValue * 1.1 : 1;
+  const chartData = data.map((item) => {
+    const maxForMetric = scaleMax?.[item.key];
+    const safeMax = maxForMetric != null && maxForMetric > 0
+      ? maxForMetric
+      : item.value != null && item.value > 0
+        ? item.value
+        : 1;
+    const normalizedValue = safeMax > 0 ? (item.value ?? 0) / safeMax : 0;
+    return {
+      ...item,
+      gradientId: `${gradientPrefix}-${item.key}`,
+      scaledValue: normalizedValue,
+    };
+  });
 
   return (
     <Card>
@@ -2072,7 +2097,7 @@ function AverageSummaryCard({ label, averages }) {
                   </linearGradient>
                 ))}
               </defs>
-              <XAxis type="number" domain={[0, domainMax]} hide />
+              <XAxis type="number" domain={[0, 1]} hide />
               <YAxis
                 type="category"
                 dataKey="label"
@@ -2082,12 +2107,12 @@ function AverageSummaryCard({ label, averages }) {
                 tick={{ fill: "currentColor", fontSize: 12 }}
               />
               <RTooltip
-                formatter={(value, _name, props) => [
-                  `${formatNumber(value)} ${props?.payload?.unit ?? ""}`.trim(),
+                formatter={(_value, _name, props) => [
+                  `${formatNumber(props?.payload?.value ?? 0)} ${props?.payload?.unit ?? ""}`.trim(),
                   props?.payload?.label ?? "",
                 ]}
               />
-              <Bar dataKey="value" radius={16} barSize={22}>
+              <Bar dataKey="scaledValue" radius={16} barSize={22}>
                 <LabelList dataKey="value" position="right" content={(props) => <AverageBarValueLabel {...props} />} />
                 {chartData.map((item) => (
                   <Cell key={item.gradientId} fill={`url(#${item.gradientId})`} />
