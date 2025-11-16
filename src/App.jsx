@@ -20,6 +20,7 @@ import {
   Area,
   BarChart,
   Bar,
+  Line,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -678,11 +679,16 @@ export default function MacroTrackerApp(){
     const endIso = toISODate(today);
     const data = profileHistory
       .filter((entry) => entry.date >= startIso && entry.date <= endIso)
-      .map((entry) => ({
-        date: entry.date,
-        label: format(new Date(`${entry.date}T00:00:00`), "MMM d"),
-        weight: Number.isFinite(entry.weightKg) ? +Number(entry.weightKg).toFixed(1) : 0,
-      }));
+      .map((entry) => {
+        const weightValue = Number.isFinite(entry.weightKg) ? +Number(entry.weightKg).toFixed(1) : null;
+        const bodyFatValue = Number.isFinite(entry.bodyFatPct) ? +Number(entry.bodyFatPct).toFixed(1) : null;
+        return {
+          date: entry.date,
+          label: format(new Date(`${entry.date}T00:00:00`), "MMM d"),
+          weight: weightValue,
+          bodyFat: bodyFatValue,
+        };
+      });
     const latest = profileHistory[profileHistory.length - 1];
     return {
       data,
@@ -2443,7 +2449,7 @@ function AverageSummaryCard({ label, averages, scaleMax }) {
 
 function WeightTrendCard({ data, latestWeight, latestDate }) {
   const gradientId = useId();
-  const hasData = Array.isArray(data) && data.length > 0;
+  const hasData = Array.isArray(data) && data.some((point) => point.weight != null || point.bodyFat != null);
 
   return (
     <Card>
@@ -2465,11 +2471,22 @@ function WeightTrendCard({ data, latestWeight, latestDate }) {
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.25)" />
                 <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "currentColor", fontSize: 12 }} />
                 <YAxis
+                  yAxisId="weight"
                   axisLine={false}
                   tickLine={false}
                   tick={{ fill: "currentColor", fontSize: 12 }}
                   tickFormatter={(value) => `${formatNumber(value)} kg`}
                   width={56}
+                />
+                <YAxis
+                  yAxisId="bodyFat"
+                  orientation="right"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "currentColor", fontSize: 12 }}
+                  tickFormatter={(value) => `${formatNumber(value)}%`}
+                  width={56}
+                  hide={!data.some((point) => point.bodyFat != null)}
                 />
                 <RTooltip
                   content={({ active, payload }) => {
@@ -2484,21 +2501,32 @@ function WeightTrendCard({ data, latestWeight, latestDate }) {
                         title = format(parsed, "PP");
                       }
                     }
-                    const displayValue = Number.isFinite(point.weight)
-                      ? point.weight
-                      : payload[0]?.value ?? 0;
+
+                    const weightEntry = payload.find((item) => item.dataKey === "weight");
+                    const bodyFatEntry = payload.find((item) => item.dataKey === "bodyFat");
+                    const hasWeight = Number.isFinite(point.weight) || Number.isFinite(weightEntry?.value);
+                    const hasBodyFat = Number.isFinite(point.bodyFat) || Number.isFinite(bodyFatEntry?.value);
 
                     return (
                       <ChartTooltipContainer title={title}>
-                        <div className="flex items-center justify-between gap-6">
-                          <span className="text-slate-200">Weight</span>
-                          <span className="font-semibold text-slate-100">{`${formatNumber(displayValue)} kg`}</span>
-                        </div>
+                        {hasWeight && (
+                          <div className="flex items-center justify-between gap-6">
+                            <span className="text-slate-200">Weight</span>
+                            <span className="font-semibold text-slate-100">{`${formatNumber(point.weight ?? weightEntry?.value ?? 0)} kg`}</span>
+                          </div>
+                        )}
+                        {hasBodyFat && (
+                          <div className="flex items-center justify-between gap-6">
+                            <span className="text-slate-200">Body Fat</span>
+                            <span className="font-semibold text-slate-100">{`${formatNumber(point.bodyFat ?? bodyFatEntry?.value ?? 0)}%`}</span>
+                          </div>
+                        )}
                       </ChartTooltipContainer>
                     );
                   }}
                 />
                 <Area
+                  yAxisId="weight"
                   type="monotone"
                   dataKey="weight"
                   stroke="#a855f7"
@@ -2506,6 +2534,18 @@ function WeightTrendCard({ data, latestWeight, latestDate }) {
                   fill={`url(#${gradientId}-fill)`}
                   activeDot={{ r: 5 }}
                   dot={{ r: 3 }}
+                  connectNulls
+                />
+                <Line
+                  yAxisId="bodyFat"
+                  type="monotone"
+                  dataKey="bodyFat"
+                  stroke="#22d3ee"
+                  strokeWidth={3}
+                  dot={{ r: 3 }}
+                  activeDot={{ r: 5 }}
+                  connectNulls
+                  strokeDasharray="4 2"
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -3276,16 +3316,16 @@ function AddFoodCard({ foods, onAdd }){
                   <Input type="number" inputMode="decimal" value={basicForm.kcal} onChange={(e)=>setBasicForm((prev)=>({...prev, kcal:e.target.value }))} />
                 </div>
                 <div>
-                  <Label>Protein (g)</Label>
-                  <Input type="number" inputMode="decimal" value={basicForm.protein} onChange={(e)=>setBasicForm((prev)=>({...prev, protein:e.target.value }))} />
+                  <Label>Fat (g)</Label>
+                  <Input type="number" inputMode="decimal" value={basicForm.fat} onChange={(e)=>setBasicForm((prev)=>({...prev, fat:e.target.value }))} />
                 </div>
                 <div>
                   <Label>Carbs (g)</Label>
                   <Input type="number" inputMode="decimal" value={basicForm.carbs} onChange={(e)=>setBasicForm((prev)=>({...prev, carbs:e.target.value }))} />
                 </div>
                 <div>
-                  <Label>Fat (g)</Label>
-                  <Input type="number" inputMode="decimal" value={basicForm.fat} onChange={(e)=>setBasicForm((prev)=>({...prev, fat:e.target.value }))} />
+                  <Label>Protein (g)</Label>
+                  <Input type="number" inputMode="decimal" value={basicForm.protein} onChange={(e)=>setBasicForm((prev)=>({...prev, protein:e.target.value }))} />
                 </div>
               </div>
               <div className="md:col-span-6 text-right">
@@ -3330,16 +3370,16 @@ function AddFoodCard({ foods, onAdd }){
                   <Input type="number" inputMode="decimal" value={recipeForm.kcal} onChange={(e)=>setRecipeForm((prev)=>({...prev, kcal:e.target.value }))} />
                 </div>
                 <div>
-                  <Label>Protein (g)</Label>
-                  <Input type="number" inputMode="decimal" value={recipeForm.protein} onChange={(e)=>setRecipeForm((prev)=>({...prev, protein:e.target.value }))} />
+                  <Label>Fat (g)</Label>
+                  <Input type="number" inputMode="decimal" value={recipeForm.fat} onChange={(e)=>setRecipeForm((prev)=>({...prev, fat:e.target.value }))} />
                 </div>
                 <div>
                   <Label>Carbs (g)</Label>
                   <Input type="number" inputMode="decimal" value={recipeForm.carbs} onChange={(e)=>setRecipeForm((prev)=>({...prev, carbs:e.target.value }))} />
                 </div>
                 <div>
-                  <Label>Fat (g)</Label>
-                  <Input type="number" inputMode="decimal" value={recipeForm.fat} onChange={(e)=>setRecipeForm((prev)=>({...prev, fat:e.target.value }))} />
+                  <Label>Protein (g)</Label>
+                  <Input type="number" inputMode="decimal" value={recipeForm.protein} onChange={(e)=>setRecipeForm((prev)=>({...prev, protein:e.target.value }))} />
                 </div>
               </div>
               <div className="md:col-span-6 text-sm text-slate-500">
