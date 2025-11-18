@@ -2451,6 +2451,28 @@ function WeightTrendCard({ data, latestWeight, latestDate }) {
   const gradientId = useId();
   const hasData = Array.isArray(data) && data.some((point) => point.weight != null || point.bodyFat != null);
 
+  const weightValues = Array.isArray(data)
+    ? data.map((point) => point?.weight).filter((value) => Number.isFinite(value))
+    : [];
+  const bodyFatValues = Array.isArray(data)
+    ? data.map((point) => point?.bodyFat).filter((value) => Number.isFinite(value))
+    : [];
+
+  const computeDomain = (values, padFallback = 0.5) => {
+    if (!values.length) return null;
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    if (min === max) {
+      return [min - padFallback, max + padFallback];
+    }
+    const span = max - min;
+    const pad = Math.max(span * 0.1, padFallback);
+    return [min - pad, max + pad];
+  };
+
+  const weightDomain = computeDomain(weightValues, 0.5);
+  const bodyFatDomain = computeDomain(bodyFatValues, 0.3);
+
   return (
     <Card>
       <CardHeader className="pb-1.5">
@@ -2477,6 +2499,7 @@ function WeightTrendCard({ data, latestWeight, latestDate }) {
                   tick={{ fill: "currentColor", fontSize: 12 }}
                   tickFormatter={(value) => `${formatNumber(value)} kg`}
                   width={56}
+                  domain={weightDomain ?? undefined}
                 />
                 <YAxis
                   yAxisId="bodyFat"
@@ -2486,6 +2509,7 @@ function WeightTrendCard({ data, latestWeight, latestDate }) {
                   tick={{ fill: "currentColor", fontSize: 12 }}
                   tickFormatter={(value) => `${formatNumber(value)}%`}
                   width={56}
+                  domain={bodyFatDomain ?? undefined}
                   hide={!data.some((point) => point.bodyFat != null)}
                 />
                 <RTooltip
