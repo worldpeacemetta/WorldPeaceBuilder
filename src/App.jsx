@@ -453,7 +453,9 @@ function sanitizeComponents(list) {
 
 function sanitizeFood(food) {
   const unit = food.unit === "perServing" ? "perServing" : "per100g";
-  const servingSize = unit === "perServing" ? Math.max(1, toNumber(food.servingSize ?? 0, 1)) : undefined;
+  const rawSize = toNumber(food.servingSize ?? food.totalSize ?? 0, 0);
+  const normalizedSize = Number.isFinite(rawSize) && rawSize > 0 ? rawSize : undefined;
+  const servingSize = unit === "perServing" ? Math.max(1, normalizedSize ?? 1) : normalizedSize;
   const category = FOOD_CATEGORY_MAP[food.category]?.value ?? DEFAULT_CATEGORY;
   const components = sanitizeComponents(food.components);
   const createdAt =
@@ -500,6 +502,25 @@ function scaleMacros(food, qty) {
     protein: +(food.protein * factor).toFixed(2),
   };
 }
+
+function macrosPer100g(food) {
+  if (food.unit === "per100g") {
+    return {
+      kcal: food.kcal,
+      fat: food.fat,
+      carbs: food.carbs,
+      protein: food.protein,
+    };
+  }
+  const serving = Math.max(1, toNumber(food.servingSize ?? 0, 1));
+  const factor = 100 / serving;
+  return {
+    kcal: +(food.kcal * factor).toFixed(1),
+    fat: +(food.fat * factor).toFixed(2),
+    carbs: +(food.carbs * factor).toFixed(2),
+    protein: +(food.protein * factor).toFixed(2),
+  };
+}
 function sumMacros(rows) {
   return rows.reduce((a, r) => ({
     kcal: a.kcal + r.kcal,
@@ -509,19 +530,54 @@ function sumMacros(rows) {
   }), { kcal: 0, fat: 0, carbs: 0, protein: 0 });
 }
 
-function computeRecipeTotals(components, foods) {
+function computeRecipeTotals(components, foods, options = {}) {
   if (!Array.isArray(components) || components.length === 0) {
     return { kcal: 0, fat: 0, carbs: 0, protein: 0 };
   }
-  const rows = components.map((component) => {
-    const food = foods.find((f) => f.id === component.foodId);
-    if (!food) return { kcal: 0, fat: 0, carbs: 0, protein: 0 };
-    const qty = toNumber(component.quantity, 0);
-    if (!Number.isFinite(qty) || qty <= 0) {
+
+  const normalized = components
+    .map((component) => {
+      const food = foods.find((f) => f.id === component.foodId);
+      const qty = toNumber(component.quantity, 0);
+      if (!food || !Number.isFinite(qty) || qty <= 0) return null;
+      return { food, qty };
+    })
+    .filter(Boolean);
+
+  if (normalized.length === 0) {
+    return { kcal: 0, fat: 0, carbs: 0, protein: 0 };
+  }
+
+  const { unit = "per100g", totalSize } = options;
+
+  if (unit === "per100g") {
+    const totalWeight = toNumber(totalSize, 0);
+    if (!Number.isFinite(totalWeight) || totalWeight <= 0) {
       return { kcal: 0, fat: 0, carbs: 0, protein: 0 };
     }
-    return scaleMacros(food, qty);
-  });
+    const totals = normalized.reduce(
+      (acc, { food, qty }) => {
+        const ingredientWeight =
+          food.unit === "perServing" ? qty * Math.max(1, food.servingSize ?? 0) : qty;
+        const fraction = ingredientWeight / totalWeight;
+        const macros = macrosPer100g(food);
+        acc.kcal += macros.kcal * fraction;
+        acc.fat += macros.fat * fraction;
+        acc.carbs += macros.carbs * fraction;
+        acc.protein += macros.protein * fraction;
+        return acc;
+      },
+      { kcal: 0, fat: 0, carbs: 0, protein: 0 }
+    );
+    return {
+      kcal: +totals.kcal.toFixed(1),
+      fat: +totals.fat.toFixed(2),
+      carbs: +totals.carbs.toFixed(2),
+      protein: +totals.protein.toFixed(2),
+    };
+  }
+
+  const rows = normalized.map(({ food, qty }) => scaleMacros(food, qty));
   return sumMacros(rows);
 }
 
@@ -3022,7 +3078,14 @@ function EditableFoodRow({ food, foods, onUpdate, onDelete }){
 
   const isPerServing = form.unit === "perServing";
 
-  const derived = useMemo(() => computeRecipeTotals(form.components ?? [], foods), [form.components, foods]);
+  const derived = useMemo(
+    () =>
+      computeRecipeTotals(form.components ?? [], foods, {
+        unit: form.unit,
+        totalSize: form.servingSize,
+      }),
+    [form.components, foods, form.unit, form.servingSize]
+  );
   const { kcal: derivedKcal, protein: derivedProtein, carbs: derivedCarbs, fat: derivedFat } = derived;
 
   useEffect(() => {
@@ -3058,11 +3121,13 @@ function EditableFoodRow({ food, foods, onUpdate, onDelete }){
     const components = (form.components ?? [])
       .map((component) => ({ foodId: component.foodId, quantity: toNumber(component.quantity, 0) }))
       .filter((component) => component.foodId && component.quantity > 0);
+    const sizeValue = Math.max(1, toNumber(form.servingSize, 1));
+    const includeSize = form.category === "homeRecipe" || isPerServing;
     const payload = {
       name: form.name.trim(),
       category: form.category,
       unit: form.unit,
-      servingSize: isPerServing ? toNumber(form.servingSize, 1) : undefined,
+      servingSize: includeSize ? sizeValue : undefined,
       kcal: toNumber(form.kcal, 0),
       protein: toNumber(form.protein, 0),
       carbs: toNumber(form.carbs, 0),
@@ -3220,7 +3285,14 @@ function AddFoodCard({ foods, onAdd }){
   const [recipeForm, setRecipeForm] = useState(()=>createRecipeForm());
   const [recipeIngredients, setRecipeIngredients] = useState([]);
 
-  const derivedTotals = useMemo(() => computeRecipeTotals(recipeIngredients, foods), [recipeIngredients, foods]);
+  const derivedTotals = useMemo(
+    () =>
+      computeRecipeTotals(recipeIngredients, foods, {
+        unit: recipeForm.unit,
+        totalSize: recipeForm.servingSize,
+      }),
+    [recipeIngredients, foods, recipeForm.unit, recipeForm.servingSize]
+  );
   const { kcal: derivedKcal, protein: derivedProtein, carbs: derivedCarbs, fat: derivedFat } = derivedTotals;
 
   useEffect(() => {
@@ -3273,12 +3345,13 @@ function AddFoodCard({ foods, onAdd }){
       .filter((item) => item.foodId && toNumber(item.quantity, 0) > 0);
     if(components.length===0){ alert('Add at least one ingredient'); return; }
     const unit = recipeForm.unit === 'perServing' ? 'perServing' : 'per100g';
+    const sizeValue = Math.max(1, toNumber(recipeForm.servingSize, 1));
     const payload = {
       id: crypto.randomUUID(),
       name: trimmed,
       unit,
       category: 'homeRecipe',
-      servingSize: unit === 'perServing' ? Math.max(1, toNumber(recipeForm.servingSize, 1)) : undefined,
+      servingSize: sizeValue,
       kcal: toNumber(recipeForm.kcal, 0),
       protein: toNumber(recipeForm.protein, 0),
       carbs: toNumber(recipeForm.carbs, 0),
@@ -3374,12 +3447,10 @@ function AddFoodCard({ foods, onAdd }){
                   </SelectContent>
                 </Select>
               </div>
-              {recipeForm.unit==='perServing' && (
-                <div>
-                  <Label>Serving size (g)</Label>
-                  <Input type="number" inputMode="decimal" value={recipeForm.servingSize} onChange={(e)=>setRecipeForm((prev)=>({...prev, servingSize:e.target.value }))} />
-                </div>
-              )}
+              <div>
+                <Label>{recipeForm.unit === "per100g" ? "Total size (g)" : "Serving size (g)"}</Label>
+                <Input type="number" inputMode="decimal" value={recipeForm.servingSize} onChange={(e)=>setRecipeForm((prev)=>({...prev, servingSize:e.target.value }))} />
+              </div>
               <div className="md:col-span-6">
                 <Label>Ingredients</Label>
                 <RecipeIngredientsEditor
