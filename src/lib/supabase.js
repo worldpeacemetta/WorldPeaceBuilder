@@ -222,6 +222,37 @@ async function storageUpload(bucket, path, file, options = {}) {
   }
 }
 
+
+
+async function storageRemove(bucket, paths) {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return { data: null, error: { message: "Supabase env vars are missing." } };
+  }
+
+  const list = Array.isArray(paths) ? paths : [paths];
+
+  try {
+    for (const rawPath of list) {
+      const path = encodeURIComponent(rawPath);
+      const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${path}`, {
+        method: "DELETE",
+        headers: {
+          ...authHeader(true),
+        },
+      });
+
+      if (!response.ok && response.status !== 404) {
+        const payload = await response.json().catch(() => null);
+        return { data: null, error: { message: payload?.message || payload?.msg || "Remove failed." } };
+      }
+    }
+
+    return { data: { paths: list }, error: null };
+  } catch {
+    return { data: null, error: { message: "Unable to connect to Supabase." } };
+  }
+}
+
 async function authRequest(path, options = {}) {
   if (!supabaseUrl || !supabaseAnonKey) {
     return { data: null, error: { message: "Supabase env vars are missing." } };
@@ -298,6 +329,9 @@ export const supabase = {
       return {
         upload(path, file, options) {
           return storageUpload(bucket, path, file, options);
+        },
+        remove(paths) {
+          return storageRemove(bucket, paths);
         },
         getPublicUrl(path) {
           return {

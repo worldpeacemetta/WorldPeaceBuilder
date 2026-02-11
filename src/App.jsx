@@ -1384,6 +1384,16 @@ export default function MacroTrackerApp(){
     setAccountSuccess("Check your inbox to confirm the new email address.");
   }, [accountEmail]);
 
+
+
+  function extractAvatarStoragePath(url) {
+    if (!url) return null;
+    const marker = "/storage/v1/object/public/avatars/";
+    const idx = url.indexOf(marker);
+    if (idx === -1) return null;
+    return url.slice(idx + marker.length);
+  }
+
   const handleAvatarUpload = useCallback(async (file) => {
     if (!file || !session?.user?.id) return;
     setAccountError("");
@@ -1470,6 +1480,34 @@ export default function MacroTrackerApp(){
     }
   }, [session?.user?.id]);
 
+  const handleRemoveAvatar = useCallback(async () => {
+    if (!session?.user?.id) return;
+    setAccountError("");
+    setAccountSuccess("");
+
+    const existingPath = extractAvatarStoragePath(profileAvatarUrl);
+    if (existingPath) {
+      const { error: removeError } = await supabase.storage.from("avatars").remove([existingPath]);
+      if (removeError) {
+        setAccountError(removeError.message || "Unable to remove avatar file");
+        return;
+      }
+    }
+
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({ avatar_url: null })
+      .eq("id", session.user.id);
+
+    if (updateError) {
+      setAccountError(updateError.message || "Unable to clear avatar");
+      return;
+    }
+
+    setProfileAvatarUrl("");
+    setAccountSuccess("Profile photo removed.");
+  }, [profileAvatarUrl, session?.user?.id]);
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-700 dark:bg-slate-950 dark:text-slate-200">
@@ -1508,23 +1546,24 @@ export default function MacroTrackerApp(){
             ) : (
               <GoalModeBadge value={{ setup: activeSetup }} className="h-9 px-4" />
             )}
-            <Button variant="ghost" className={headerPillClass} onClick={()=>setTab('settings')}>
-              <SettingsIcon className="h-4 w-4"/>
-              <span>Profile</span>
-            </Button>
             <div className="hidden sm:block text-xs text-slate-600 dark:text-slate-300 max-w-[180px] truncate" title={profileUsername || session.user?.email || ""}>
               {profileUsername || session.user?.email}
             </div>
             <Button variant="ghost" className={headerPillClass} onClick={handleSignOut}>
               <span>Sign out</span>
             </Button>
-            <div className="h-10 w-10 overflow-hidden rounded-full border border-slate-300 bg-slate-200 dark:border-slate-700 dark:bg-slate-800 flex items-center justify-center text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setTab('settings')}
+              className="h-10 w-10 overflow-hidden rounded-full border border-slate-300 bg-slate-200 dark:border-slate-700 dark:bg-slate-800 flex items-center justify-center text-xs font-semibold transition hover:scale-[1.03] hover:bg-slate-300/60 dark:hover:bg-slate-700"
+              aria-label="Go to Profile"
+            >
               {profileAvatarUrl ? (
                 <img src={profileAvatarUrl} alt="Profile avatar" className="h-full w-full object-cover" />
               ) : (
                 <User className="h-5 w-5 text-slate-500 dark:text-slate-300" />
               )}
-            </div>
+            </button>
           </div>
         </div>
 
@@ -2248,24 +2287,24 @@ export default function MacroTrackerApp(){
                           <button
                             type="button"
                             onClick={() => avatarInputRef.current?.click()}
-                            className="relative h-20 w-20 overflow-hidden rounded-full border border-slate-300 bg-slate-200 dark:border-slate-700 dark:bg-slate-800"
+                            className="h-20 w-20 overflow-hidden rounded-full border border-slate-300 bg-slate-200 dark:border-slate-700 dark:bg-slate-800 flex items-center justify-center"
                             aria-label="Upload profile photo"
                           >
                             {profileAvatarUrl ? (
                               <img src={profileAvatarUrl} alt="Profile avatar" className="h-full w-full object-cover" />
                             ) : (
-                              <div className="flex h-full w-full items-center justify-center">
-                                <User className="h-8 w-8 text-slate-500 dark:text-slate-300" />
-                              </div>
+                              <User className="h-8 w-8 text-slate-500 dark:text-slate-300" />
                             )}
-                            <span className="absolute bottom-0 right-0 rounded-full bg-slate-900 p-1 text-white dark:bg-slate-100 dark:text-slate-900">
-                              <Upload className="h-3.5 w-3.5" />
-                            </span>
                           </button>
                           <div className="space-y-2">
-                            <Button type="button" variant="outline" onClick={() => avatarInputRef.current?.click()}>
-                              Change photo
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button type="button" variant="outline" onClick={() => avatarInputRef.current?.click()}>
+                                Change photo
+                              </Button>
+                              <Button type="button" variant="ghost" onClick={handleRemoveAvatar} disabled={!profileAvatarUrl || avatarUploading}>
+                                Remove photo
+                              </Button>
+                            </div>
                             <input
                               ref={avatarInputRef}
                               type="file"
