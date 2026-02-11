@@ -5,6 +5,7 @@
 //    (Everything else left untouched.)
 
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState, useId } from "react";
+import Auth from "./components/Auth";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { supabase } from "./lib/supabase";
 import {
   CartesianGrid,
   AreaChart,
@@ -37,8 +39,6 @@ import {
   Settings as SettingsIcon,
   Upload,
   Download,
-  Moon,
-  SunMedium,
   Dumbbell,
   BedDouble,
   Database,
@@ -56,6 +56,7 @@ import {
   CakeSlice,
   Scissors,
   Equal,
+  User,
 } from "lucide-react";
 import { format, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval, startOfWeek, endOfWeek } from "date-fns";
 
@@ -70,10 +71,11 @@ import { format, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear,
 /*******************
  * Constants & Utils
  *******************/
-const K_FOODS = "mt_foods";
-const K_ENTRIES = "mt_entries";
 const K_SETTINGS = "mt_settings";
 const K_THEME = "mt_theme"; // 'system' | 'light' | 'dark'
+const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+const AVATAR_ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
 
 // Pastel macro palette with gradient support
 const MACRO_THEME = {
@@ -641,33 +643,29 @@ const MEAL_ORDER = ['breakfast','lunch','dinner','snack','other'];
  * Main App
  *******************/
 export default function MacroTrackerApp(){
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [profileUsername, setProfileUsername] = useState("");
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState("");
+  const [accountUsername, setAccountUsername] = useState("");
+  const [accountEmail, setAccountEmail] = useState("");
+  const [accountError, setAccountError] = useState("");
+  const [accountSuccess, setAccountSuccess] = useState("");
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef(null);
   const [theme, setTheme] = useState(load(K_THEME, 'system'));
   const [systemPrefersDark, setSystemPrefersDark] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.matchMedia("(prefers-color-scheme: dark)").matches;
   });
   const resolvedTheme = theme === 'system' ? (systemPrefersDark ? 'dark' : 'light') : theme;
-  const [foods, setFoods] = useState(()=> ensureFoods(load(K_FOODS, DEFAULT_FOODS)));
+  const [foods, setFoods] = useState([]);
+  const [foodsLoading, setFoodsLoading] = useState(true);
   const [foodSort, setFoodSort] = useState({ column: "createdAt", direction: "desc" });
-  const [entries, setEntries] = useState(load(K_ENTRIES, []));
+  const [entries, setEntries] = useState([]);
+  const [entriesLoading, setEntriesLoading] = useState(true);
   const [settings, setSettings] = useState(()=> ensureSettings(load(K_SETTINGS, DEFAULT_SETTINGS)));
   const [tab, setTab] = useState('dashboard');
-  const isDarkMode = resolvedTheme === 'dark';
-  const isFollowingSystem = theme === 'system';
-  const toggleTheme = useCallback(() => {
-    setTheme((current) => {
-      const resolved = current === 'system' ? (systemPrefersDark ? 'dark' : 'light') : current;
-      return resolved === 'dark' ? 'light' : 'dark';
-    });
-  }, [systemPrefersDark]);
-  const followSystemTheme = useCallback(() => setTheme('system'), []);
-  const themeTooltip = useMemo(() => {
-    const label = isDarkMode ? 'Dark' : 'Light';
-    const nextLabel = isDarkMode ? 'Light' : 'Dark';
-    return isFollowingSystem
-      ? `Following system (${label}). Click to switch to ${nextLabel} manually.`
-      : `Manual ${label} mode — click to switch to ${nextLabel}.`;
-  }, [isDarkMode, isFollowingSystem]);
 
   // Theme handling
   useEffect(() => {
@@ -687,9 +685,167 @@ export default function MacroTrackerApp(){
     save(K_THEME, theme);
   }, [theme, systemPrefersDark]);
 
-  useEffect(()=>save(K_FOODS, foods),[foods]);
-  useEffect(()=>save(K_ENTRIES, entries),[entries]);
   useEffect(()=>save(K_SETTINGS, settings),[settings]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      if (!mounted) return;
+      setSession(currentSession);
+      setAuthLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setAuthLoading(false);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadFoods() {
+      if (!session?.user?.id) {
+        if (!active) return;
+        setFoods([]);
+        setFoodsLoading(false);
+        return;
+      }
+
+      setFoodsLoading(true);
+      const { data, error } = await supabase
+        .from("foods")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .order("created_at", { ascending: false });
+
+      if (!active) return;
+      if (error) {
+        setFoods([]);
+      } else {
+        const mapped = (data || []).map((row) => sanitizeFood({
+          id: row.id,
+          name: row.name,
+          brand: row.brand,
+          unit: row.unit,
+          servingSize: row.serving_size,
+          kcal: row.kcal,
+          fat: row.fat,
+          carbs: row.carbs,
+          protein: row.protein,
+          category: row.category,
+          createdAt: row.created_at,
+        }));
+        setFoods(mapped);
+      }
+      setFoodsLoading(false);
+    }
+
+    loadFoods();
+
+    return () => {
+      active = false;
+    };
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadEntries() {
+      if (!session?.user?.id) {
+        if (!active) return;
+        setEntries([]);
+        setEntriesLoading(false);
+        return;
+      }
+
+      setEntriesLoading(true);
+      const { data, error } = await supabase
+        .from("entries")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .order("created_at", { ascending: false });
+
+      if (!active) return;
+      if (error) {
+        setEntries([]);
+      } else {
+        const mapped = (data || []).map((row) => ({
+          id: row.id,
+          date: row.date,
+          foodId: row.food_id,
+          qty: Number(row.qty) || 0,
+          meal: row.meal,
+        }));
+        setEntries(mapped);
+      }
+      setEntriesLoading(false);
+    }
+
+    loadEntries();
+
+    return () => {
+      active = false;
+    };
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadProfile() {
+      if (!session?.user?.id) {
+        if (!active) return;
+        setProfileUsername("");
+        setProfileAvatarUrl("");
+        setAccountUsername("");
+        setAccountEmail("");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("username, display_username, avatar_url")
+        .eq("id", session.user.id)
+        .single();
+
+      if (!active) return;
+      if (error) {
+        setProfileUsername("");
+        setProfileAvatarUrl("");
+      } else {
+        const usernameLower = data?.username ?? "";
+        const displayUsername = data?.display_username ?? usernameLower;
+
+        if (!data?.display_username && usernameLower) {
+          await supabase
+            .from("profiles")
+            .update({ display_username: usernameLower })
+            .eq("id", session.user.id);
+        }
+
+        setProfileUsername(displayUsername);
+        setProfileAvatarUrl(data?.avatar_url ?? "");
+        setAccountUsername(displayUsername);
+      }
+      setAccountEmail(session.user?.email ?? "");
+    }
+
+    loadProfile();
+
+    return () => {
+      active = false;
+    };
+  }, [session?.user?.id, session?.user?.email]);
 
   // Daily log state
   const [logDate, setLogDate] = useState(todayISO());
@@ -1086,37 +1242,316 @@ export default function MacroTrackerApp(){
   },[entriesForSplitDate,foods]);
 
   // Mutators
-  function addEntry(){ if(!selectedFood||!qty||qty<=0) return; const e={id:crypto.randomUUID(),date:logDate,foodId:selectedFood.id,qty,meal}; setEntries(prev=>[e,...prev]); setQty(0); setSelectedFoodId(null); setMeal(suggestMealByNow()); }
-  function removeEntry(id){ setEntries(prev=>prev.filter(e=>e.id!==id)); }
-  function updateEntryQuantity(id,newQty){ if(!Number.isFinite(newQty)||newQty<=0) return; setEntries(prev=>prev.map(e=>e.id===id?{...e,qty:newQty}:e)); }
-  function updateEntryFood(id,newFoodId){ setEntries(prev=>prev.map(e=>{ if(e.id!==id) return e; const oldFood=foods.find(f=>f.id===e.foodId); const newFood=foods.find(f=>f.id===newFoodId); const newQty=normalizeQty(oldFood,newFood,e.qty); return {...e,foodId:newFoodId,qty:newQty}; })); }
-  function updateEntryMeal(id,newMeal){ setEntries(prev=>prev.map(e=>e.id===id?{...e,meal:newMeal}:e)); }
-  function addFood(newFood){ setFoods(prev=>[sanitizeFood(newFood),...prev]); }
-  function deleteFood(id){ setFoods(prev=>prev.filter(f=>f.id!==id)); }
-  function updateFood(foodId, partial){
-    setFoods(prev=>{
-      const idx = prev.findIndex(f=>f.id===foodId);
-      if(idx===-1) return prev;
-      const oldFood = prev[idx];
-      const updated = sanitizeFood({ ...oldFood, ...partial, id: oldFood.id });
-      if(
-        oldFood.unit !== updated.unit ||
-        (oldFood.unit === "perServing" && updated.unit === "perServing" && oldFood.servingSize !== updated.servingSize)
-      ){
-        setEntries(prevEntries=>prevEntries.map(e=>{
-          if(e.foodId!==foodId) return e;
-          const newQty = normalizeQty(oldFood, updated, e.qty);
-          return { ...e, qty: newQty };
-        }));
-      }
-      const clone = [...prev];
-      clone[idx] = updated;
-      return clone;
+  async function addEntry(){
+    if(!selectedFood||!qty||qty<=0||!session?.user?.id) return;
+    const payload = {
+      user_id: session.user.id,
+      date: logDate,
+      food_id: selectedFood.id,
+      qty,
+      meal,
+    };
+    const { data, error } = await supabase.from("entries").insert(payload);
+    if (error) {
+      alert(error.message || "Unable to add entry.");
+      return;
+    }
+    const inserted = Array.isArray(data) ? data[0] : null;
+    if (!inserted) return;
+    const entry = {
+      id: inserted.id,
+      date: inserted.date,
+      foodId: inserted.food_id,
+      qty: Number(inserted.qty) || 0,
+      meal: inserted.meal,
+    };
+    setEntries(prev=>[entry,...prev]);
+    setQty(0);
+    setSelectedFoodId(null);
+    setMeal(suggestMealByNow());
+  }
+
+  async function removeEntry(id){
+    if (!session?.user?.id) {
+      console.error("Cannot delete entry: missing authenticated user session.");
+      return;
+    }
+    const { error } = await supabase
+      .from("entries")
+      .delete()
+      .match({ id, user_id: session.user.id });
+    if (error) {
+      console.error("Entry delete failed", { id, userId: session.user.id, error });
+      alert(error.message || "Unable to delete entry.");
+      return;
+    }
+    setEntries(prev=>prev.filter(e=>e.id!==id));
+  }
+
+  async function updateEntryQuantity(id,newQty){
+    if(!Number.isFinite(newQty)||newQty<=0) return;
+    if (!session?.user?.id) {
+      console.error("Cannot update entry quantity: missing authenticated user session.");
+      return;
+    }
+    const { error } = await supabase
+      .from("entries")
+      .update({ qty: newQty })
+      .match({ id, user_id: session.user.id });
+    if (error) {
+      console.error("Entry quantity update failed", { id, userId: session.user.id, error });
+      alert(error.message || "Unable to update quantity.");
+      return;
+    }
+    setEntries(prev=>prev.map(e=>e.id===id?{...e,qty:newQty}:e));
+  }
+
+  async function updateEntryFood(id,newFoodId){
+    if (!session?.user?.id) {
+      console.error("Cannot update entry food: missing authenticated user session.");
+      return;
+    }
+    const currentEntry = entries.find((entry) => entry.id === id);
+    if (!currentEntry) return;
+    const oldFood=foods.find(f=>f.id===currentEntry.foodId);
+    const newFood=foods.find(f=>f.id===newFoodId);
+    if (!newFood) return;
+    const newQty=normalizeQty(oldFood,newFood,currentEntry.qty);
+
+    const { error } = await supabase
+      .from("entries")
+      .update({ food_id: newFoodId, qty: newQty })
+      .match({ id, user_id: session.user.id });
+    if (error) {
+      console.error("Entry food update failed", { id, userId: session.user.id, newFoodId, error });
+      alert(error.message || "Unable to update entry food.");
+      return;
+    }
+
+    setEntries(prev=>prev.map(e=>e.id===id?{...e,foodId:newFoodId,qty:newQty}:e));
+  }
+
+  async function updateEntryMeal(id,newMeal){
+    if (!session?.user?.id) {
+      console.error("Cannot update entry meal: missing authenticated user session.");
+      return;
+    }
+    const { error } = await supabase
+      .from("entries")
+      .update({ meal: newMeal })
+      .match({ id, user_id: session.user.id });
+    if (error) {
+      console.error("Entry meal update failed", { id, userId: session.user.id, newMeal, error });
+      alert(error.message || "Unable to update meal.");
+      return;
+    }
+    setEntries(prev=>prev.map(e=>e.id===id?{...e,meal:newMeal}:e));
+  }
+  async function addFood(newFood){
+    if (!session?.user?.id) return;
+    const sanitized = sanitizeFood(newFood);
+    const payload = {
+      user_id: session.user.id,
+      name: sanitized.name,
+      brand: sanitized.brand ?? null,
+      unit: sanitized.unit,
+      serving_size: sanitized.servingSize ?? null,
+      kcal: sanitized.kcal,
+      fat: sanitized.fat,
+      carbs: sanitized.carbs,
+      protein: sanitized.protein,
+      category: sanitized.category,
+    };
+
+    const { data, error } = await supabase.from("foods").insert(payload);
+    if (error) {
+      alert(error.message || "Unable to add food.");
+      return;
+    }
+
+    const inserted = Array.isArray(data) ? data[0] : null;
+    if (!inserted) return;
+
+    const mapped = sanitizeFood({
+      id: inserted.id,
+      name: inserted.name,
+      brand: inserted.brand,
+      unit: inserted.unit,
+      servingSize: inserted.serving_size,
+      kcal: inserted.kcal,
+      fat: inserted.fat,
+      carbs: inserted.carbs,
+      protein: inserted.protein,
+      category: inserted.category,
+      createdAt: inserted.created_at,
     });
+    setFoods(prev => [mapped, ...prev]);
+  }
+
+  async function deleteFood(id){
+    if (!session?.user?.id) {
+      console.error("Cannot delete food: missing authenticated user session.");
+      return;
+    }
+    const { error } = await supabase.from("foods").delete().match({ id, user_id: session.user.id });
+    if (error) {
+      console.error("Food delete failed", { id, userId: session.user.id, error });
+      alert(error.message || "Unable to delete food.");
+      return;
+    }
+    setFoods(prev=>prev.filter(f=>f.id!==id));
+  }
+
+  async function updateFood(foodId, partial){
+    if (!session?.user?.id) {
+      console.error("Cannot update food: missing authenticated user session.");
+      return;
+    }
+
+    const existing = foods.find((f) => f.id === foodId);
+    if (!existing) return;
+    const updated = sanitizeFood({ ...existing, ...partial, id: existing.id });
+
+    const payload = {
+      name: updated.name,
+      brand: updated.brand ?? null,
+      unit: updated.unit,
+      serving_size: updated.servingSize ?? null,
+      kcal: updated.kcal,
+      fat: updated.fat,
+      carbs: updated.carbs,
+      protein: updated.protein,
+      category: updated.category,
+    };
+
+    const { error } = await supabase
+      .from("foods")
+      .update(payload)
+      .match({ id: foodId, user_id: session.user.id });
+
+    if (error) {
+      console.error("Food update failed", { foodId, userId: session.user.id, error });
+      alert(error.message || "Unable to update food.");
+      return;
+    }
+
+    if(
+      existing.unit !== updated.unit ||
+      (existing.unit === "perServing" && updated.unit === "perServing" && existing.servingSize !== updated.servingSize)
+    ){
+      setEntries(prevEntries=>prevEntries.map(e=>{
+        if(e.foodId!==foodId) return e;
+        const newQty = normalizeQty(existing, updated, e.qty);
+        return { ...e, qty: newQty };
+      }));
+    }
+
+    setFoods(prev => prev.map((f) => (f.id === foodId ? updated : f)));
   }
 
   function exportJSON(){ const blob = new Blob([JSON.stringify({foods,entries,settings},null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`macrotracker_backup_${todayISO()}.json`; a.click(); URL.revokeObjectURL(url); }
-  function importJSON(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(String(reader.result)); if(data.foods) setFoods(ensureFoods(data.foods)); if(data.entries) setEntries(data.entries); if(data.settings) setSettings(ensureSettings(data.settings));}catch{ alert('Invalid JSON file'); } }; reader.readAsText(file); }
+  async function importJSON(file){
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const data = JSON.parse(String(reader.result));
+
+        if (Array.isArray(data.foods)) {
+          if (!session?.user?.id) {
+            console.error("Cannot import foods: missing authenticated user session.");
+            alert("Please sign in before importing foods.");
+            return;
+          }
+
+          const mappedFoods = data.foods
+            .map((rawFood) => sanitizeFood(rawFood))
+            .map((food) => ({
+              user_id: session.user.id,
+              name: food.name,
+              brand: food.brand ?? null,
+              unit: food.unit,
+              serving_size: food.servingSize ?? null,
+              kcal: food.kcal,
+              fat: food.fat,
+              carbs: food.carbs,
+              protein: food.protein,
+              category: food.category,
+            }));
+
+          if (mappedFoods.length > 0) {
+            const { error: insertError } = await supabase.from("foods").insert(mappedFoods);
+            if (insertError) {
+              console.error("Food import insert failed", { error: insertError });
+              alert(insertError.message || "Unable to import foods.");
+              return;
+            }
+
+            const { data: foodsData, error: foodsError } = await supabase
+              .from("foods")
+              .select("*")
+              .eq("user_id", session.user.id)
+              .order("created_at", { ascending: false });
+
+            if (foodsError) {
+              console.error("Food import refetch failed", { error: foodsError });
+              alert(foodsError.message || "Foods imported, but refresh failed.");
+            } else {
+              const refreshedFoods = (foodsData || []).map((row) => sanitizeFood({
+                id: row.id,
+                name: row.name,
+                brand: row.brand,
+                unit: row.unit,
+                servingSize: row.serving_size,
+                kcal: row.kcal,
+                fat: row.fat,
+                carbs: row.carbs,
+                protein: row.protein,
+                category: row.category,
+                createdAt: row.created_at,
+              }));
+              setFoods(refreshedFoods);
+            }
+
+            alert(`${mappedFoods.length} foods imported successfully.`);
+          }
+        }
+
+        if(data.settings) setSettings(ensureSettings(data.settings));
+      } catch {
+        alert('Invalid JSON file');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  async function resetData(){
+    if (!session?.user?.id) {
+      setFoods([]);
+      setEntries([]);
+      return;
+    }
+
+    const { error: entriesError } = await supabase
+      .from("entries")
+      .delete()
+      .eq("user_id", session.user.id);
+    if (entriesError) {
+      alert(entriesError.message || "Unable to reset entries.");
+      return;
+    }
+
+    const { error: foodsError } = await supabase
+      .from("foods")
+      .delete()
+      .eq("user_id", session.user.id);
+    if (foodsError) {
+      alert(foodsError.message || "Unable to reset foods.");
+      return;
+    }
+
+    setEntries([]);
+    setFoods([]);
+  }
 
   // Helper
   const left = (goal, actual)=> Math.max(0, (goal||0) - (actual||0));
@@ -1278,16 +1713,199 @@ export default function MacroTrackerApp(){
     });
   }, [setSettings]);
 
+  const handleSignOut = useCallback(async () => {
+    await supabase.auth.signOut();
+  }, []);
+
+  const handleUpdateUsername = useCallback(async () => {
+    const displayUsername = accountUsername.trim();
+    const username = displayUsername.toLowerCase();
+    setAccountError("");
+    setAccountSuccess("");
+
+    if (!displayUsername) {
+      setAccountError("Username is required");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ username, display_username: displayUsername })
+      .eq("id", session.user.id);
+
+    if (error) {
+      const message = (error.message || "").toLowerCase();
+      setAccountError(message.includes("duplicate") || message.includes("unique") ? "Username already taken" : (error.message || "Unable to update username"));
+      return;
+    }
+
+    setProfileUsername(displayUsername);
+    setAccountSuccess("Username updated.");
+  }, [accountUsername, session?.user?.id]);
+
+  const handleUpdateEmail = useCallback(async () => {
+    const email = accountEmail.trim().toLowerCase();
+    setAccountError("");
+    setAccountSuccess("");
+
+    if (!email.includes("@")) {
+      setAccountError("Please enter a valid email.");
+      return;
+    }
+
+    const { error } = await supabase.auth.updateUser({ email });
+    if (error) {
+      setAccountError(error.message || "Unable to update email");
+      return;
+    }
+
+    setAccountSuccess("Check your inbox to confirm the new email address.");
+  }, [accountEmail]);
+
+
+
+  function extractAvatarStoragePath(url) {
+    if (!url) return null;
+    const marker = "/storage/v1/object/public/avatars/";
+    const idx = url.indexOf(marker);
+    if (idx === -1) return null;
+    return url.slice(idx + marker.length);
+  }
+
+  const handleAvatarUpload = useCallback(async (file) => {
+    if (!file || !session?.user?.id) return;
+    setAccountError("");
+    setAccountSuccess("");
+
+    if (!AVATAR_ALLOWED_TYPES.has(file.type) || file.size > AVATAR_MAX_BYTES) {
+      setAccountError("Max 2MB. JPG/PNG/WebP only.");
+      return;
+    }
+
+    setAvatarUploading(true);
+
+    try {
+      const resizedBlob = await new Promise((resolve, reject) => {
+        const image = new Image();
+        const objectUrl = URL.createObjectURL(file);
+
+        image.onload = () => {
+          const size = 256;
+          const canvas = document.createElement("canvas");
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext("2d");
+
+          if (!ctx) {
+            URL.revokeObjectURL(objectUrl);
+            reject(new Error("Unable to process image."));
+            return;
+          }
+
+          const srcW = image.width;
+          const srcH = image.height;
+          const srcSize = Math.min(srcW, srcH);
+          const srcX = Math.floor((srcW - srcSize) / 2);
+          const srcY = Math.floor((srcH - srcSize) / 2);
+
+          ctx.drawImage(image, srcX, srcY, srcSize, srcSize, 0, 0, size, size);
+          canvas.toBlob(
+            (blob) => {
+              URL.revokeObjectURL(objectUrl);
+              if (!blob) {
+                reject(new Error("Unable to process image."));
+                return;
+              }
+              resolve(blob);
+            },
+            "image/webp",
+            0.8
+          );
+        };
+
+        image.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          reject(new Error("Unable to read image file."));
+        };
+
+        image.src = objectUrl;
+      });
+
+      const filePath = `${session.user.id}/${Date.now()}-avatar.webp`;
+      const { error: uploadError } = await supabase.storage.from("avatars").upload(filePath, resizedBlob, { upsert: true });
+      if (uploadError) {
+        setAccountError(uploadError.message || "Unable to upload avatar");
+        return;
+      }
+
+      const publicUrl = supabase.storage.from("avatars").getPublicUrl(filePath).data.publicUrl;
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: publicUrl })
+        .eq("id", session.user.id);
+
+      if (updateError) {
+        setAccountError(updateError.message || "Unable to save avatar");
+        return;
+      }
+
+      setProfileAvatarUrl(publicUrl);
+      setAccountSuccess("Profile photo updated.");
+    } catch (error) {
+      setAccountError(error?.message || "Unable to process image.");
+    } finally {
+      setAvatarUploading(false);
+    }
+  }, [session?.user?.id]);
+
+  const handleRemoveAvatar = useCallback(async () => {
+    if (!session?.user?.id) return;
+    setAccountError("");
+    setAccountSuccess("");
+
+    const existingPath = extractAvatarStoragePath(profileAvatarUrl);
+    if (existingPath) {
+      const { error: removeError } = await supabase.storage.from("avatars").remove([existingPath]);
+      if (removeError) {
+        setAccountError(removeError.message || "Unable to remove avatar file");
+        return;
+      }
+    }
+
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({ avatar_url: null })
+      .eq("id", session.user.id);
+
+    if (updateError) {
+      setAccountError(updateError.message || "Unable to clear avatar");
+      return;
+    }
+
+    setProfileAvatarUrl("");
+    setAccountSuccess("Profile photo removed.");
+  }, [profileAvatarUrl, session?.user?.id]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-700 dark:bg-slate-950 dark:text-slate-200">
+        Loading session...
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Auth />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 text-slate-900 dark:from-slate-900 dark:to-slate-950 dark:text-slate-100">
       <header className="sticky top-0 z-40 backdrop-blur border-b border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-900/60">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-2xl bg-slate-900 dark:bg-slate-100 flex items-center justify-center shadow-sm">
-              <BarChart3 className="h-5 w-5 text-white dark:text-slate-900" />
-            </div>
+            <img src="/brand/onebodyonelife-slogo.png" alt="OneBodyOneLife" className="h-8 w-auto" />
             <div>
-              <h1 className="font-semibold text-lg leading-tight">MacroTracker</h1>
+              <h1 className="font-semibold text-lg leading-tight">OneBodyOneLife</h1>
               <p className="text-xs text-slate-500">Track calories, fat, carbs & protein by meal</p>
             </div>
           </div>
@@ -1306,20 +1924,24 @@ export default function MacroTrackerApp(){
             ) : (
               <GoalModeBadge value={{ setup: activeSetup }} className="h-9 px-4" />
             )}
-            <Button variant="ghost" className={headerPillClass} onClick={()=>setTab('settings')}>
-              <SettingsIcon className="h-4 w-4"/>
-              <span>Settings</span>
+            <div className="hidden sm:block text-xs text-slate-600 dark:text-slate-300 max-w-[180px] truncate" title={profileUsername || session.user?.email || ""}>
+              {profileUsername || session.user?.email}
+            </div>
+            <Button variant="ghost" className={headerPillClass} onClick={handleSignOut}>
+              <span>Sign out</span>
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              title={themeTooltip}
-              aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
-              aria-pressed={isDarkMode}
+            <button
+              type="button"
+              onClick={() => setTab('settings')}
+              className="h-10 w-10 overflow-hidden rounded-full border border-slate-300 bg-slate-200 dark:border-slate-700 dark:bg-slate-800 flex items-center justify-center text-xs font-semibold transition hover:scale-[1.03] hover:bg-slate-300/60 dark:hover:bg-slate-700"
+              aria-label="Go to Profile"
             >
-              {isDarkMode ? <Moon className="h-5 w-5" /> : <SunMedium className="h-5 w-5" />}
-            </Button>
+              {profileAvatarUrl ? (
+                <img src={profileAvatarUrl} alt="Profile avatar" className="h-full w-full object-cover" />
+              ) : (
+                <User className="h-5 w-5 text-slate-500 dark:text-slate-300" />
+              )}
+            </button>
           </div>
         </div>
 
@@ -1408,7 +2030,7 @@ export default function MacroTrackerApp(){
             <TabsTrigger value="dashboard" className="gap-2 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><BarChart3 className="h-4 w-4"/>Dashboard</TabsTrigger>
             <TabsTrigger value="daily" className="gap-2 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><BookOpenText className="h-4 w-4"/>Daily Log</TabsTrigger>
             <TabsTrigger value="foods" className="gap-2 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><Database className="h-4 w-4"/>Food DB</TabsTrigger>
-            <TabsTrigger value="settings" className="gap-2 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><SettingsIcon className="h-4 w-4"/>Settings</TabsTrigger>
+            <TabsTrigger value="settings" className="gap-2 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><SettingsIcon className="h-4 w-4"/>Profile</TabsTrigger>
           </TabsList>
 
           {/* DASHBOARD */}
@@ -1799,7 +2421,9 @@ export default function MacroTrackerApp(){
             <Card>
               <CardHeader><CardTitle>Entries — {format(new Date(logDate), "PPPP")}</CardTitle></CardHeader>
               <CardContent>
-                {MEAL_ORDER.map(mk=>{
+                {entriesLoading ? (
+                  <div className="text-center text-slate-500">Loading entries...</div>
+                ) : MEAL_ORDER.map(mk=>{
                   const group = rowsForDay.filter(r=> (r.meal||'other')===mk);
                   if(group.length===0) return null;
                   const totals = sumMacros(group);
@@ -1853,7 +2477,7 @@ export default function MacroTrackerApp(){
                   );
                 })}
 
-                {rowsForDay.length===0 && (
+                {!entriesLoading && rowsForDay.length===0 && (
                   <div className="text-center text-slate-500">No entries yet for this day.</div>
                 )}
 
@@ -1869,7 +2493,11 @@ export default function MacroTrackerApp(){
 
           {/* FOOD DB */}
           <TabsContent value="foods" className="mt-6 space-y-6">
-            <AddFoodCard foods={foods} onAdd={addFood} />
+            {foodsLoading ? (
+                <Card>
+                  <CardContent className="py-6 text-sm text-slate-500">Loading foods...</CardContent>
+                </Card>
+              ) : <AddFoodCard foods={foods} onAdd={addFood} />}
             <Card>
               <CardHeader><CardTitle>Database — {foods.length} items</CardTitle></CardHeader>
               <CardContent className="overflow-x-auto">
@@ -1965,7 +2593,7 @@ export default function MacroTrackerApp(){
           {/* SETTINGS */}
           <TabsContent value="settings" className="mt-6">
             <Card>
-              <CardHeader><CardTitle>Preferences</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Profile</CardTitle></CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
@@ -2035,31 +2663,64 @@ export default function MacroTrackerApp(){
                     )}
                   </div>
                   <div>
-                    <h3 className="font-medium mb-2">Appearance</h3>
-                    <div className="flex items-center justify-between rounded-xl border p-4 border-slate-200 dark:border-slate-700">
-                      <div>
-                        <div className="font-medium">Dark mode</div>
-                        <div className="text-sm text-slate-500 dark:text-slate-400">
-                          {isFollowingSystem
-                            ? `Following system preference (${isDarkMode ? 'Dark' : 'Light'})`
-                            : `Manual ${isDarkMode ? 'Dark' : 'Light'} theme`}
+                    <h3 className="font-medium mb-2">Account</h3>
+                    <div className="space-y-4 rounded-xl border p-4 border-slate-200 dark:border-slate-700">
+                      <div className="space-y-2">
+                        <Label>Profile photo</Label>
+                        <div className="flex items-center gap-4">
+                          <button
+                            type="button"
+                            onClick={() => avatarInputRef.current?.click()}
+                            className="h-20 w-20 overflow-hidden rounded-full border border-slate-300 bg-slate-200 dark:border-slate-700 dark:bg-slate-800 flex items-center justify-center"
+                            aria-label="Upload profile photo"
+                          >
+                            {profileAvatarUrl ? (
+                              <img src={profileAvatarUrl} alt="Profile avatar" className="h-full w-full object-cover" />
+                            ) : (
+                              <User className="h-8 w-8 text-slate-500 dark:text-slate-300" />
+                            )}
+                          </button>
+                          <div className="space-y-2">
+                            <div className="flex gap-2">
+                              <Button type="button" variant="outline" onClick={() => avatarInputRef.current?.click()}>
+                                Change photo
+                              </Button>
+                              <Button type="button" variant="ghost" onClick={handleRemoveAvatar} disabled={!profileAvatarUrl || avatarUploading}>
+                                Remove photo
+                              </Button>
+                            </div>
+                            <input
+                              ref={avatarInputRef}
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              className="hidden"
+                              onChange={(event) => {
+                                const file = event.target.files?.[0];
+                                if (file) handleAvatarUpload(file);
+                                event.target.value = "";
+                              }}
+                            />
+                            <p className="text-xs text-slate-500">JPG/PNG/WebP • max 2MB • square works best</p>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <Switch
-                          checked={isDarkMode}
-                          onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
-                          aria-label="Toggle dark mode"
-                        />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={followSystemTheme}
-                          disabled={isFollowingSystem}
-                        >
-                          Use system
-                        </Button>
+                      <div className="space-y-2">
+                        <Label>Username</Label>
+                        <div className="flex gap-2">
+                          <Input value={accountUsername} onChange={(e)=>setAccountUsername(e.target.value)} placeholder="username" />
+                          <Button onClick={handleUpdateUsername}>Save</Button>
+                        </div>
                       </div>
+                      <div className="space-y-2">
+                        <Label>Email</Label>
+                        <div className="flex gap-2">
+                          <Input type="email" value={accountEmail} onChange={(e)=>setAccountEmail(e.target.value)} placeholder="you@example.com" />
+                          <Button variant="outline" onClick={handleUpdateEmail}>Update</Button>
+                        </div>
+                      </div>
+                      {avatarUploading ? <p className="text-xs text-slate-500">Uploading avatar...</p> : null}
+                      {accountError ? <p className="text-sm text-red-600 dark:text-red-400">{accountError}</p> : null}
+                      {accountSuccess ? <p className="text-sm text-emerald-600 dark:text-emerald-400">{accountSuccess}</p> : null}
                     </div>
                   </div>
                 </div>
@@ -2106,13 +2767,13 @@ export default function MacroTrackerApp(){
                     </div>
                   </div>
                   <div className="rounded-xl border p-4 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40">
-                    <div className="font-medium mb-1">Notes</div>
-                    <div className="text-sm text-slate-500">Profile is optional and local-only. Future: BMR/TDEE suggestions.</div>
+                    <div className="font-medium mb-1">My Badges</div>
+                    <div className="text-sm text-slate-500">Badges coming soon.</div>
                   </div>
                 </div>
 
                 <div className="flex flex-wrap gap-3">
-                  <Button variant="destructive" onClick={()=>{ if(confirm('Reset all data?')){ setFoods(DEFAULT_FOODS); setEntries([]); } }}>Reset data</Button>
+                  <Button variant="destructive" onClick={()=>{ if(confirm('Reset all data?')){ resetData(); } }}>Reset data</Button>
                   <Button variant="outline" onClick={()=>setTab('dashboard')}>Back to Dashboard</Button>
                 </div>
               </CardContent>
