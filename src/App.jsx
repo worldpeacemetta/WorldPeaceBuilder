@@ -71,7 +71,6 @@ import { format, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear,
 /*******************
  * Constants & Utils
  *******************/
-const K_FOODS = "mt_foods";
 const K_ENTRIES = "mt_entries";
 const K_SETTINGS = "mt_settings";
 const K_THEME = "mt_theme"; // 'system' | 'light' | 'dark'
@@ -661,7 +660,8 @@ export default function MacroTrackerApp(){
     return window.matchMedia("(prefers-color-scheme: dark)").matches;
   });
   const resolvedTheme = theme === 'system' ? (systemPrefersDark ? 'dark' : 'light') : theme;
-  const [foods, setFoods] = useState(()=> ensureFoods(load(K_FOODS, DEFAULT_FOODS)));
+  const [foods, setFoods] = useState([]);
+  const [foodsLoading, setFoodsLoading] = useState(true);
   const [foodSort, setFoodSort] = useState({ column: "createdAt", direction: "desc" });
   const [entries, setEntries] = useState(load(K_ENTRIES, []));
   const [settings, setSettings] = useState(()=> ensureSettings(load(K_SETTINGS, DEFAULT_SETTINGS)));
@@ -685,7 +685,6 @@ export default function MacroTrackerApp(){
     save(K_THEME, theme);
   }, [theme, systemPrefersDark]);
 
-  useEffect(()=>save(K_FOODS, foods),[foods]);
   useEffect(()=>save(K_ENTRIES, entries),[entries]);
   useEffect(()=>save(K_SETTINGS, settings),[settings]);
 
@@ -710,6 +709,55 @@ export default function MacroTrackerApp(){
       subscription.unsubscribe();
     };
   }, []);
+
+
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadFoods() {
+      if (!session?.user?.id) {
+        if (!active) return;
+        setFoods([]);
+        setFoodsLoading(false);
+        return;
+      }
+
+      setFoodsLoading(true);
+      const { data, error } = await supabase
+        .from("foods")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .order("created_at", { ascending: false });
+
+      if (!active) return;
+      if (error) {
+        setFoods([]);
+      } else {
+        const mapped = (data || []).map((row) => sanitizeFood({
+          id: row.id,
+          name: row.name,
+          brand: row.brand,
+          unit: row.unit,
+          servingSize: row.serving_size,
+          kcal: row.kcal,
+          fat: row.fat,
+          carbs: row.carbs,
+          protein: row.protein,
+          category: row.category,
+          createdAt: row.created_at,
+        }));
+        setFoods(mapped);
+      }
+      setFoodsLoading(false);
+    }
+
+    loadFoods();
+
+    return () => {
+      active = false;
+    };
+  }, [session?.user?.id]);
 
   useEffect(() => {
     let active = true;
@@ -1159,32 +1207,103 @@ export default function MacroTrackerApp(){
   function updateEntryQuantity(id,newQty){ if(!Number.isFinite(newQty)||newQty<=0) return; setEntries(prev=>prev.map(e=>e.id===id?{...e,qty:newQty}:e)); }
   function updateEntryFood(id,newFoodId){ setEntries(prev=>prev.map(e=>{ if(e.id!==id) return e; const oldFood=foods.find(f=>f.id===e.foodId); const newFood=foods.find(f=>f.id===newFoodId); const newQty=normalizeQty(oldFood,newFood,e.qty); return {...e,foodId:newFoodId,qty:newQty}; })); }
   function updateEntryMeal(id,newMeal){ setEntries(prev=>prev.map(e=>e.id===id?{...e,meal:newMeal}:e)); }
-  function addFood(newFood){ setFoods(prev=>[sanitizeFood(newFood),...prev]); }
-  function deleteFood(id){ setFoods(prev=>prev.filter(f=>f.id!==id)); }
-  function updateFood(foodId, partial){
-    setFoods(prev=>{
-      const idx = prev.findIndex(f=>f.id===foodId);
-      if(idx===-1) return prev;
-      const oldFood = prev[idx];
-      const updated = sanitizeFood({ ...oldFood, ...partial, id: oldFood.id });
-      if(
-        oldFood.unit !== updated.unit ||
-        (oldFood.unit === "perServing" && updated.unit === "perServing" && oldFood.servingSize !== updated.servingSize)
-      ){
-        setEntries(prevEntries=>prevEntries.map(e=>{
-          if(e.foodId!==foodId) return e;
-          const newQty = normalizeQty(oldFood, updated, e.qty);
-          return { ...e, qty: newQty };
-        }));
-      }
-      const clone = [...prev];
-      clone[idx] = updated;
-      return clone;
+  async function addFood(newFood){
+    if (!session?.user?.id) return;
+    const sanitized = sanitizeFood(newFood);
+    const payload = {
+      user_id: session.user.id,
+      name: sanitized.name,
+      brand: sanitized.brand ?? null,
+      unit: sanitized.unit,
+      serving_size: sanitized.servingSize ?? null,
+      kcal: sanitized.kcal,
+      fat: sanitized.fat,
+      carbs: sanitized.carbs,
+      protein: sanitized.protein,
+      category: sanitized.category,
+    };
+
+    const { data, error } = await supabase.from("foods").insert(payload);
+    if (error) {
+      alert(error.message || "Unable to add food.");
+      return;
+    }
+
+    const inserted = Array.isArray(data) ? data[0] : null;
+    if (!inserted) return;
+
+    const mapped = sanitizeFood({
+      id: inserted.id,
+      name: inserted.name,
+      brand: inserted.brand,
+      unit: inserted.unit,
+      servingSize: inserted.serving_size,
+      kcal: inserted.kcal,
+      fat: inserted.fat,
+      carbs: inserted.carbs,
+      protein: inserted.protein,
+      category: inserted.category,
+      createdAt: inserted.created_at,
     });
+    setFoods(prev => [mapped, ...prev]);
+  }
+
+  async function deleteFood(id){
+    if (!session?.user?.id) return;
+    const { error } = await supabase.from("foods").delete().eq("id", id).eq("user_id", session.user.id);
+    if (error) {
+      alert(error.message || "Unable to delete food.");
+      return;
+    }
+    setFoods(prev=>prev.filter(f=>f.id!==id));
+  }
+
+  async function updateFood(foodId, partial){
+    if (!session?.user?.id) return;
+
+    const existing = foods.find((f) => f.id === foodId);
+    if (!existing) return;
+    const updated = sanitizeFood({ ...existing, ...partial, id: existing.id });
+
+    const payload = {
+      name: updated.name,
+      brand: updated.brand ?? null,
+      unit: updated.unit,
+      serving_size: updated.servingSize ?? null,
+      kcal: updated.kcal,
+      fat: updated.fat,
+      carbs: updated.carbs,
+      protein: updated.protein,
+      category: updated.category,
+    };
+
+    const { error } = await supabase
+      .from("foods")
+      .update(payload)
+      .eq("id", foodId)
+      .eq("user_id", session.user.id);
+
+    if (error) {
+      alert(error.message || "Unable to update food.");
+      return;
+    }
+
+    if(
+      existing.unit !== updated.unit ||
+      (existing.unit === "perServing" && updated.unit === "perServing" && existing.servingSize !== updated.servingSize)
+    ){
+      setEntries(prevEntries=>prevEntries.map(e=>{
+        if(e.foodId!==foodId) return e;
+        const newQty = normalizeQty(existing, updated, e.qty);
+        return { ...e, qty: newQty };
+      }));
+    }
+
+    setFoods(prev => prev.map((f) => (f.id === foodId ? updated : f)));
   }
 
   function exportJSON(){ const blob = new Blob([JSON.stringify({foods,entries,settings},null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`macrotracker_backup_${todayISO()}.json`; a.click(); URL.revokeObjectURL(url); }
-  function importJSON(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(String(reader.result)); if(data.foods) setFoods(ensureFoods(data.foods)); if(data.entries) setEntries(data.entries); if(data.settings) setSettings(ensureSettings(data.settings));}catch{ alert('Invalid JSON file'); } }; reader.readAsText(file); }
+  function importJSON(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(String(reader.result)); if(data.entries) setEntries(data.entries); if(data.settings) setSettings(ensureSettings(data.settings));}catch{ alert('Invalid JSON file'); } }; reader.readAsText(file); }
 
   // Helper
   const left = (goal, actual)=> Math.max(0, (goal||0) - (actual||0));
@@ -2124,7 +2243,11 @@ export default function MacroTrackerApp(){
 
           {/* FOOD DB */}
           <TabsContent value="foods" className="mt-6 space-y-6">
-            <AddFoodCard foods={foods} onAdd={addFood} />
+            {foodsLoading ? (
+                <Card>
+                  <CardContent className="py-6 text-sm text-slate-500">Loading foods...</CardContent>
+                </Card>
+              ) : <AddFoodCard foods={foods} onAdd={addFood} />}
             <Card>
               <CardHeader><CardTitle>Database — {foods.length} items</CardTitle></CardHeader>
               <CardContent className="overflow-x-auto">
@@ -2400,7 +2523,7 @@ export default function MacroTrackerApp(){
                 </div>
 
                 <div className="flex flex-wrap gap-3">
-                  <Button variant="destructive" onClick={()=>{ if(confirm('Reset all data?')){ setFoods(DEFAULT_FOODS); setEntries([]); } }}>Reset data</Button>
+                  <Button variant="destructive" onClick={()=>{ if(confirm('Reset all data?')){ setFoods([]); setEntries([]); } }}>Reset data</Button>
                   <Button variant="outline" onClick={()=>setTab('dashboard')}>Back to Dashboard</Button>
                 </div>
               </CardContent>

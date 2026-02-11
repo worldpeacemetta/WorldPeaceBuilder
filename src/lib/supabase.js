@@ -134,6 +134,71 @@ async function restInsert(table, row) {
   }
 }
 
+
+
+async function restSelectList(table, columns, filters = {}, orderBy) {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return { data: null, error: { message: "Supabase env vars are missing." } };
+  }
+
+  const params = new URLSearchParams();
+  params.set("select", columns || "*");
+  Object.entries(filters).forEach(([key, value]) => {
+    params.set(key, `eq.${value}`);
+  });
+  if (orderBy?.column) {
+    params.set("order", `${orderBy.column}.${orderBy.ascending ? "asc" : "desc"}`);
+  }
+
+  try {
+    const response = await fetch(`${supabaseUrl}/rest/v1/${table}?${params.toString()}`, {
+      method: "GET",
+      headers: {
+        ...authHeader(true),
+      },
+    });
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      return { data: null, error: { message: payload?.message || payload?.msg || "Select request failed." } };
+    }
+
+    return { data: payload, error: null };
+  } catch {
+    return { data: null, error: { message: "Unable to connect to Supabase." } };
+  }
+}
+
+async function restDelete(table, filters = {}) {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return { data: null, error: { message: "Supabase env vars are missing." } };
+  }
+
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    params.set(key, `eq.${value}`);
+  });
+
+  try {
+    const response = await fetch(`${supabaseUrl}/rest/v1/${table}?${params.toString()}`, {
+      method: "DELETE",
+      headers: {
+        ...authHeader(true),
+        Prefer: "return=representation",
+      },
+    });
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      return { data: null, error: { message: payload?.message || payload?.msg || "Delete request failed." } };
+    }
+
+    return { data: payload, error: null };
+  } catch {
+    return { data: null, error: { message: "Unable to connect to Supabase." } };
+  }
+}
+
 async function restSelectSingle(table, columns, filters = {}) {
   if (!supabaseUrl || !supabaseAnonKey) {
     return { data: null, error: { message: "Supabase env vars are missing." } };
@@ -293,6 +358,7 @@ export const supabase = {
       columns: "*",
       filters: {},
       pendingUpdate: null,
+      pendingDelete: false,
       select(columns) {
         this.columns = columns || "*";
         return this;
@@ -308,16 +374,27 @@ export const supabase = {
           this.pendingUpdate = null;
           return restUpdate(this.table, payload, this.filters);
         }
+        if (this.pendingDelete) {
+          this.pendingDelete = false;
+          return restDelete(this.table, this.filters);
+        }
         return this;
       },
       async single() {
         return restSelectSingle(this.table, this.columns, this.filters);
+      },
+      async order(column, { ascending = true } = {}) {
+        return restSelectList(this.table, this.columns, this.filters, { column, ascending });
       },
       async upsert(row, options) {
         return restUpsert(table, row, options);
       },
       async insert(row) {
         return restInsert(this.table, row);
+      },
+      delete() {
+        this.pendingDelete = true;
+        return this;
       },
     };
 
