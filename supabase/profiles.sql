@@ -2,9 +2,14 @@
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   username text not null unique,
+  display_username text,
   avatar_url text,
   created_at timestamptz not null default now()
 );
+
+update public.profiles
+set display_username = username
+where display_username is null;
 
 alter table public.profiles enable row level security;
 
@@ -47,10 +52,11 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, username)
+  insert into public.profiles (id, username, display_username)
   values (
     new.id,
-    lower(trim(new.raw_user_meta_data->>'username'))
+    lower(trim(new.raw_user_meta_data->>'username')),
+    coalesce(nullif(trim(new.raw_user_meta_data->>'display_username'), ''), nullif(trim(new.raw_user_meta_data->>'username'), ''))
   )
   on conflict (id) do nothing;
 

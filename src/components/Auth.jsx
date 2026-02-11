@@ -164,14 +164,15 @@ export default function Auth() {
     resetRegisterMessages();
 
     const email = registerEmail.trim().toLowerCase();
-    const username = registerUsername.trim().toLowerCase();
+    const displayUsername = registerUsername.trim();
+    const username = displayUsername.toLowerCase();
 
     if (!email.includes("@")) {
       setRegisterError("Please enter a valid email");
       return;
     }
 
-    if (!username) {
+    if (!displayUsername) {
       setRegisterError("Username is required");
       return;
     }
@@ -199,7 +200,7 @@ export default function Auth() {
       const { error: registerErrorResult } = await supabase.auth.signUp({
         email,
         password: registerPassword,
-        options: { data: { username } },
+        options: { data: { username, display_username: displayUsername } },
       });
 
       if (registerErrorResult) {

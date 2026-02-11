@@ -726,7 +726,7 @@ export default function MacroTrackerApp(){
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("username, avatar_url")
+        .select("username, display_username, avatar_url")
         .eq("id", session.user.id)
         .single();
 
@@ -735,9 +735,19 @@ export default function MacroTrackerApp(){
         setProfileUsername("");
         setProfileAvatarUrl("");
       } else {
-        setProfileUsername(data?.username ?? "");
+        const usernameLower = data?.username ?? "";
+        const displayUsername = data?.display_username ?? usernameLower;
+
+        if (!data?.display_username && usernameLower) {
+          await supabase
+            .from("profiles")
+            .update({ display_username: usernameLower })
+            .eq("id", session.user.id);
+        }
+
+        setProfileUsername(displayUsername);
         setProfileAvatarUrl(data?.avatar_url ?? "");
-        setAccountUsername(data?.username ?? "");
+        setAccountUsername(displayUsername);
       }
       setAccountEmail(session.user?.email ?? "");
     }
@@ -1341,18 +1351,19 @@ export default function MacroTrackerApp(){
   }, []);
 
   const handleUpdateUsername = useCallback(async () => {
-    const username = accountUsername.trim().toLowerCase();
+    const displayUsername = accountUsername.trim();
+    const username = displayUsername.toLowerCase();
     setAccountError("");
     setAccountSuccess("");
 
-    if (!username) {
+    if (!displayUsername) {
       setAccountError("Username is required");
       return;
     }
 
     const { error } = await supabase
       .from("profiles")
-      .update({ username })
+      .update({ username, display_username: displayUsername })
       .eq("id", session.user.id);
 
     if (error) {
@@ -1361,7 +1372,7 @@ export default function MacroTrackerApp(){
       return;
     }
 
-    setProfileUsername(username);
+    setProfileUsername(displayUsername);
     setAccountSuccess("Username updated.");
   }, [accountUsername, session?.user?.id]);
 
