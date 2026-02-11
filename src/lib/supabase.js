@@ -105,6 +105,35 @@ async function restUpdate(table, row, filters = {}) {
   }
 }
 
+
+
+async function restInsert(table, row) {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return { data: null, error: { message: "Supabase env vars are missing." } };
+  }
+
+  try {
+    const response = await fetch(`${supabaseUrl}/rest/v1/${table}`, {
+      method: "POST",
+      headers: {
+        ...authHeader(true),
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify(row),
+    });
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      return { data: null, error: { message: payload?.message || payload?.msg || "Insert request failed." } };
+    }
+
+    return { data: payload, error: null };
+  } catch {
+    return { data: null, error: { message: "Unable to connect to Supabase." } };
+  }
+}
+
 async function restSelectSingle(table, columns, filters = {}) {
   if (!supabaseUrl || !supabaseAnonKey) {
     return { data: null, error: { message: "Supabase env vars are missing." } };
@@ -256,6 +285,9 @@ export const supabase = {
       async upsert(row, options) {
         return restUpsert(table, row, options);
       },
+      async insert(row) {
+        return restInsert(this.table, row);
+      },
     };
 
     return query;
@@ -279,10 +311,13 @@ export const supabase = {
   },
 
   auth: {
-    async signUp({ email, password }) {
+    async signUp({ email, password, options }) {
+      const payload = { email, password };
+      if (options?.data) payload.data = options.data;
+
       const { data, error } = await authRequest("/signup", {
         method: "POST",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(payload),
       });
 
       if (error) return { data: null, error };

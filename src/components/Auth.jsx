@@ -6,8 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "../lib/supabase";
 
-const PENDING_USERNAMES_KEY = "macrotracker.pending-usernames";
-
 function getErrorMessage(error, fallback) {
   if (!error) return fallback;
   if (typeof error === "string") return error;
@@ -25,41 +23,6 @@ function toFriendlyAuthError(error, fallback) {
   return getErrorMessage(error, fallback);
 }
 
-function readPendingUsernames() {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(PENDING_USERNAMES_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-function setPendingUsername(email, username) {
-  if (typeof window === "undefined") return;
-  const pending = readPendingUsernames();
-  pending[email.toLowerCase()] = username;
-  window.localStorage.setItem(PENDING_USERNAMES_KEY, JSON.stringify(pending));
-}
-
-function takePendingUsername(email) {
-  if (typeof window === "undefined") return null;
-  const pending = readPendingUsernames();
-  const key = email.toLowerCase();
-  const username = pending[key] ?? null;
-  if (!username) return null;
-  delete pending[key];
-  window.localStorage.setItem(PENDING_USERNAMES_KEY, JSON.stringify(pending));
-  return username;
-}
-
-function clearPendingUsername(email) {
-  if (typeof window === "undefined") return;
-  const pending = readPendingUsernames();
-  delete pending[email.toLowerCase()];
-  window.localStorage.setItem(PENDING_USERNAMES_KEY, JSON.stringify(pending));
-}
-
 export default function Auth() {
   const [tab, setTab] = useState("signin");
 
@@ -71,53 +34,33 @@ export default function Auth() {
   const [signInSuccess, setSignInSuccess] = useState("");
   const [signInLoading, setSignInLoading] = useState(false);
 
-  const [signUpEmail, setSignUpEmail] = useState("");
-  const [signUpUsername, setSignUpUsername] = useState("");
-  const [signUpPassword, setSignUpPassword] = useState("");
+  const [registerEmail, setRegisterEmail] = useState("");
+  const [registerUsername, setRegisterUsername] = useState("");
+  const [registerPassword, setRegisterPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [signUpError, setSignUpError] = useState("");
-  const [signUpSuccess, setSignUpSuccess] = useState("");
-  const [signUpLoading, setSignUpLoading] = useState(false);
+  const [registerError, setRegisterError] = useState("");
+  const [registerSuccess, setRegisterSuccess] = useState("");
+  const [registerLoading, setRegisterLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMessage, setResendMessage] = useState("");
 
   const passwordsDoNotMatch = useMemo(
-    () => confirmPassword.length > 0 && signUpPassword !== confirmPassword,
-    [signUpPassword, confirmPassword]
+    () => confirmPassword.length > 0 && registerPassword !== confirmPassword,
+    [registerPassword, confirmPassword]
   );
 
-  const canSubmitSignUp =
-    !!signUpEmail.trim() && !!signUpUsername.trim() && !!signUpPassword && !!confirmPassword && !passwordsDoNotMatch && !signUpLoading;
+  const canSubmitRegister =
+    !!registerEmail.trim() && !!registerUsername.trim() && !!registerPassword && !!confirmPassword && !passwordsDoNotMatch && !registerLoading;
 
   const resetSignInMessages = () => {
     setSignInError("");
     setSignInSuccess("");
   };
 
-  const resetSignUpMessages = () => {
-    setSignUpError("");
-    setSignUpSuccess("");
+  const resetRegisterMessages = () => {
+    setRegisterError("");
+    setRegisterSuccess("");
     setResendMessage("");
-  };
-
-  const ensureProfileForCurrentUser = async (username, errorSetter) => {
-    if (!username) return;
-    const { data: sessionData } = await supabase.auth.getSession();
-    const user = sessionData?.session?.user;
-    if (!user?.id) return;
-
-    const { error } = await supabase
-      .from("profiles")
-      .upsert({ id: user.id, username }, { onConflict: "id" });
-
-    if (error && errorSetter) {
-      const message = getErrorMessage(error, "Unable to save username").toLowerCase();
-      if (message.includes("duplicate") || message.includes("unique")) {
-        errorSetter("Username already taken");
-      } else {
-        errorSetter(getErrorMessage(error, "Unable to save username"));
-      }
-    }
   };
 
   const handleSignIn = async () => {
@@ -164,12 +107,6 @@ export default function Auth() {
 
       if (signInErrorResult) {
         setSignInError(toFriendlyAuthError(signInErrorResult, "Unable to sign in"));
-        return;
-      }
-
-      const pendingUsername = takePendingUsername(email);
-      if (pendingUsername) {
-        await ensureProfileForCurrentUser(pendingUsername, setSignInError);
       }
     } finally {
       setSignInLoading(false);
@@ -201,20 +138,20 @@ export default function Auth() {
   };
 
   const handleResendConfirmation = async () => {
-    const email = signUpEmail.trim().toLowerCase();
+    const email = registerEmail.trim().toLowerCase();
     if (!email.includes("@")) {
-      setSignUpError("Please enter a valid email to resend confirmation.");
+      setRegisterError("Please enter a valid email to resend confirmation.");
       return;
     }
 
     setResendLoading(true);
     setResendMessage("");
-    setSignUpError("");
+    setRegisterError("");
 
     try {
       const { error } = await supabase.auth.resend({ type: "signup", email });
       if (error) {
-        setSignUpError(toFriendlyAuthError(error, "Unable to resend confirmation email"));
+        setRegisterError(toFriendlyAuthError(error, "Unable to resend confirmation email"));
         return;
       }
       setResendMessage("Confirmation email sent. Please check your inbox.");
@@ -223,67 +160,56 @@ export default function Auth() {
     }
   };
 
-  const handleSignUp = async () => {
-    resetSignUpMessages();
+  const handleRegister = async () => {
+    resetRegisterMessages();
 
-    const email = signUpEmail.trim().toLowerCase();
-    const username = signUpUsername.trim().toLowerCase();
+    const email = registerEmail.trim().toLowerCase();
+    const username = registerUsername.trim().toLowerCase();
 
     if (!email.includes("@")) {
-      setSignUpError("Please enter a valid email");
+      setRegisterError("Please enter a valid email");
       return;
     }
 
     if (!username) {
-      setSignUpError("Username is required");
+      setRegisterError("Username is required");
       return;
     }
 
     if (passwordsDoNotMatch) {
-      setSignUpError("Passwords do not match");
+      setRegisterError("Passwords do not match");
       return;
     }
 
-    setSignUpLoading(true);
+    setRegisterLoading(true);
 
     try {
       const { data: existingEmail, error: usernameLookupError } = await supabase.rpc("get_email_by_username", {
         p_username: username,
       });
       if (usernameLookupError) {
-        setSignUpError(getErrorMessage(usernameLookupError, "Unable to validate username"));
+        setRegisterError(getErrorMessage(usernameLookupError, "Unable to validate username"));
         return;
       }
       if (existingEmail) {
-        setSignUpError("Username already taken");
+        setRegisterError("Username already taken");
         return;
       }
 
-      const { data: signUpData, error: signUpErrorResult } = await supabase.auth.signUp({
+      const { error: registerErrorResult } = await supabase.auth.signUp({
         email,
-        password: signUpPassword,
+        password: registerPassword,
+        options: { data: { username } },
       });
 
-      if (signUpErrorResult) {
-        setSignUpError(toFriendlyAuthError(signUpErrorResult, "Unable to sign up"));
+      if (registerErrorResult) {
+        setRegisterError(toFriendlyAuthError(registerErrorResult, "Unable to register"));
         return;
       }
 
-      setPendingUsername(email, username);
-
-      if (signUpData?.session) {
-        await ensureProfileForCurrentUser(username, setSignUpError);
-        clearPendingUsername(email);
-      }
-
-      setSignUpSuccess("Account created. Check your inbox (and spam) to confirm your email, then come back and sign in.");
-      setTab("signin");
-      setIdentifier(email);
-      setSignInPassword("");
-      setSignUpPassword("");
-      setConfirmPassword("");
+      setRegisterSuccess("Account created. Check your inbox (and spam) to confirm your email, then return to sign in.");
     } finally {
-      setSignUpLoading(false);
+      setRegisterLoading(false);
     }
   };
 
@@ -301,7 +227,7 @@ export default function Auth() {
           <Tabs value={tab} onValueChange={setTab} className="space-y-4">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+              <TabsTrigger value="register">Register</TabsTrigger>
             </TabsList>
 
             <TabsContent value="signin" className="space-y-4">
@@ -380,44 +306,44 @@ export default function Auth() {
               {signInSuccess ? <p className="text-sm text-emerald-600 dark:text-emerald-400">{signInSuccess}</p> : null}
             </TabsContent>
 
-            <TabsContent value="signup" className="space-y-4">
+            <TabsContent value="register" className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="signup-email">Email</Label>
+                <Label htmlFor="register-email">Email</Label>
                 <Input
-                  id="signup-email"
+                  id="register-email"
                   type="email"
-                  value={signUpEmail}
-                  onChange={(event) => setSignUpEmail(event.target.value)}
+                  value={registerEmail}
+                  onChange={(event) => setRegisterEmail(event.target.value)}
                   placeholder="you@example.com"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="signup-username">Username</Label>
+                <Label htmlFor="register-username">Username</Label>
                 <Input
-                  id="signup-username"
+                  id="register-username"
                   type="text"
-                  value={signUpUsername}
-                  onChange={(event) => setSignUpUsername(event.target.value)}
+                  value={registerUsername}
+                  onChange={(event) => setRegisterUsername(event.target.value)}
                   placeholder="yourusername"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="signup-password">Password</Label>
+                <Label htmlFor="register-password">Password</Label>
                 <Input
-                  id="signup-password"
+                  id="register-password"
                   type="password"
-                  value={signUpPassword}
-                  onChange={(event) => setSignUpPassword(event.target.value)}
+                  value={registerPassword}
+                  onChange={(event) => setRegisterPassword(event.target.value)}
                   placeholder="••••••••"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="signup-confirm-password">Confirm Password</Label>
+                <Label htmlFor="register-confirm-password">Confirm Password</Label>
                 <Input
-                  id="signup-confirm-password"
+                  id="register-confirm-password"
                   type="password"
                   value={confirmPassword}
                   onChange={(event) => setConfirmPassword(event.target.value)}
@@ -429,14 +355,14 @@ export default function Auth() {
                 <p className="text-sm text-amber-600 dark:text-amber-400">Passwords do not match</p>
               ) : null}
 
-              <Button className="w-full" onClick={handleSignUp} disabled={!canSubmitSignUp}>
-                {signUpLoading ? "Creating account..." : "Sign up"}
+              <Button className="w-full" onClick={handleRegister} disabled={!canSubmitRegister}>
+                {registerLoading ? "Creating account..." : "Register"}
               </Button>
 
-              {signUpError ? <p className="text-sm text-red-600 dark:text-red-400">{signUpError}</p> : null}
-              {signUpSuccess ? (
+              {registerError ? <p className="text-sm text-red-600 dark:text-red-400">{registerError}</p> : null}
+              {registerSuccess ? (
                 <div className="space-y-2">
-                  <p className="text-sm text-emerald-600 dark:text-emerald-400">{signUpSuccess}</p>
+                  <p className="text-sm text-emerald-600 dark:text-emerald-400">{registerSuccess}</p>
                   <button
                     type="button"
                     onClick={handleResendConfirmation}
