@@ -56,6 +56,7 @@ import {
   CakeSlice,
   Scissors,
   Equal,
+  User,
 } from "lucide-react";
 import { format, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval, startOfWeek, endOfWeek } from "date-fns";
 
@@ -74,6 +75,9 @@ const K_FOODS = "mt_foods";
 const K_ENTRIES = "mt_entries";
 const K_SETTINGS = "mt_settings";
 const K_THEME = "mt_theme"; // 'system' | 'light' | 'dark'
+const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+const AVATAR_ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
 
 // Pastel macro palette with gradient support
 const MACRO_THEME = {
@@ -650,6 +654,7 @@ export default function MacroTrackerApp(){
   const [accountError, setAccountError] = useState("");
   const [accountSuccess, setAccountSuccess] = useState("");
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef(null);
   const [theme, setTheme] = useState(load(K_THEME, 'system'));
   const [systemPrefersDark, setSystemPrefersDark] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -1383,11 +1388,63 @@ export default function MacroTrackerApp(){
     if (!file || !session?.user?.id) return;
     setAccountError("");
     setAccountSuccess("");
+
+    if (!AVATAR_ALLOWED_TYPES.has(file.type) || file.size > AVATAR_MAX_BYTES) {
+      setAccountError("Max 2MB. JPG/PNG/WebP only.");
+      return;
+    }
+
     setAvatarUploading(true);
 
     try {
-      const filePath = `${session.user.id}/${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage.from("avatars").upload(filePath, file, { upsert: false });
+      const resizedBlob = await new Promise((resolve, reject) => {
+        const image = new Image();
+        const objectUrl = URL.createObjectURL(file);
+
+        image.onload = () => {
+          const size = 256;
+          const canvas = document.createElement("canvas");
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext("2d");
+
+          if (!ctx) {
+            URL.revokeObjectURL(objectUrl);
+            reject(new Error("Unable to process image."));
+            return;
+          }
+
+          const srcW = image.width;
+          const srcH = image.height;
+          const srcSize = Math.min(srcW, srcH);
+          const srcX = Math.floor((srcW - srcSize) / 2);
+          const srcY = Math.floor((srcH - srcSize) / 2);
+
+          ctx.drawImage(image, srcX, srcY, srcSize, srcSize, 0, 0, size, size);
+          canvas.toBlob(
+            (blob) => {
+              URL.revokeObjectURL(objectUrl);
+              if (!blob) {
+                reject(new Error("Unable to process image."));
+                return;
+              }
+              resolve(blob);
+            },
+            "image/webp",
+            0.8
+          );
+        };
+
+        image.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          reject(new Error("Unable to read image file."));
+        };
+
+        image.src = objectUrl;
+      });
+
+      const filePath = `${session.user.id}/${Date.now()}-avatar.webp`;
+      const { error: uploadError } = await supabase.storage.from("avatars").upload(filePath, resizedBlob, { upsert: true });
       if (uploadError) {
         setAccountError(uploadError.message || "Unable to upload avatar");
         return;
@@ -1406,6 +1463,8 @@ export default function MacroTrackerApp(){
 
       setProfileAvatarUrl(publicUrl);
       setAccountSuccess("Profile photo updated.");
+    } catch (error) {
+      setAccountError(error?.message || "Unable to process image.");
     } finally {
       setAvatarUploading(false);
     }
@@ -1463,7 +1522,7 @@ export default function MacroTrackerApp(){
               {profileAvatarUrl ? (
                 <img src={profileAvatarUrl} alt="Profile avatar" className="h-full w-full object-cover" />
               ) : (
-                <span>{(profileUsername || session.user?.email || "U").slice(0, 1).toUpperCase()}</span>
+                <User className="h-5 w-5 text-slate-500 dark:text-slate-300" />
               )}
             </div>
           </div>
@@ -2185,16 +2244,42 @@ export default function MacroTrackerApp(){
                     <div className="space-y-4 rounded-xl border p-4 border-slate-200 dark:border-slate-700">
                       <div className="space-y-2">
                         <Label>Profile photo</Label>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(event) => {
-                            const file = event.target.files?.[0];
-                            if (file) handleAvatarUpload(file);
-                          }}
-                          className="text-sm"
-                        />
-                        <p className="text-xs text-slate-500">Upload a square-ish image for the best result.</p>
+                        <div className="flex items-center gap-4">
+                          <button
+                            type="button"
+                            onClick={() => avatarInputRef.current?.click()}
+                            className="relative h-20 w-20 overflow-hidden rounded-full border border-slate-300 bg-slate-200 dark:border-slate-700 dark:bg-slate-800"
+                            aria-label="Upload profile photo"
+                          >
+                            {profileAvatarUrl ? (
+                              <img src={profileAvatarUrl} alt="Profile avatar" className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center">
+                                <User className="h-8 w-8 text-slate-500 dark:text-slate-300" />
+                              </div>
+                            )}
+                            <span className="absolute bottom-0 right-0 rounded-full bg-slate-900 p-1 text-white dark:bg-slate-100 dark:text-slate-900">
+                              <Upload className="h-3.5 w-3.5" />
+                            </span>
+                          </button>
+                          <div className="space-y-2">
+                            <Button type="button" variant="outline" onClick={() => avatarInputRef.current?.click()}>
+                              Change photo
+                            </Button>
+                            <input
+                              ref={avatarInputRef}
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              className="hidden"
+                              onChange={(event) => {
+                                const file = event.target.files?.[0];
+                                if (file) handleAvatarUpload(file);
+                                event.target.value = "";
+                              }}
+                            />
+                            <p className="text-xs text-slate-500">JPG/PNG/WebP • max 2MB • square works best</p>
+                          </div>
+                        </div>
                       </div>
                       <div className="space-y-2">
                         <Label>Username</Label>
