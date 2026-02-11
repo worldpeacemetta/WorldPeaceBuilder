@@ -5,6 +5,7 @@
 //    (Everything else left untouched.)
 
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState, useId } from "react";
+import Auth from "./components/Auth";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { supabase } from "./lib/supabase";
 import {
   CartesianGrid,
   AreaChart,
@@ -641,6 +643,8 @@ const MEAL_ORDER = ['breakfast','lunch','dinner','snack','other'];
  * Main App
  *******************/
 export default function MacroTrackerApp(){
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [theme, setTheme] = useState(load(K_THEME, 'system'));
   const [systemPrefersDark, setSystemPrefersDark] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -690,6 +694,28 @@ export default function MacroTrackerApp(){
   useEffect(()=>save(K_FOODS, foods),[foods]);
   useEffect(()=>save(K_ENTRIES, entries),[entries]);
   useEffect(()=>save(K_SETTINGS, settings),[settings]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      if (!mounted) return;
+      setSession(currentSession);
+      setAuthLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setAuthLoading(false);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   // Daily log state
   const [logDate, setLogDate] = useState(todayISO());
@@ -1278,6 +1304,22 @@ export default function MacroTrackerApp(){
     });
   }, [setSettings]);
 
+  const handleSignOut = useCallback(async () => {
+    await supabase.auth.signOut();
+  }, []);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-700 dark:bg-slate-950 dark:text-slate-200">
+        Loading session...
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Auth />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 text-slate-900 dark:from-slate-900 dark:to-slate-950 dark:text-slate-100">
       <header className="sticky top-0 z-40 backdrop-blur border-b border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-900/60">
@@ -1309,6 +1351,12 @@ export default function MacroTrackerApp(){
             <Button variant="ghost" className={headerPillClass} onClick={()=>setTab('settings')}>
               <SettingsIcon className="h-4 w-4"/>
               <span>Settings</span>
+            </Button>
+            <div className="hidden sm:block text-xs text-slate-600 dark:text-slate-300 max-w-[180px] truncate" title={session.user?.email ?? ""}>
+              {session.user?.email}
+            </div>
+            <Button variant="ghost" className={headerPillClass} onClick={handleSignOut}>
+              <span>Sign out</span>
             </Button>
             <Button
               variant="ghost"
