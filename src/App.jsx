@@ -39,8 +39,6 @@ import {
   Settings as SettingsIcon,
   Upload,
   Download,
-  Moon,
-  SunMedium,
   Dumbbell,
   BedDouble,
   Database,
@@ -646,6 +644,12 @@ export default function MacroTrackerApp(){
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [profileUsername, setProfileUsername] = useState("");
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState("");
+  const [accountUsername, setAccountUsername] = useState("");
+  const [accountEmail, setAccountEmail] = useState("");
+  const [accountError, setAccountError] = useState("");
+  const [accountSuccess, setAccountSuccess] = useState("");
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [theme, setTheme] = useState(load(K_THEME, 'system'));
   const [systemPrefersDark, setSystemPrefersDark] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -657,22 +661,6 @@ export default function MacroTrackerApp(){
   const [entries, setEntries] = useState(load(K_ENTRIES, []));
   const [settings, setSettings] = useState(()=> ensureSettings(load(K_SETTINGS, DEFAULT_SETTINGS)));
   const [tab, setTab] = useState('dashboard');
-  const isDarkMode = resolvedTheme === 'dark';
-  const isFollowingSystem = theme === 'system';
-  const toggleTheme = useCallback(() => {
-    setTheme((current) => {
-      const resolved = current === 'system' ? (systemPrefersDark ? 'dark' : 'light') : current;
-      return resolved === 'dark' ? 'light' : 'dark';
-    });
-  }, [systemPrefersDark]);
-  const followSystemTheme = useCallback(() => setTheme('system'), []);
-  const themeTooltip = useMemo(() => {
-    const label = isDarkMode ? 'Dark' : 'Light';
-    const nextLabel = isDarkMode ? 'Light' : 'Dark';
-    return isFollowingSystem
-      ? `Following system (${label}). Click to switch to ${nextLabel} manually.`
-      : `Manual ${label} mode — click to switch to ${nextLabel}.`;
-  }, [isDarkMode, isFollowingSystem]);
 
   // Theme handling
   useEffect(() => {
@@ -721,33 +709,40 @@ export default function MacroTrackerApp(){
   useEffect(() => {
     let active = true;
 
-    async function loadProfileUsername() {
+    async function loadProfile() {
       if (!session?.user?.id) {
-        if (active) setProfileUsername("");
+        if (!active) return;
+        setProfileUsername("");
+        setProfileAvatarUrl("");
+        setAccountUsername("");
+        setAccountEmail("");
         return;
       }
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("username")
+        .select("username, avatar_url")
         .eq("id", session.user.id)
         .single();
 
       if (!active) return;
       if (error) {
         setProfileUsername("");
-        return;
+        setProfileAvatarUrl("");
+      } else {
+        setProfileUsername(data?.username ?? "");
+        setProfileAvatarUrl(data?.avatar_url ?? "");
+        setAccountUsername(data?.username ?? "");
       }
-
-      setProfileUsername(data?.username ?? "");
+      setAccountEmail(session.user?.email ?? "");
     }
 
-    loadProfileUsername();
+    loadProfile();
 
     return () => {
       active = false;
     };
-  }, [session?.user?.id]);
+  }, [session?.user?.id, session?.user?.email]);
 
   // Daily log state
   const [logDate, setLogDate] = useState(todayISO());
@@ -1340,6 +1335,82 @@ export default function MacroTrackerApp(){
     await supabase.auth.signOut();
   }, []);
 
+  const handleUpdateUsername = useCallback(async () => {
+    const username = accountUsername.trim().toLowerCase();
+    setAccountError("");
+    setAccountSuccess("");
+
+    if (!username) {
+      setAccountError("Username is required");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ username })
+      .eq("id", session.user.id);
+
+    if (error) {
+      const message = (error.message || "").toLowerCase();
+      setAccountError(message.includes("duplicate") || message.includes("unique") ? "Username already taken" : (error.message || "Unable to update username"));
+      return;
+    }
+
+    setProfileUsername(username);
+    setAccountSuccess("Username updated.");
+  }, [accountUsername, session?.user?.id]);
+
+  const handleUpdateEmail = useCallback(async () => {
+    const email = accountEmail.trim().toLowerCase();
+    setAccountError("");
+    setAccountSuccess("");
+
+    if (!email.includes("@")) {
+      setAccountError("Please enter a valid email.");
+      return;
+    }
+
+    const { error } = await supabase.auth.updateUser({ email });
+    if (error) {
+      setAccountError(error.message || "Unable to update email");
+      return;
+    }
+
+    setAccountSuccess("Check your inbox to confirm the new email address.");
+  }, [accountEmail]);
+
+  const handleAvatarUpload = useCallback(async (file) => {
+    if (!file || !session?.user?.id) return;
+    setAccountError("");
+    setAccountSuccess("");
+    setAvatarUploading(true);
+
+    try {
+      const filePath = `${session.user.id}/${Date.now()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage.from("avatars").upload(filePath, file, { upsert: false });
+      if (uploadError) {
+        setAccountError(uploadError.message || "Unable to upload avatar");
+        return;
+      }
+
+      const publicUrl = supabase.storage.from("avatars").getPublicUrl(filePath).data.publicUrl;
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: publicUrl })
+        .eq("id", session.user.id);
+
+      if (updateError) {
+        setAccountError(updateError.message || "Unable to save avatar");
+        return;
+      }
+
+      setProfileAvatarUrl(publicUrl);
+      setAccountSuccess("Profile photo updated.");
+    } finally {
+      setAvatarUploading(false);
+    }
+  }, [session?.user?.id]);
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-700 dark:bg-slate-950 dark:text-slate-200">
@@ -1380,7 +1451,7 @@ export default function MacroTrackerApp(){
             )}
             <Button variant="ghost" className={headerPillClass} onClick={()=>setTab('settings')}>
               <SettingsIcon className="h-4 w-4"/>
-              <span>Settings</span>
+              <span>Profile</span>
             </Button>
             <div className="hidden sm:block text-xs text-slate-600 dark:text-slate-300 max-w-[180px] truncate" title={profileUsername || session.user?.email || ""}>
               {profileUsername || session.user?.email}
@@ -1388,16 +1459,13 @@ export default function MacroTrackerApp(){
             <Button variant="ghost" className={headerPillClass} onClick={handleSignOut}>
               <span>Sign out</span>
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              title={themeTooltip}
-              aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
-              aria-pressed={isDarkMode}
-            >
-              {isDarkMode ? <Moon className="h-5 w-5" /> : <SunMedium className="h-5 w-5" />}
-            </Button>
+            <div className="h-10 w-10 overflow-hidden rounded-full border border-slate-300 bg-slate-200 dark:border-slate-700 dark:bg-slate-800 flex items-center justify-center text-xs font-semibold">
+              {profileAvatarUrl ? (
+                <img src={profileAvatarUrl} alt="Profile avatar" className="h-full w-full object-cover" />
+              ) : (
+                <span>{(profileUsername || session.user?.email || "U").slice(0, 1).toUpperCase()}</span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1486,7 +1554,7 @@ export default function MacroTrackerApp(){
             <TabsTrigger value="dashboard" className="gap-2 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><BarChart3 className="h-4 w-4"/>Dashboard</TabsTrigger>
             <TabsTrigger value="daily" className="gap-2 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><BookOpenText className="h-4 w-4"/>Daily Log</TabsTrigger>
             <TabsTrigger value="foods" className="gap-2 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><Database className="h-4 w-4"/>Food DB</TabsTrigger>
-            <TabsTrigger value="settings" className="gap-2 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><SettingsIcon className="h-4 w-4"/>Settings</TabsTrigger>
+            <TabsTrigger value="settings" className="gap-2 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><SettingsIcon className="h-4 w-4"/>Profile</TabsTrigger>
           </TabsList>
 
           {/* DASHBOARD */}
@@ -2043,7 +2111,7 @@ export default function MacroTrackerApp(){
           {/* SETTINGS */}
           <TabsContent value="settings" className="mt-6">
             <Card>
-              <CardHeader><CardTitle>Preferences</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Profile</CardTitle></CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
@@ -2113,31 +2181,38 @@ export default function MacroTrackerApp(){
                     )}
                   </div>
                   <div>
-                    <h3 className="font-medium mb-2">Appearance</h3>
-                    <div className="flex items-center justify-between rounded-xl border p-4 border-slate-200 dark:border-slate-700">
-                      <div>
-                        <div className="font-medium">Dark mode</div>
-                        <div className="text-sm text-slate-500 dark:text-slate-400">
-                          {isFollowingSystem
-                            ? `Following system preference (${isDarkMode ? 'Dark' : 'Light'})`
-                            : `Manual ${isDarkMode ? 'Dark' : 'Light'} theme`}
+                    <h3 className="font-medium mb-2">Account</h3>
+                    <div className="space-y-4 rounded-xl border p-4 border-slate-200 dark:border-slate-700">
+                      <div className="space-y-2">
+                        <Label>Profile photo</Label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (file) handleAvatarUpload(file);
+                          }}
+                          className="text-sm"
+                        />
+                        <p className="text-xs text-slate-500">Upload a square-ish image for the best result.</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Username</Label>
+                        <div className="flex gap-2">
+                          <Input value={accountUsername} onChange={(e)=>setAccountUsername(e.target.value)} placeholder="username" />
+                          <Button onClick={handleUpdateUsername}>Save</Button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <Switch
-                          checked={isDarkMode}
-                          onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
-                          aria-label="Toggle dark mode"
-                        />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={followSystemTheme}
-                          disabled={isFollowingSystem}
-                        >
-                          Use system
-                        </Button>
+                      <div className="space-y-2">
+                        <Label>Email</Label>
+                        <div className="flex gap-2">
+                          <Input type="email" value={accountEmail} onChange={(e)=>setAccountEmail(e.target.value)} placeholder="you@example.com" />
+                          <Button variant="outline" onClick={handleUpdateEmail}>Update</Button>
+                        </div>
                       </div>
+                      {avatarUploading ? <p className="text-xs text-slate-500">Uploading avatar...</p> : null}
+                      {accountError ? <p className="text-sm text-red-600 dark:text-red-400">{accountError}</p> : null}
+                      {accountSuccess ? <p className="text-sm text-emerald-600 dark:text-emerald-400">{accountSuccess}</p> : null}
                     </div>
                   </div>
                 </div>
@@ -2184,8 +2259,8 @@ export default function MacroTrackerApp(){
                     </div>
                   </div>
                   <div className="rounded-xl border p-4 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40">
-                    <div className="font-medium mb-1">Notes</div>
-                    <div className="text-sm text-slate-500">Profile is optional and local-only. Future: BMR/TDEE suggestions.</div>
+                    <div className="font-medium mb-1">My Badges</div>
+                    <div className="text-sm text-slate-500">Badges coming soon.</div>
                   </div>
                 </div>
 

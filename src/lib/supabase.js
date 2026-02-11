@@ -36,24 +36,26 @@ function setSession(session, event) {
   emitAuthChange(event, session);
 }
 
-
-
-
+function authHeader(useSessionToken = false) {
+  const token = useSessionToken ? (currentSession?.access_token || supabaseAnonKey) : supabaseAnonKey;
+  return {
+    apikey: supabaseAnonKey,
+    Authorization: `Bearer ${token}`,
+  };
+}
 
 async function restUpsert(table, row, options = {}) {
   if (!supabaseUrl || !supabaseAnonKey) {
     return { data: null, error: { message: "Supabase env vars are missing." } };
   }
 
-  const authToken = currentSession?.access_token || supabaseAnonKey;
   const onConflict = options.onConflict ? `?on_conflict=${encodeURIComponent(options.onConflict)}` : "";
 
   try {
     const response = await fetch(`${supabaseUrl}/rest/v1/${table}${onConflict}`, {
       method: "POST",
       headers: {
-        apikey: supabaseAnonKey,
-        Authorization: `Bearer ${authToken}`,
+        ...authHeader(true),
         "Content-Type": "application/json",
         Prefer: "resolution=merge-duplicates,return=minimal",
       },
@@ -71,14 +73,43 @@ async function restUpsert(table, row, options = {}) {
   }
 }
 
+async function restUpdate(table, row, filters = {}) {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return { data: null, error: { message: "Supabase env vars are missing." } };
+  }
 
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    params.set(key, `eq.${value}`);
+  });
+
+  try {
+    const response = await fetch(`${supabaseUrl}/rest/v1/${table}?${params.toString()}`, {
+      method: "PATCH",
+      headers: {
+        ...authHeader(true),
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify(row),
+    });
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      return { data: null, error: { message: payload?.message || payload?.msg || "Update request failed." } };
+    }
+
+    return { data: payload, error: null };
+  } catch {
+    return { data: null, error: { message: "Unable to connect to Supabase." } };
+  }
+}
 
 async function restSelectSingle(table, columns, filters = {}) {
   if (!supabaseUrl || !supabaseAnonKey) {
     return { data: null, error: { message: "Supabase env vars are missing." } };
   }
 
-  const authToken = currentSession?.access_token || supabaseAnonKey;
   const params = new URLSearchParams();
   params.set("select", columns || "*");
   Object.entries(filters).forEach(([key, value]) => {
@@ -89,8 +120,7 @@ async function restSelectSingle(table, columns, filters = {}) {
     const response = await fetch(`${supabaseUrl}/rest/v1/${table}?${params.toString()}`, {
       method: "GET",
       headers: {
-        apikey: supabaseAnonKey,
-        Authorization: `Bearer ${authToken}`,
+        ...authHeader(true),
         Accept: "application/vnd.pgrst.object+json",
       },
     });
@@ -119,8 +149,7 @@ async function restRpc(functionName, body) {
     const response = await fetch(`${supabaseUrl}/rest/v1/rpc/${functionName}`, {
       method: "POST",
       headers: {
-        apikey: supabaseAnonKey,
-        Authorization: `Bearer ${supabaseAnonKey}`,
+        ...authHeader(true),
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body ?? {}),
@@ -137,19 +166,47 @@ async function restRpc(functionName, body) {
   }
 }
 
-async function authRequest(path, options = {}) {
+async function storageUpload(bucket, path, file, options = {}) {
   if (!supabaseUrl || !supabaseAnonKey) {
     return { data: null, error: { message: "Supabase env vars are missing." } };
   }
 
   try {
-    const response = await fetch(`${supabaseUrl}/auth/v1${path}`, {
-      ...options,
+    const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${path}`, {
+      method: "POST",
       headers: {
-        apikey: supabaseAnonKey,
-        Authorization: `Bearer ${supabaseAnonKey}`,
+        ...authHeader(true),
+        "x-upsert": options.upsert ? "true" : "false",
+        "Content-Type": file?.type || "application/octet-stream",
+      },
+      body: file,
+    });
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      return { data: null, error: { message: payload?.message || payload?.msg || "Upload failed." } };
+    }
+
+    return { data: payload, error: null };
+  } catch {
+    return { data: null, error: { message: "Unable to connect to Supabase." } };
+  }
+}
+
+async function authRequest(path, options = {}) {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return { data: null, error: { message: "Supabase env vars are missing." } };
+  }
+
+  const { useSessionToken = false, ...fetchOptions } = options;
+
+  try {
+    const response = await fetch(`${supabaseUrl}/auth/v1${path}`, {
+      ...fetchOptions,
+      headers: {
+        ...authHeader(useSessionToken),
         "Content-Type": "application/json",
-        ...(options.headers || {}),
+        ...(fetchOptions.headers || {}),
       },
     });
 
@@ -175,12 +232,22 @@ export const supabase = {
       table,
       columns: "*",
       filters: {},
+      pendingUpdate: null,
       select(columns) {
         this.columns = columns || "*";
         return this;
       },
+      update(row) {
+        this.pendingUpdate = row;
+        return this;
+      },
       eq(column, value) {
         this.filters[column] = value;
+        if (this.pendingUpdate) {
+          const payload = this.pendingUpdate;
+          this.pendingUpdate = null;
+          return restUpdate(this.table, payload, this.filters);
+        }
         return this;
       },
       async single() {
@@ -192,6 +259,23 @@ export const supabase = {
     };
 
     return query;
+  },
+
+  storage: {
+    from(bucket) {
+      return {
+        upload(path, file, options) {
+          return storageUpload(bucket, path, file, options);
+        },
+        getPublicUrl(path) {
+          return {
+            data: {
+              publicUrl: `${supabaseUrl}/storage/v1/object/public/${bucket}/${path}`,
+            },
+          };
+        },
+      };
+    },
   },
 
   auth: {
@@ -243,6 +327,29 @@ export const supabase = {
         body: JSON.stringify({ email }),
       });
       return { data: null, error };
+    },
+
+    async resend({ type, email }) {
+      return authRequest("/resend", {
+        method: "POST",
+        body: JSON.stringify({ type, email }),
+      });
+    },
+
+    async updateUser(attributes) {
+      const { data, error } = await authRequest("/user", {
+        method: "PUT",
+        useSessionToken: true,
+        body: JSON.stringify(attributes),
+      });
+
+      if (error) return { data: null, error };
+
+      if (currentSession && data?.user) {
+        setSession({ ...currentSession, user: data.user }, "USER_UPDATED");
+      }
+
+      return { data, error: null };
     },
 
     async signOut() {

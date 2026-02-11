@@ -14,6 +14,17 @@ function getErrorMessage(error, fallback) {
   return error.message || fallback;
 }
 
+function toFriendlyAuthError(error, fallback) {
+  const message = getErrorMessage(error, fallback).toLowerCase();
+  if (message.includes("email not confirmed") || message.includes("email_not_confirmed")) {
+    return "Email not confirmed yet. Check your inbox for the confirmation email.";
+  }
+  if (message.includes("rate limit") || message.includes("too many") || message.includes("email rate limit exceeded")) {
+    return "Too many emails sent. Please try again later.";
+  }
+  return getErrorMessage(error, fallback);
+}
+
 function readPendingUsernames() {
   if (typeof window === "undefined") return {};
   try {
@@ -31,14 +42,6 @@ function setPendingUsername(email, username) {
   window.localStorage.setItem(PENDING_USERNAMES_KEY, JSON.stringify(pending));
 }
 
-
-function clearPendingUsername(email) {
-  if (typeof window === "undefined") return;
-  const pending = readPendingUsernames();
-  delete pending[email.toLowerCase()];
-  window.localStorage.setItem(PENDING_USERNAMES_KEY, JSON.stringify(pending));
-}
-
 function takePendingUsername(email) {
   if (typeof window === "undefined") return null;
   const pending = readPendingUsernames();
@@ -48,6 +51,13 @@ function takePendingUsername(email) {
   delete pending[key];
   window.localStorage.setItem(PENDING_USERNAMES_KEY, JSON.stringify(pending));
   return username;
+}
+
+function clearPendingUsername(email) {
+  if (typeof window === "undefined") return;
+  const pending = readPendingUsernames();
+  delete pending[email.toLowerCase()];
+  window.localStorage.setItem(PENDING_USERNAMES_KEY, JSON.stringify(pending));
 }
 
 export default function Auth() {
@@ -68,6 +78,8 @@ export default function Auth() {
   const [signUpError, setSignUpError] = useState("");
   const [signUpSuccess, setSignUpSuccess] = useState("");
   const [signUpLoading, setSignUpLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendMessage, setResendMessage] = useState("");
 
   const passwordsDoNotMatch = useMemo(
     () => confirmPassword.length > 0 && signUpPassword !== confirmPassword,
@@ -85,28 +97,27 @@ export default function Auth() {
   const resetSignUpMessages = () => {
     setSignUpError("");
     setSignUpSuccess("");
+    setResendMessage("");
   };
 
   const ensureProfileForCurrentUser = async (username, errorSetter) => {
-    if (!username) return null;
+    if (!username) return;
     const { data: sessionData } = await supabase.auth.getSession();
     const user = sessionData?.session?.user;
-    if (!user?.id) return null;
+    if (!user?.id) return;
 
     const { error } = await supabase
       .from("profiles")
       .upsert({ id: user.id, username }, { onConflict: "id" });
 
-    if (error) {
+    if (error && errorSetter) {
       const message = getErrorMessage(error, "Unable to save username").toLowerCase();
-      const readable = message.includes("duplicate") || message.includes("unique")
-        ? "Username already taken"
-        : getErrorMessage(error, "Unable to save username");
-      if (errorSetter) errorSetter(readable);
-      return readable;
+      if (message.includes("duplicate") || message.includes("unique")) {
+        errorSetter("Username already taken");
+      } else {
+        errorSetter(getErrorMessage(error, "Unable to save username"));
+      }
     }
-
-    return null;
   };
 
   const handleSignIn = async () => {
@@ -152,7 +163,7 @@ export default function Auth() {
       });
 
       if (signInErrorResult) {
-        setSignInError(getErrorMessage(signInErrorResult, "Unable to sign in"));
+        setSignInError(toFriendlyAuthError(signInErrorResult, "Unable to sign in"));
         return;
       }
 
@@ -179,13 +190,36 @@ export default function Auth() {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email);
       if (error) {
-        setSignInError(getErrorMessage(error, "Unable to send reset email"));
+        setSignInError(toFriendlyAuthError(error, "Unable to send reset email"));
         return;
       }
 
       setSignInSuccess("Check your email for reset link");
     } finally {
       setSignInLoading(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    const email = signUpEmail.trim().toLowerCase();
+    if (!email.includes("@")) {
+      setSignUpError("Please enter a valid email to resend confirmation.");
+      return;
+    }
+
+    setResendLoading(true);
+    setResendMessage("");
+    setSignUpError("");
+
+    try {
+      const { error } = await supabase.auth.resend({ type: "signup", email });
+      if (error) {
+        setSignUpError(toFriendlyAuthError(error, "Unable to resend confirmation email"));
+        return;
+      }
+      setResendMessage("Confirmation email sent. Please check your inbox.");
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -231,24 +265,18 @@ export default function Auth() {
       });
 
       if (signUpErrorResult) {
-        setSignUpError(getErrorMessage(signUpErrorResult, "Unable to sign up"));
+        setSignUpError(toFriendlyAuthError(signUpErrorResult, "Unable to sign up"));
         return;
       }
 
       setPendingUsername(email, username);
 
-      const hasImmediateSession = !!signUpData?.session;
-      if (hasImmediateSession) {
-        const profileCreateError = await ensureProfileForCurrentUser(username, setSignUpError);
-        if (profileCreateError) {
-          return;
-        }
+      if (signUpData?.session) {
+        await ensureProfileForCurrentUser(username, setSignUpError);
         clearPendingUsername(email);
-        setSignUpSuccess("Account created. You can now sign in.");
-      } else {
-        setSignUpSuccess("Check your email for confirmation before logging in.");
       }
 
+      setSignUpSuccess("Account created. Check your inbox (and spam) to confirm your email, then come back and sign in.");
       setTab("signin");
       setIdentifier(email);
       setSignInPassword("");
@@ -406,7 +434,20 @@ export default function Auth() {
               </Button>
 
               {signUpError ? <p className="text-sm text-red-600 dark:text-red-400">{signUpError}</p> : null}
-              {signUpSuccess ? <p className="text-sm text-emerald-600 dark:text-emerald-400">{signUpSuccess}</p> : null}
+              {signUpSuccess ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-emerald-600 dark:text-emerald-400">{signUpSuccess}</p>
+                  <button
+                    type="button"
+                    onClick={handleResendConfirmation}
+                    disabled={resendLoading}
+                    className="text-sm underline text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100 disabled:opacity-60"
+                  >
+                    {resendLoading ? "Resending..." : "Resend confirmation email"}
+                  </button>
+                  {resendMessage ? <p className="text-sm text-emerald-600 dark:text-emerald-400">{resendMessage}</p> : null}
+                </div>
+              ) : null}
             </TabsContent>
           </Tabs>
         </CardContent>
