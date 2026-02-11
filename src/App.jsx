@@ -1272,13 +1272,16 @@ export default function MacroTrackerApp(){
   }
 
   async function removeEntry(id){
-    if (!session?.user?.id) return;
+    if (!session?.user?.id) {
+      console.error("Cannot delete entry: missing authenticated user session.");
+      return;
+    }
     const { error } = await supabase
       .from("entries")
       .delete()
-      .eq("id", id)
-      .eq("user_id", session.user.id);
+      .match({ id, user_id: session.user.id });
     if (error) {
+      console.error("Entry delete failed", { id, userId: session.user.id, error });
       alert(error.message || "Unable to delete entry.");
       return;
     }
@@ -1286,13 +1289,17 @@ export default function MacroTrackerApp(){
   }
 
   async function updateEntryQuantity(id,newQty){
-    if(!Number.isFinite(newQty)||newQty<=0||!session?.user?.id) return;
+    if(!Number.isFinite(newQty)||newQty<=0) return;
+    if (!session?.user?.id) {
+      console.error("Cannot update entry quantity: missing authenticated user session.");
+      return;
+    }
     const { error } = await supabase
       .from("entries")
       .update({ qty: newQty })
-      .eq("id", id)
-      .eq("user_id", session.user.id);
+      .match({ id, user_id: session.user.id });
     if (error) {
+      console.error("Entry quantity update failed", { id, userId: session.user.id, error });
       alert(error.message || "Unable to update quantity.");
       return;
     }
@@ -1300,7 +1307,10 @@ export default function MacroTrackerApp(){
   }
 
   async function updateEntryFood(id,newFoodId){
-    if (!session?.user?.id) return;
+    if (!session?.user?.id) {
+      console.error("Cannot update entry food: missing authenticated user session.");
+      return;
+    }
     const currentEntry = entries.find((entry) => entry.id === id);
     if (!currentEntry) return;
     const oldFood=foods.find(f=>f.id===currentEntry.foodId);
@@ -1311,9 +1321,9 @@ export default function MacroTrackerApp(){
     const { error } = await supabase
       .from("entries")
       .update({ food_id: newFoodId, qty: newQty })
-      .eq("id", id)
-      .eq("user_id", session.user.id);
+      .match({ id, user_id: session.user.id });
     if (error) {
+      console.error("Entry food update failed", { id, userId: session.user.id, newFoodId, error });
       alert(error.message || "Unable to update entry food.");
       return;
     }
@@ -1322,13 +1332,16 @@ export default function MacroTrackerApp(){
   }
 
   async function updateEntryMeal(id,newMeal){
-    if (!session?.user?.id) return;
+    if (!session?.user?.id) {
+      console.error("Cannot update entry meal: missing authenticated user session.");
+      return;
+    }
     const { error } = await supabase
       .from("entries")
       .update({ meal: newMeal })
-      .eq("id", id)
-      .eq("user_id", session.user.id);
+      .match({ id, user_id: session.user.id });
     if (error) {
+      console.error("Entry meal update failed", { id, userId: session.user.id, newMeal, error });
       alert(error.message || "Unable to update meal.");
       return;
     }
@@ -1376,9 +1389,13 @@ export default function MacroTrackerApp(){
   }
 
   async function deleteFood(id){
-    if (!session?.user?.id) return;
-    const { error } = await supabase.from("foods").delete().eq("id", id).eq("user_id", session.user.id);
+    if (!session?.user?.id) {
+      console.error("Cannot delete food: missing authenticated user session.");
+      return;
+    }
+    const { error } = await supabase.from("foods").delete().match({ id, user_id: session.user.id });
     if (error) {
+      console.error("Food delete failed", { id, userId: session.user.id, error });
       alert(error.message || "Unable to delete food.");
       return;
     }
@@ -1386,7 +1403,10 @@ export default function MacroTrackerApp(){
   }
 
   async function updateFood(foodId, partial){
-    if (!session?.user?.id) return;
+    if (!session?.user?.id) {
+      console.error("Cannot update food: missing authenticated user session.");
+      return;
+    }
 
     const existing = foods.find((f) => f.id === foodId);
     if (!existing) return;
@@ -1407,10 +1427,10 @@ export default function MacroTrackerApp(){
     const { error } = await supabase
       .from("foods")
       .update(payload)
-      .eq("id", foodId)
-      .eq("user_id", session.user.id);
+      .match({ id: foodId, user_id: session.user.id });
 
     if (error) {
+      console.error("Food update failed", { foodId, userId: session.user.id, error });
       alert(error.message || "Unable to update food.");
       return;
     }

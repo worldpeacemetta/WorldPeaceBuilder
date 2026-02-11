@@ -369,6 +369,15 @@ export const supabase = {
       },
       eq(column, value) {
         this.filters[column] = value;
+        return this;
+      },
+      async match(filters = {}) {
+        Object.entries(filters).forEach(([column, value]) => {
+          this.filters[column] = value;
+        });
+        return this.execute();
+      },
+      async execute() {
         if (this.pendingUpdate) {
           const payload = this.pendingUpdate;
           this.pendingUpdate = null;
@@ -378,7 +387,16 @@ export const supabase = {
           this.pendingDelete = false;
           return restDelete(this.table, this.filters);
         }
-        return this;
+        return restSelectList(this.table, this.columns, this.filters);
+      },
+      then(resolve, reject) {
+        return this.execute().then(resolve, reject);
+      },
+      catch(reject) {
+        return this.execute().catch(reject);
+      },
+      finally(onFinally) {
+        return this.execute().finally(onFinally);
       },
       async single() {
         return restSelectSingle(this.table, this.columns, this.filters);
