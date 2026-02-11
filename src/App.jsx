@@ -71,7 +71,6 @@ import { format, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear,
 /*******************
  * Constants & Utils
  *******************/
-const K_ENTRIES = "mt_entries";
 const K_SETTINGS = "mt_settings";
 const K_THEME = "mt_theme"; // 'system' | 'light' | 'dark'
 const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
@@ -663,7 +662,8 @@ export default function MacroTrackerApp(){
   const [foods, setFoods] = useState([]);
   const [foodsLoading, setFoodsLoading] = useState(true);
   const [foodSort, setFoodSort] = useState({ column: "createdAt", direction: "desc" });
-  const [entries, setEntries] = useState(load(K_ENTRIES, []));
+  const [entries, setEntries] = useState([]);
+  const [entriesLoading, setEntriesLoading] = useState(true);
   const [settings, setSettings] = useState(()=> ensureSettings(load(K_SETTINGS, DEFAULT_SETTINGS)));
   const [tab, setTab] = useState('dashboard');
 
@@ -685,7 +685,6 @@ export default function MacroTrackerApp(){
     save(K_THEME, theme);
   }, [theme, systemPrefersDark]);
 
-  useEffect(()=>save(K_ENTRIES, entries),[entries]);
   useEffect(()=>save(K_SETTINGS, settings),[settings]);
 
   useEffect(() => {
@@ -753,6 +752,47 @@ export default function MacroTrackerApp(){
     }
 
     loadFoods();
+
+    return () => {
+      active = false;
+    };
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadEntries() {
+      if (!session?.user?.id) {
+        if (!active) return;
+        setEntries([]);
+        setEntriesLoading(false);
+        return;
+      }
+
+      setEntriesLoading(true);
+      const { data, error } = await supabase
+        .from("entries")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .order("created_at", { ascending: false });
+
+      if (!active) return;
+      if (error) {
+        setEntries([]);
+      } else {
+        const mapped = (data || []).map((row) => ({
+          id: row.id,
+          date: row.date,
+          foodId: row.food_id,
+          qty: Number(row.qty) || 0,
+          meal: row.meal,
+        }));
+        setEntries(mapped);
+      }
+      setEntriesLoading(false);
+    }
+
+    loadEntries();
 
     return () => {
       active = false;
@@ -1202,11 +1242,98 @@ export default function MacroTrackerApp(){
   },[entriesForSplitDate,foods]);
 
   // Mutators
-  function addEntry(){ if(!selectedFood||!qty||qty<=0) return; const e={id:crypto.randomUUID(),date:logDate,foodId:selectedFood.id,qty,meal}; setEntries(prev=>[e,...prev]); setQty(0); setSelectedFoodId(null); setMeal(suggestMealByNow()); }
-  function removeEntry(id){ setEntries(prev=>prev.filter(e=>e.id!==id)); }
-  function updateEntryQuantity(id,newQty){ if(!Number.isFinite(newQty)||newQty<=0) return; setEntries(prev=>prev.map(e=>e.id===id?{...e,qty:newQty}:e)); }
-  function updateEntryFood(id,newFoodId){ setEntries(prev=>prev.map(e=>{ if(e.id!==id) return e; const oldFood=foods.find(f=>f.id===e.foodId); const newFood=foods.find(f=>f.id===newFoodId); const newQty=normalizeQty(oldFood,newFood,e.qty); return {...e,foodId:newFoodId,qty:newQty}; })); }
-  function updateEntryMeal(id,newMeal){ setEntries(prev=>prev.map(e=>e.id===id?{...e,meal:newMeal}:e)); }
+  async function addEntry(){
+    if(!selectedFood||!qty||qty<=0||!session?.user?.id) return;
+    const payload = {
+      user_id: session.user.id,
+      date: logDate,
+      food_id: selectedFood.id,
+      qty,
+      meal,
+    };
+    const { data, error } = await supabase.from("entries").insert(payload);
+    if (error) {
+      alert(error.message || "Unable to add entry.");
+      return;
+    }
+    const inserted = Array.isArray(data) ? data[0] : null;
+    if (!inserted) return;
+    const entry = {
+      id: inserted.id,
+      date: inserted.date,
+      foodId: inserted.food_id,
+      qty: Number(inserted.qty) || 0,
+      meal: inserted.meal,
+    };
+    setEntries(prev=>[entry,...prev]);
+    setQty(0);
+    setSelectedFoodId(null);
+    setMeal(suggestMealByNow());
+  }
+
+  async function removeEntry(id){
+    if (!session?.user?.id) return;
+    const { error } = await supabase
+      .from("entries")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", session.user.id);
+    if (error) {
+      alert(error.message || "Unable to delete entry.");
+      return;
+    }
+    setEntries(prev=>prev.filter(e=>e.id!==id));
+  }
+
+  async function updateEntryQuantity(id,newQty){
+    if(!Number.isFinite(newQty)||newQty<=0||!session?.user?.id) return;
+    const { error } = await supabase
+      .from("entries")
+      .update({ qty: newQty })
+      .eq("id", id)
+      .eq("user_id", session.user.id);
+    if (error) {
+      alert(error.message || "Unable to update quantity.");
+      return;
+    }
+    setEntries(prev=>prev.map(e=>e.id===id?{...e,qty:newQty}:e));
+  }
+
+  async function updateEntryFood(id,newFoodId){
+    if (!session?.user?.id) return;
+    const currentEntry = entries.find((entry) => entry.id === id);
+    if (!currentEntry) return;
+    const oldFood=foods.find(f=>f.id===currentEntry.foodId);
+    const newFood=foods.find(f=>f.id===newFoodId);
+    if (!newFood) return;
+    const newQty=normalizeQty(oldFood,newFood,currentEntry.qty);
+
+    const { error } = await supabase
+      .from("entries")
+      .update({ food_id: newFoodId, qty: newQty })
+      .eq("id", id)
+      .eq("user_id", session.user.id);
+    if (error) {
+      alert(error.message || "Unable to update entry food.");
+      return;
+    }
+
+    setEntries(prev=>prev.map(e=>e.id===id?{...e,foodId:newFoodId,qty:newQty}:e));
+  }
+
+  async function updateEntryMeal(id,newMeal){
+    if (!session?.user?.id) return;
+    const { error } = await supabase
+      .from("entries")
+      .update({ meal: newMeal })
+      .eq("id", id)
+      .eq("user_id", session.user.id);
+    if (error) {
+      alert(error.message || "Unable to update meal.");
+      return;
+    }
+    setEntries(prev=>prev.map(e=>e.id===id?{...e,meal:newMeal}:e));
+  }
   async function addFood(newFood){
     if (!session?.user?.id) return;
     const sanitized = sanitizeFood(newFood);
@@ -1303,7 +1430,36 @@ export default function MacroTrackerApp(){
   }
 
   function exportJSON(){ const blob = new Blob([JSON.stringify({foods,entries,settings},null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`macrotracker_backup_${todayISO()}.json`; a.click(); URL.revokeObjectURL(url); }
-  function importJSON(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(String(reader.result)); if(data.entries) setEntries(data.entries); if(data.settings) setSettings(ensureSettings(data.settings));}catch{ alert('Invalid JSON file'); } }; reader.readAsText(file); }
+  function importJSON(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(String(reader.result)); if(data.settings) setSettings(ensureSettings(data.settings));}catch{ alert('Invalid JSON file'); } }; reader.readAsText(file); }
+
+  async function resetData(){
+    if (!session?.user?.id) {
+      setFoods([]);
+      setEntries([]);
+      return;
+    }
+
+    const { error: entriesError } = await supabase
+      .from("entries")
+      .delete()
+      .eq("user_id", session.user.id);
+    if (entriesError) {
+      alert(entriesError.message || "Unable to reset entries.");
+      return;
+    }
+
+    const { error: foodsError } = await supabase
+      .from("foods")
+      .delete()
+      .eq("user_id", session.user.id);
+    if (foodsError) {
+      alert(foodsError.message || "Unable to reset foods.");
+      return;
+    }
+
+    setEntries([]);
+    setFoods([]);
+  }
 
   // Helper
   const left = (goal, actual)=> Math.max(0, (goal||0) - (actual||0));
@@ -2173,7 +2329,9 @@ export default function MacroTrackerApp(){
             <Card>
               <CardHeader><CardTitle>Entries — {format(new Date(logDate), "PPPP")}</CardTitle></CardHeader>
               <CardContent>
-                {MEAL_ORDER.map(mk=>{
+                {entriesLoading ? (
+                  <div className="text-center text-slate-500">Loading entries...</div>
+                ) : MEAL_ORDER.map(mk=>{
                   const group = rowsForDay.filter(r=> (r.meal||'other')===mk);
                   if(group.length===0) return null;
                   const totals = sumMacros(group);
@@ -2227,7 +2385,7 @@ export default function MacroTrackerApp(){
                   );
                 })}
 
-                {rowsForDay.length===0 && (
+                {!entriesLoading && rowsForDay.length===0 && (
                   <div className="text-center text-slate-500">No entries yet for this day.</div>
                 )}
 
@@ -2523,7 +2681,7 @@ export default function MacroTrackerApp(){
                 </div>
 
                 <div className="flex flex-wrap gap-3">
-                  <Button variant="destructive" onClick={()=>{ if(confirm('Reset all data?')){ setFoods([]); setEntries([]); } }}>Reset data</Button>
+                  <Button variant="destructive" onClick={()=>{ if(confirm('Reset all data?')){ resetData(); } }}>Reset data</Button>
                   <Button variant="outline" onClick={()=>setTab('dashboard')}>Back to Dashboard</Button>
                 </div>
               </CardContent>
