@@ -700,27 +700,9 @@ export default function MacroTrackerApp(){
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
       setAuthLoading(false);
-
-      if (event === "SIGNED_IN" && nextSession?.user?.id) {
-        const { data: existingProfile } = await supabase
-          .from("profiles")
-          .select("username")
-          .eq("id", nextSession.user.id)
-          .single();
-
-        if (!existingProfile) {
-          const metadataUsername = (nextSession.user.user_metadata?.username || "").toString().trim().toLowerCase();
-          if (metadataUsername) {
-            await supabase.from("profiles").insert({
-              id: nextSession.user.id,
-              username: metadataUsername,
-            });
-          }
-        }
-      }
     });
 
     return () => {
