@@ -38,6 +38,39 @@ function setSession(session, event) {
 
 
 
+
+
+async function restUpsert(table, row, options = {}) {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return { data: null, error: { message: "Supabase env vars are missing." } };
+  }
+
+  const authToken = currentSession?.access_token || supabaseAnonKey;
+  const onConflict = options.onConflict ? `?on_conflict=${encodeURIComponent(options.onConflict)}` : "";
+
+  try {
+    const response = await fetch(`${supabaseUrl}/rest/v1/${table}${onConflict}`, {
+      method: "POST",
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates,return=minimal",
+      },
+      body: JSON.stringify(row),
+    });
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      return { data: null, error: { message: payload?.message || payload?.msg || "Upsert request failed." } };
+    }
+
+    return { data: payload, error: null };
+  } catch {
+    return { data: null, error: { message: "Unable to connect to Supabase." } };
+  }
+}
+
 async function restRpc(functionName, body) {
   if (!supabaseUrl || !supabaseAnonKey) {
     return { data: null, error: { message: "Supabase env vars are missing." } };
@@ -96,6 +129,14 @@ async function authRequest(path, options = {}) {
 export const supabase = {
   async rpc(functionName, params) {
     return restRpc(functionName, params);
+  },
+
+  from(table) {
+    return {
+      async upsert(row, options) {
+        return restUpsert(table, row, options);
+      },
+    };
   },
 
   auth: {

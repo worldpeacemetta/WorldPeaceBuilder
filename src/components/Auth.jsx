@@ -6,10 +6,48 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "../lib/supabase";
 
+const PENDING_USERNAMES_KEY = "macrotracker.pending-usernames";
+
 function getErrorMessage(error, fallback) {
   if (!error) return fallback;
   if (typeof error === "string") return error;
   return error.message || fallback;
+}
+
+function readPendingUsernames() {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(PENDING_USERNAMES_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function setPendingUsername(email, username) {
+  if (typeof window === "undefined") return;
+  const pending = readPendingUsernames();
+  pending[email.toLowerCase()] = username;
+  window.localStorage.setItem(PENDING_USERNAMES_KEY, JSON.stringify(pending));
+}
+
+
+function clearPendingUsername(email) {
+  if (typeof window === "undefined") return;
+  const pending = readPendingUsernames();
+  delete pending[email.toLowerCase()];
+  window.localStorage.setItem(PENDING_USERNAMES_KEY, JSON.stringify(pending));
+}
+
+function takePendingUsername(email) {
+  if (typeof window === "undefined") return null;
+  const pending = readPendingUsernames();
+  const key = email.toLowerCase();
+  const username = pending[key] ?? null;
+  if (!username) return null;
+  delete pending[key];
+  window.localStorage.setItem(PENDING_USERNAMES_KEY, JSON.stringify(pending));
+  return username;
 }
 
 export default function Auth() {
@@ -47,6 +85,28 @@ export default function Auth() {
   const resetSignUpMessages = () => {
     setSignUpError("");
     setSignUpSuccess("");
+  };
+
+  const ensureProfileForCurrentUser = async (username, errorSetter) => {
+    if (!username) return null;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const user = sessionData?.session?.user;
+    if (!user?.id) return null;
+
+    const { error } = await supabase
+      .from("profiles")
+      .upsert({ id: user.id, username }, { onConflict: "id" });
+
+    if (error) {
+      const message = getErrorMessage(error, "Unable to save username").toLowerCase();
+      const readable = message.includes("duplicate") || message.includes("unique")
+        ? "Username already taken"
+        : getErrorMessage(error, "Unable to save username");
+      if (errorSetter) errorSetter(readable);
+      return readable;
+    }
+
+    return null;
   };
 
   const handleSignIn = async () => {
@@ -93,6 +153,12 @@ export default function Auth() {
 
       if (signInErrorResult) {
         setSignInError(getErrorMessage(signInErrorResult, "Unable to sign in"));
+        return;
+      }
+
+      const pendingUsername = takePendingUsername(email);
+      if (pendingUsername) {
+        await ensureProfileForCurrentUser(pendingUsername, setSignInError);
       }
     } finally {
       setSignInLoading(false);
@@ -126,7 +192,7 @@ export default function Auth() {
   const handleSignUp = async () => {
     resetSignUpMessages();
 
-    const email = signUpEmail.trim();
+    const email = signUpEmail.trim().toLowerCase();
     const username = signUpUsername.trim().toLowerCase();
 
     if (!email.includes("@")) {
@@ -147,6 +213,18 @@ export default function Auth() {
     setSignUpLoading(true);
 
     try {
+      const { data: existingEmail, error: usernameLookupError } = await supabase.rpc("get_email_by_username", {
+        p_username: username,
+      });
+      if (usernameLookupError) {
+        setSignUpError(getErrorMessage(usernameLookupError, "Unable to validate username"));
+        return;
+      }
+      if (existingEmail) {
+        setSignUpError("Username already taken");
+        return;
+      }
+
       const { data: signUpData, error: signUpErrorResult } = await supabase.auth.signUp({
         email,
         password: signUpPassword,
@@ -157,29 +235,20 @@ export default function Auth() {
         return;
       }
 
-      const userId = signUpData?.user?.id;
-      if (!userId) {
-        setSignUpSuccess("Sign up successful. Check your email to confirm your account.");
-        return;
-      }
+      setPendingUsername(email, username);
 
-      const { error: profileError } = await supabase.rpc("create_profile", {
-        p_user_id: userId,
-        p_username: username,
-      });
-
-      if (profileError) {
-        const message = getErrorMessage(profileError, "Unable to create profile").toLowerCase();
-        if (message.includes("duplicate") || message.includes("unique")) {
-          setSignUpError("Username already taken");
-        } else {
-          setSignUpError(getErrorMessage(profileError, "Unable to create profile"));
+      const hasImmediateSession = !!signUpData?.session;
+      if (hasImmediateSession) {
+        const profileCreateError = await ensureProfileForCurrentUser(username, setSignUpError);
+        if (profileCreateError) {
+          return;
         }
-        await supabase.auth.signOut();
-        return;
+        clearPendingUsername(email);
+        setSignUpSuccess("Account created. You can now sign in.");
+      } else {
+        setSignUpSuccess("Check your email for confirmation before logging in.");
       }
 
-      setSignUpSuccess("Account created. You can now sign in.");
       setTab("signin");
       setIdentifier(email);
       setSignInPassword("");
