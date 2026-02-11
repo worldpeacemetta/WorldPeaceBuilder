@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -263,7 +263,11 @@ export default function Auth() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center px-4">
       <Card className="w-full max-w-md border-slate-200 dark:border-slate-800">
         <CardHeader className="pb-2">
-          <CardTitle>Welcome to MacroTracker</CardTitle>
+          <img
+            src="/brand/onebodyonelife-logo.png"
+            alt="OneBodyOneLife"
+            className="mx-auto mb-4 w-full max-w-xs h-auto"
+          />
         </CardHeader>
         <CardContent>
           <Tabs value={tab} onValueChange={setTab} className="space-y-4">

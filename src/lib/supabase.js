@@ -71,6 +71,45 @@ async function restUpsert(table, row, options = {}) {
   }
 }
 
+
+
+async function restSelectSingle(table, columns, filters = {}) {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return { data: null, error: { message: "Supabase env vars are missing." } };
+  }
+
+  const authToken = currentSession?.access_token || supabaseAnonKey;
+  const params = new URLSearchParams();
+  params.set("select", columns || "*");
+  Object.entries(filters).forEach(([key, value]) => {
+    params.set(key, `eq.${value}`);
+  });
+
+  try {
+    const response = await fetch(`${supabaseUrl}/rest/v1/${table}?${params.toString()}`, {
+      method: "GET",
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${authToken}`,
+        Accept: "application/vnd.pgrst.object+json",
+      },
+    });
+
+    if (response.status === 406) {
+      return { data: null, error: null };
+    }
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      return { data: null, error: { message: payload?.message || payload?.msg || "Select request failed." } };
+    }
+
+    return { data: payload, error: null };
+  } catch {
+    return { data: null, error: { message: "Unable to connect to Supabase." } };
+  }
+}
+
 async function restRpc(functionName, body) {
   if (!supabaseUrl || !supabaseAnonKey) {
     return { data: null, error: { message: "Supabase env vars are missing." } };
@@ -132,11 +171,27 @@ export const supabase = {
   },
 
   from(table) {
-    return {
+    const query = {
+      table,
+      columns: "*",
+      filters: {},
+      select(columns) {
+        this.columns = columns || "*";
+        return this;
+      },
+      eq(column, value) {
+        this.filters[column] = value;
+        return this;
+      },
+      async single() {
+        return restSelectSingle(this.table, this.columns, this.filters);
+      },
       async upsert(row, options) {
         return restUpsert(table, row, options);
       },
     };
+
+    return query;
   },
 
   auth: {

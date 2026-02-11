@@ -645,6 +645,7 @@ const MEAL_ORDER = ['breakfast','lunch','dinner','snack','other'];
 export default function MacroTrackerApp(){
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [profileUsername, setProfileUsername] = useState("");
   const [theme, setTheme] = useState(load(K_THEME, 'system'));
   const [systemPrefersDark, setSystemPrefersDark] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -716,6 +717,37 @@ export default function MacroTrackerApp(){
       subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadProfileUsername() {
+      if (!session?.user?.id) {
+        if (active) setProfileUsername("");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", session.user.id)
+        .single();
+
+      if (!active) return;
+      if (error) {
+        setProfileUsername("");
+        return;
+      }
+
+      setProfileUsername(data?.username ?? "");
+    }
+
+    loadProfileUsername();
+
+    return () => {
+      active = false;
+    };
+  }, [session?.user?.id]);
 
   // Daily log state
   const [logDate, setLogDate] = useState(todayISO());
@@ -1325,11 +1357,9 @@ export default function MacroTrackerApp(){
       <header className="sticky top-0 z-40 backdrop-blur border-b border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-900/60">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-2xl bg-slate-900 dark:bg-slate-100 flex items-center justify-center shadow-sm">
-              <BarChart3 className="h-5 w-5 text-white dark:text-slate-900" />
-            </div>
+            <img src="/brand/onebodyonelife-slogo.png" alt="OneBodyOneLife" className="h-8 w-auto" />
             <div>
-              <h1 className="font-semibold text-lg leading-tight">MacroTracker</h1>
+              <h1 className="font-semibold text-lg leading-tight">OneBodyOneLife</h1>
               <p className="text-xs text-slate-500">Track calories, fat, carbs & protein by meal</p>
             </div>
           </div>
@@ -1352,8 +1382,8 @@ export default function MacroTrackerApp(){
               <SettingsIcon className="h-4 w-4"/>
               <span>Settings</span>
             </Button>
-            <div className="hidden sm:block text-xs text-slate-600 dark:text-slate-300 max-w-[180px] truncate" title={session.user?.email ?? ""}>
-              {session.user?.email}
+            <div className="hidden sm:block text-xs text-slate-600 dark:text-slate-300 max-w-[180px] truncate" title={profileUsername || session.user?.email || ""}>
+              {profileUsername || session.user?.email}
             </div>
             <Button variant="ghost" className={headerPillClass} onClick={handleSignOut}>
               <span>Sign out</span>
