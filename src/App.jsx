@@ -875,7 +875,10 @@ export default function MacroTrackerApp(){
     let active = true;
 
     async function loadUserProfile() {
-      if (authLoading) return;
+      if (authLoading) {
+        setProfileSyncLoading(true);
+        return;
+      }
       if (!session?.user?.id) {
         if (!active) return;
         setProfileSyncLoading(false);
@@ -883,41 +886,42 @@ export default function MacroTrackerApp(){
       }
 
       setProfileSyncLoading(true);
-      const { data: userResponse } = await supabase.auth.getUser();
-      const userId = userResponse?.user?.id;
-      if (!active) return;
-      if (!userId) {
-        setProfileSyncLoading(false);
-        return;
+      try {
+        const { data: userResponse } = await supabase.auth.getUser();
+        const userId = userResponse?.user?.id;
+        if (!active) return;
+        if (!userId) return;
+
+        const { data, error } = await supabase
+          .from("user_profile")
+          .select("*")
+          .eq("id", userId)
+          .single();
+
+        if (!active) return;
+        if (!error && data) {
+          setSettings((prev) => {
+            const merged = ensureSettings(prev);
+            return {
+              ...merged,
+              profile: {
+                ...merged.profile,
+                age: Number(data.age ?? merged.profile.age ?? 0),
+                sex: data.sex ?? merged.profile.sex,
+                heightCm: Number(data.height_cm ?? merged.profile.heightCm ?? 0),
+                weightKg: Number(data.weight_kg ?? merged.profile.weightKg ?? 0),
+                bodyFatPct: data.body_fat_pct == null ? merged.profile.bodyFatPct : Number(data.body_fat_pct),
+                activity: data.activity_level ?? merged.profile.activity,
+              },
+              dailyGoals: ensureDailyGoals(data.daily_macro_goals ?? merged.dailyGoals),
+            };
+          });
+        }
+      } finally {
+        if (active) {
+          setProfileSyncLoading(false);
+        }
       }
-
-      const { data, error } = await supabase
-        .from("user_profile")
-        .select("*")
-        .eq("id", userId)
-        .single();
-
-      if (!active) return;
-      if (!error && data) {
-        setSettings((prev) => {
-          const merged = ensureSettings(prev);
-          return {
-            ...merged,
-            profile: {
-              ...merged.profile,
-              age: Number(data.age ?? merged.profile.age ?? 0),
-              sex: data.sex ?? merged.profile.sex,
-              heightCm: Number(data.height_cm ?? merged.profile.heightCm ?? 0),
-              weightKg: Number(data.weight_kg ?? merged.profile.weightKg ?? 0),
-              bodyFatPct: data.body_fat_pct == null ? merged.profile.bodyFatPct : Number(data.body_fat_pct),
-              activity: data.activity_level ?? merged.profile.activity,
-            },
-            dailyGoals: ensureDailyGoals(data.daily_macro_goals ?? merged.dailyGoals),
-          };
-        });
-      }
-
-      setProfileSyncLoading(false);
     }
 
     loadUserProfile();
@@ -928,13 +932,17 @@ export default function MacroTrackerApp(){
   }, [authLoading, session?.user?.id, authRefreshKey]);
 
   const saveUserProfile = useCallback(async (nextSettings) => {
-    if (!session?.user?.id) return;
+    if (!session?.user?.id) {
+      return { ok: false, message: "Please sign in before saving." };
+    }
     const normalized = ensureSettings(nextSettings);
     const profile = normalized.profile ?? {};
 
     const { data: userResponse } = await supabase.auth.getUser();
     const userId = userResponse?.user?.id;
-    if (!userId) return;
+    if (!userId) {
+      return { ok: false, message: "Please sign in before saving." };
+    }
 
     const payload = {
       id: userId,
@@ -950,8 +958,10 @@ export default function MacroTrackerApp(){
     const { error } = await supabase.from("user_profile").upsert(payload, { onConflict: "id" });
     if (error) {
       console.error("Failed to save profile", { error });
-      setAccountError(error.message || "Unable to save profile.");
+      return { ok: false, message: error.message || "Unable to save profile." };
     }
+
+    return { ok: true, message: "My stats saved." };
   }, [session?.user?.id]);
 
   // Daily log state
@@ -1801,7 +1811,11 @@ export default function MacroTrackerApp(){
   );
 
   const handleSaveBodyProfile = useCallback(async () => {
+    if (profileSyncLoading) return;
     let snapshot = null;
+    setAccountError("");
+    setAccountSuccess("");
+
     setSettings((prev) => {
       const profile = prev.profile ?? {};
       const weightValue = toNumber(profile.weightKg, 0);
@@ -1833,10 +1847,19 @@ export default function MacroTrackerApp(){
     });
 
     if (snapshot) {
-      await saveUserProfile(snapshot);
-      setAccountSuccess("My stats saved.");
+      setProfileSyncLoading(true);
+      try {
+        const result = await saveUserProfile(snapshot);
+        if (result?.ok) {
+          setAccountSuccess(result.message);
+        } else {
+          setAccountError(result?.message || "Unable to save profile.");
+        }
+      } finally {
+        setProfileSyncLoading(false);
+      }
     }
-  }, [saveUserProfile, setSettings]);
+  }, [profileSyncLoading, saveUserProfile, setSettings]);
 
   const handleSignOut = useCallback(async () => {
     await supabase.auth.signOut();
