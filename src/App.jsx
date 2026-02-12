@@ -964,6 +964,189 @@ export default function MacroTrackerApp(){
     return { ok: true, message: "My stats saved." };
   }, [session?.user?.id]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    async function hydrateSession() {
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (!mounted) return;
+        setSession(currentSession);
+      } finally {
+        if (mounted) setAuthLoading(false);
+      }
+    }
+
+    hydrateSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (!mounted) return;
+      setSession(nextSession);
+
+      if (event === "SIGNED_IN") {
+        setAuthRefreshKey((value) => value + 1);
+      }
+
+      if (event === "SIGNED_OUT") {
+        setProfileUsername("");
+        setProfileAvatarUrl("");
+        setAccountUsername("");
+        setAccountEmail("");
+        setFoods([]);
+        setEntries([]);
+        setFoodPendingDelete(null);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadFoods() {
+      if (authLoading) return;
+      if (!session?.user?.id) {
+        if (!active) return;
+        setFoods([]);
+        setFoodsLoading(false);
+        return;
+      }
+
+      setFoodsLoading(true);
+      const { data, error } = await supabase
+        .from("foods")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .order("created_at", { ascending: false });
+
+      if (!active) return;
+      if (error) {
+        setFoods([]);
+      } else {
+        const mapped = (data || []).map((row) => sanitizeFood({
+          id: row.id,
+          name: row.name,
+          brand: row.brand,
+          unit: row.unit,
+          servingSize: row.serving_size,
+          kcal: row.kcal,
+          fat: row.fat,
+          carbs: row.carbs,
+          protein: row.protein,
+          category: row.category,
+          createdAt: row.created_at,
+        }));
+        setFoods(mapped);
+      }
+      setFoodsLoading(false);
+    }
+
+    loadFoods();
+
+    return () => {
+      active = false;
+    };
+  }, [authLoading, session?.user?.id, authRefreshKey]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadEntries() {
+      if (authLoading) return;
+      if (!session?.user?.id) {
+        if (!active) return;
+        setEntries([]);
+        setEntriesLoading(false);
+        return;
+      }
+
+      setEntriesLoading(true);
+      const { data, error } = await supabase
+        .from("entries")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .order("created_at", { ascending: false });
+
+      if (!active) return;
+      if (error) {
+        setEntries([]);
+      } else {
+        const mapped = (data || []).map((row) => ({
+          id: row.id,
+          date: row.date,
+          foodId: row.food_id,
+          qty: Number(row.qty) || 0,
+          meal: row.meal,
+        }));
+        setEntries(mapped);
+      }
+      setEntriesLoading(false);
+    }
+
+    loadEntries();
+
+    return () => {
+      active = false;
+    };
+  }, [authLoading, session?.user?.id, authRefreshKey]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadProfile() {
+      if (authLoading) return;
+      if (!session?.user?.id) {
+        if (!active) return;
+        setProfileUsername("");
+        setProfileAvatarUrl("");
+        setAccountUsername("");
+        setAccountEmail("");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("username, display_username, avatar_url")
+        .eq("id", session.user.id)
+        .single();
+
+      if (!active) return;
+      if (error) {
+        setProfileUsername("");
+        setProfileAvatarUrl("");
+      } else {
+        const usernameLower = data?.username ?? "";
+        const displayUsername = data?.display_username ?? usernameLower;
+
+        if (!data?.display_username && usernameLower) {
+          await supabase
+            .from("profiles")
+            .update({ display_username: usernameLower })
+            .eq("id", session.user.id);
+        }
+
+        setProfileUsername(displayUsername);
+        setProfileAvatarUrl(data?.avatar_url ?? "");
+        setAccountUsername(displayUsername);
+      }
+      setAccountEmail(session.user?.email ?? "");
+    }
+
+    loadProfile();
+
+    return () => {
+      active = false;
+    };
+  }, [authLoading, session?.user?.id, session?.user?.email, authRefreshKey]);
+
   // Daily log state
   const [logDate, setLogDate] = useState(todayISO());
   const [selectedFoodId, setSelectedFoodId] = useState(null);
@@ -1860,6 +2043,191 @@ export default function MacroTrackerApp(){
       }
     }
   }, [profileSyncLoading, saveUserProfile, setSettings]);
+
+  const handleSignOut = useCallback(async () => {
+    await supabase.auth.signOut();
+  }, []);
+
+  const handleUpdateUsername = useCallback(async () => {
+    const displayUsername = accountUsername.trim();
+    const username = displayUsername.toLowerCase();
+    setAccountError("");
+    setAccountSuccess("");
+
+    if (!displayUsername) {
+      setAccountError("Username is required");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ username, display_username: displayUsername })
+      .eq("id", session.user.id);
+
+    if (error) {
+      const message = (error.message || "").toLowerCase();
+      setAccountError(message.includes("duplicate") || message.includes("unique") ? "Username already taken" : (error.message || "Unable to update username"));
+      return;
+    }
+
+    setProfileUsername(displayUsername);
+    setAccountSuccess("Username updated.");
+  }, [accountUsername, session?.user?.id]);
+
+  const handleUpdateEmail = useCallback(async () => {
+    const email = accountEmail.trim().toLowerCase();
+    setAccountError("");
+    setAccountSuccess("");
+
+    if (!email.includes("@")) {
+      setAccountError("Please enter a valid email.");
+      return;
+    }
+
+    const { error } = await supabase.auth.updateUser({ email });
+    if (error) {
+      setAccountError(error.message || "Unable to update email");
+      return;
+    }
+
+    setAccountSuccess("Check your inbox to confirm the new email address.");
+  }, [accountEmail]);
+
+
+
+  function extractAvatarStoragePath(url) {
+    if (!url) return null;
+    const marker = "/storage/v1/object/public/avatars/";
+    const idx = url.indexOf(marker);
+    if (idx === -1) return null;
+    return url.slice(idx + marker.length);
+  }
+
+  const handleAvatarUpload = useCallback(async (file) => {
+    if (!file || !session?.user?.id) return;
+    setAccountError("");
+    setAccountSuccess("");
+
+    if (!AVATAR_ALLOWED_TYPES.has(file.type) || file.size > AVATAR_MAX_BYTES) {
+      setAccountError("Max 2MB. JPG/PNG/WebP only.");
+      return;
+    }
+
+    setAvatarUploading(true);
+
+    try {
+      const resizedBlob = await new Promise((resolve, reject) => {
+        const image = new Image();
+        const objectUrl = URL.createObjectURL(file);
+
+        image.onload = () => {
+          const size = 256;
+          const canvas = document.createElement("canvas");
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext("2d");
+
+          if (!ctx) {
+            URL.revokeObjectURL(objectUrl);
+            reject(new Error("Unable to process image."));
+            return;
+          }
+
+          const srcW = image.width;
+          const srcH = image.height;
+          const srcSize = Math.min(srcW, srcH);
+          const srcX = Math.floor((srcW - srcSize) / 2);
+          const srcY = Math.floor((srcH - srcSize) / 2);
+
+          ctx.drawImage(image, srcX, srcY, srcSize, srcSize, 0, 0, size, size);
+          canvas.toBlob(
+            (blob) => {
+              URL.revokeObjectURL(objectUrl);
+              if (!blob) {
+                reject(new Error("Unable to process image."));
+                return;
+              }
+              resolve(blob);
+            },
+            "image/webp",
+            0.8
+          );
+        };
+
+        image.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          reject(new Error("Unable to read image file."));
+        };
+
+        image.src = objectUrl;
+      });
+
+      const filePath = `${session.user.id}/${Date.now()}-avatar.webp`;
+      const { error: uploadError } = await supabase.storage.from("avatars").upload(filePath, resizedBlob, { upsert: true });
+      if (uploadError) {
+        setAccountError(uploadError.message || "Unable to upload avatar");
+        return;
+      }
+
+      const publicUrl = supabase.storage.from("avatars").getPublicUrl(filePath).data.publicUrl;
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: publicUrl })
+        .eq("id", session.user.id);
+
+      if (updateError) {
+        setAccountError(updateError.message || "Unable to save avatar");
+        return;
+      }
+
+      setProfileAvatarUrl(publicUrl);
+      setAccountSuccess("Profile photo updated.");
+    } catch (error) {
+      setAccountError(error?.message || "Unable to process image.");
+    } finally {
+      setAvatarUploading(false);
+    }
+  }, [session?.user?.id]);
+
+  const handleRemoveAvatar = useCallback(async () => {
+    if (!session?.user?.id) return;
+    setAccountError("");
+    setAccountSuccess("");
+
+    const existingPath = extractAvatarStoragePath(profileAvatarUrl);
+    if (existingPath) {
+      const { error: removeError } = await supabase.storage.from("avatars").remove([existingPath]);
+      if (removeError) {
+        setAccountError(removeError.message || "Unable to remove avatar file");
+        return;
+      }
+    }
+
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({ avatar_url: null })
+      .eq("id", session.user.id);
+
+    if (updateError) {
+      setAccountError(updateError.message || "Unable to clear avatar");
+      return;
+    }
+
+    setProfileAvatarUrl("");
+    setAccountSuccess("Profile photo removed.");
+  }, [profileAvatarUrl, session?.user?.id]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-700 dark:bg-slate-950 dark:text-slate-200">
+        Loading session...
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Auth />;
+  }
 
   const handleSignOut = useCallback(async () => {
     await supabase.auth.signOut();
