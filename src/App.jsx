@@ -896,8 +896,8 @@ export default function MacroTrackerApp(){
 
       setProfileLoading(true);
       try {
-        const { data: userResponse } = await supabase.auth.getUser();
-        const userId = userResponse?.user?.id;
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        const userId = currentSession?.user?.id;
         if (!active) return;
         if (!userId) return;
 
@@ -958,8 +958,8 @@ export default function MacroTrackerApp(){
       ? (normalizedGoals?.dual?.[selectedDualProfile] ?? DEFAULT_GOALS)
       : (normalizedGoals?.[selectedSetup] ?? DEFAULT_GOALS);
 
-    const { data: userResponse } = await supabase.auth.getUser();
-    const userId = userResponse?.user?.id;
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    const userId = currentSession?.user?.id;
     if (!userId) {
       return { ok: false, message: "Please sign in before saving." };
     }
