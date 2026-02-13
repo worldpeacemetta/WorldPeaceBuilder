@@ -675,7 +675,11 @@ export default function MacroTrackerApp(){
   const [settings, setSettings] = useState(()=> ensureSettings(stripProfileSettingsForStorage(load(K_SETTINGS, DEFAULT_SETTINGS))));
   const [tab, setTab] = useState('dashboard');
   const [foodPendingDelete, setFoodPendingDelete] = useState(null);
-  const [profileSyncLoading, setProfileSyncLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileSaveError, setProfileSaveError] = useState("");
+  const [profileSaveSuccess, setProfileSaveSuccess] = useState("");
+  const [profileLastSavedAt, setProfileLastSavedAt] = useState(null);
 
   // Theme handling
   useEffect(() => {
@@ -721,6 +725,11 @@ export default function MacroTrackerApp(){
         setFoods([]);
         setEntries([]);
         setFoodPendingDelete(null);
+        setProfileLoading(false);
+        setProfileSaving(false);
+        setProfileSaveError("");
+        setProfileSaveSuccess("");
+        setProfileLastSavedAt(null);
       }
     });
 
@@ -876,16 +885,16 @@ export default function MacroTrackerApp(){
 
     async function loadUserProfile() {
       if (authLoading) {
-        setProfileSyncLoading(true);
+        setProfileLoading(true);
         return;
       }
       if (!session?.user?.id) {
         if (!active) return;
-        setProfileSyncLoading(false);
+        setProfileLoading(false);
         return;
       }
 
-      setProfileSyncLoading(true);
+      setProfileLoading(true);
       try {
         const { data: userResponse } = await supabase.auth.getUser();
         const userId = userResponse?.user?.id;
@@ -908,18 +917,23 @@ export default function MacroTrackerApp(){
                 ...merged.profile,
                 age: Number(data.age ?? merged.profile.age ?? 0),
                 sex: data.sex ?? merged.profile.sex,
-                heightCm: Number(data.height_cm ?? merged.profile.heightCm ?? 0),
-                weightKg: Number(data.weight_kg ?? merged.profile.weightKg ?? 0),
-                bodyFatPct: data.body_fat_pct == null ? merged.profile.bodyFatPct : Number(data.body_fat_pct),
+                heightCm: Number(data.height ?? merged.profile.heightCm ?? 0),
+                weightKg: Number(data.weight ?? merged.profile.weightKg ?? 0),
+                bodyFatPct: data.body_fat == null ? merged.profile.bodyFatPct : Number(data.body_fat),
                 activity: data.activity_level ?? merged.profile.activity,
               },
               dailyGoals: ensureDailyGoals(data.daily_macro_goals ?? merged.dailyGoals),
             };
           });
+
+          const updatedAt = data.updated_at ? new Date(data.updated_at) : null;
+          setProfileLastSavedAt(updatedAt);
+        } else {
+          setProfileLastSavedAt(null);
         }
       } finally {
         if (active) {
-          setProfileSyncLoading(false);
+          setProfileLoading(false);
         }
       }
     }
@@ -937,6 +951,12 @@ export default function MacroTrackerApp(){
     }
     const normalized = ensureSettings(nextSettings);
     const profile = normalized.profile ?? {};
+    const normalizedGoals = ensureDailyGoals(normalized.dailyGoals);
+    const selectedSetup = normalizeSetupMode(normalizedGoals?.setup);
+    const selectedDualProfile = normalizeDualProfile(normalizedGoals?.dual?.active);
+    const selectedGoals = selectedSetup === "dual"
+      ? (normalizedGoals?.dual?.[selectedDualProfile] ?? DEFAULT_GOALS)
+      : (normalizedGoals?.[selectedSetup] ?? DEFAULT_GOALS);
 
     const { data: userResponse } = await supabase.auth.getUser();
     const userId = userResponse?.user?.id;
@@ -948,11 +968,16 @@ export default function MacroTrackerApp(){
       id: userId,
       age: Number(profile.age ?? 0),
       sex: profile.sex ?? "other",
-      height_cm: Number(profile.heightCm ?? 0),
-      weight_kg: Number(profile.weightKg ?? 0),
-      body_fat_pct: profile.bodyFatPct == null || Number.isNaN(profile.bodyFatPct) ? null : Number(profile.bodyFatPct),
+      height: Number(profile.heightCm ?? 0),
+      weight: Number(profile.weightKg ?? 0),
+      body_fat: profile.bodyFatPct == null || Number.isNaN(profile.bodyFatPct) ? null : Number(profile.bodyFatPct),
       activity_level: profile.activity ?? "moderate",
-      daily_macro_goals: ensureDailyGoals(normalized.dailyGoals),
+      calories: Number(selectedGoals.kcal ?? 0),
+      protein: Number(selectedGoals.protein ?? 0),
+      carbs: Number(selectedGoals.carbs ?? 0),
+      fat: Number(selectedGoals.fat ?? 0),
+      daily_macro_goals: normalizedGoals,
+      updated_at: new Date().toISOString(),
     };
 
     const { error } = await supabase.from("user_profile").upsert(payload, { onConflict: "id" });
@@ -963,189 +988,6 @@ export default function MacroTrackerApp(){
 
     return { ok: true, message: "My stats saved." };
   }, [session?.user?.id]);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function hydrateSession() {
-      try {
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        if (!mounted) return;
-        setSession(currentSession);
-      } finally {
-        if (mounted) setAuthLoading(false);
-      }
-    }
-
-    hydrateSession();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, nextSession) => {
-      if (!mounted) return;
-      setSession(nextSession);
-
-      if (event === "SIGNED_IN") {
-        setAuthRefreshKey((value) => value + 1);
-      }
-
-      if (event === "SIGNED_OUT") {
-        setProfileUsername("");
-        setProfileAvatarUrl("");
-        setAccountUsername("");
-        setAccountEmail("");
-        setFoods([]);
-        setEntries([]);
-        setFoodPendingDelete(null);
-      }
-    });
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
-
-
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadFoods() {
-      if (authLoading) return;
-      if (!session?.user?.id) {
-        if (!active) return;
-        setFoods([]);
-        setFoodsLoading(false);
-        return;
-      }
-
-      setFoodsLoading(true);
-      const { data, error } = await supabase
-        .from("foods")
-        .select("*")
-        .eq("user_id", session.user.id)
-        .order("created_at", { ascending: false });
-
-      if (!active) return;
-      if (error) {
-        setFoods([]);
-      } else {
-        const mapped = (data || []).map((row) => sanitizeFood({
-          id: row.id,
-          name: row.name,
-          brand: row.brand,
-          unit: row.unit,
-          servingSize: row.serving_size,
-          kcal: row.kcal,
-          fat: row.fat,
-          carbs: row.carbs,
-          protein: row.protein,
-          category: row.category,
-          createdAt: row.created_at,
-        }));
-        setFoods(mapped);
-      }
-      setFoodsLoading(false);
-    }
-
-    loadFoods();
-
-    return () => {
-      active = false;
-    };
-  }, [authLoading, session?.user?.id, authRefreshKey]);
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadEntries() {
-      if (authLoading) return;
-      if (!session?.user?.id) {
-        if (!active) return;
-        setEntries([]);
-        setEntriesLoading(false);
-        return;
-      }
-
-      setEntriesLoading(true);
-      const { data, error } = await supabase
-        .from("entries")
-        .select("*")
-        .eq("user_id", session.user.id)
-        .order("created_at", { ascending: false });
-
-      if (!active) return;
-      if (error) {
-        setEntries([]);
-      } else {
-        const mapped = (data || []).map((row) => ({
-          id: row.id,
-          date: row.date,
-          foodId: row.food_id,
-          qty: Number(row.qty) || 0,
-          meal: row.meal,
-        }));
-        setEntries(mapped);
-      }
-      setEntriesLoading(false);
-    }
-
-    loadEntries();
-
-    return () => {
-      active = false;
-    };
-  }, [authLoading, session?.user?.id, authRefreshKey]);
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadProfile() {
-      if (authLoading) return;
-      if (!session?.user?.id) {
-        if (!active) return;
-        setProfileUsername("");
-        setProfileAvatarUrl("");
-        setAccountUsername("");
-        setAccountEmail("");
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("username, display_username, avatar_url")
-        .eq("id", session.user.id)
-        .single();
-
-      if (!active) return;
-      if (error) {
-        setProfileUsername("");
-        setProfileAvatarUrl("");
-      } else {
-        const usernameLower = data?.username ?? "";
-        const displayUsername = data?.display_username ?? usernameLower;
-
-        if (!data?.display_username && usernameLower) {
-          await supabase
-            .from("profiles")
-            .update({ display_username: usernameLower })
-            .eq("id", session.user.id);
-        }
-
-        setProfileUsername(displayUsername);
-        setProfileAvatarUrl(data?.avatar_url ?? "");
-        setAccountUsername(displayUsername);
-      }
-      setAccountEmail(session.user?.email ?? "");
-    }
-
-    loadProfile();
-
-    return () => {
-      active = false;
-    };
-  }, [authLoading, session?.user?.id, session?.user?.email, authRefreshKey]);
 
   // Daily log state
   const [logDate, setLogDate] = useState(todayISO());
@@ -1994,10 +1836,10 @@ export default function MacroTrackerApp(){
   );
 
   const handleSaveBodyProfile = useCallback(async () => {
-    if (profileSyncLoading) return;
+    if (profileSaving) return;
     let snapshot = null;
-    setAccountError("");
-    setAccountSuccess("");
+    setProfileSaveError("");
+    setProfileSaveSuccess("");
 
     setSettings((prev) => {
       const profile = prev.profile ?? {};
@@ -2030,19 +1872,20 @@ export default function MacroTrackerApp(){
     });
 
     if (snapshot) {
-      setProfileSyncLoading(true);
+      setProfileSaving(true);
       try {
         const result = await saveUserProfile(snapshot);
         if (result?.ok) {
-          setAccountSuccess(result.message);
+          setProfileSaveSuccess(result.message);
+          setProfileLastSavedAt(new Date());
         } else {
-          setAccountError(result?.message || "Unable to save profile.");
+          setProfileSaveError(result?.message || "Unable to save profile.");
         }
       } finally {
-        setProfileSyncLoading(false);
+        setProfileSaving(false);
       }
     }
-  }, [profileSyncLoading, saveUserProfile, setSettings]);
+  }, [profileSaving, saveUserProfile, setSettings]);
 
   const handleSignOut = useCallback(async () => {
     await supabase.auth.signOut();
@@ -2228,7 +2071,6 @@ export default function MacroTrackerApp(){
   if (!session) {
     return <Auth />;
   }
-
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 text-slate-900 dark:from-slate-900 dark:to-slate-950 dark:text-slate-100">
@@ -3070,7 +2912,7 @@ export default function MacroTrackerApp(){
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
                     <h3 className="font-medium mb-2">My Stats</h3>
-                    {profileSyncLoading && <p className="text-xs text-slate-500 mb-2">Loading your stats…</p>}
+                    {profileLoading && <p className="text-xs text-slate-500 mb-2">Loading your stats…</p>}
                     <div className="grid grid-cols-2 gap-3">
                       <LabeledNumber label="Age (years)" value={settings.profile?.age ?? 0} onChange={(v)=>setSettings({...settings, profile:{...settings.profile, age:v}})} />
                       <div>
@@ -3100,11 +2942,14 @@ export default function MacroTrackerApp(){
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="col-span-2 flex flex-col items-end gap-2 pt-1">
-                        <Button onClick={handleSaveBodyProfile} disabled={profileSyncLoading} className="self-end">Save</Button>
+                      <div className="col-span-2 pt-1">
                         <span className="text-xs text-slate-500 dark:text-slate-400">
-                          {weightTrendSummary.latestDate ? `Last saved ${weightTrendSummary.latestDate}` : 'No history recorded yet.'}
+                          {profileLastSavedAt instanceof Date
+                            ? `Last saved ${profileLastSavedAt.toLocaleString()}`
+                            : "Not saved yet."}
                         </span>
+                        {profileSaveError ? <p className="mt-2 text-sm text-red-600 dark:text-red-400">{profileSaveError}</p> : null}
+                        {profileSaveSuccess ? <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">{profileSaveSuccess}</p> : null}
                       </div>
                     </div>
                   </div>
@@ -3115,6 +2960,13 @@ export default function MacroTrackerApp(){
                 </div>
 
                 <div className="flex flex-wrap gap-3">
+                  <Button
+                    onClick={handleSaveBodyProfile}
+                    disabled={profileSaving}
+                    className="bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+                  >
+                    {profileSaving ? "Saving..." : "Save"}
+                  </Button>
                   <Button variant="destructive" onClick={()=>{ if(confirm('Reset all data?')){ resetData(); } }}>Reset data</Button>
                   <Button variant="outline" onClick={()=>setTab('dashboard')}>Back to Dashboard</Button>
                 </div>
