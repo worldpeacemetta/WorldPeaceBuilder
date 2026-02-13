@@ -679,7 +679,7 @@ export default function MacroTrackerApp(){
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaveError, setProfileSaveError] = useState("");
   const [profileSaveSuccess, setProfileSaveSuccess] = useState("");
-  const [profileLastSavedAt, setProfileLastSavedAt] = useState("");
+  const [profileLastSavedAt, setProfileLastSavedAt] = useState(null);
 
   // Theme handling
   useEffect(() => {
@@ -729,7 +729,7 @@ export default function MacroTrackerApp(){
         setProfileSaving(false);
         setProfileSaveError("");
         setProfileSaveSuccess("");
-        setProfileLastSavedAt("");
+        setProfileLastSavedAt(null);
       }
     });
 
@@ -926,10 +926,10 @@ export default function MacroTrackerApp(){
             };
           });
 
-          const updatedAt = data.updated_at ? new Date(data.updated_at).toLocaleString() : "";
+          const updatedAt = data.updated_at ? new Date(data.updated_at) : null;
           setProfileLastSavedAt(updatedAt);
         } else {
-          setProfileLastSavedAt("");
+          setProfileLastSavedAt(null);
         }
       } finally {
         if (active) {
@@ -1877,7 +1877,7 @@ export default function MacroTrackerApp(){
         const result = await saveUserProfile(snapshot);
         if (result?.ok) {
           setProfileSaveSuccess(result.message);
-          setProfileLastSavedAt(new Date().toLocaleString());
+          setProfileLastSavedAt(new Date());
         } else {
           setProfileSaveError(result?.message || "Unable to save profile.");
         }
@@ -2944,7 +2944,9 @@ export default function MacroTrackerApp(){
                       </div>
                       <div className="col-span-2 pt-1">
                         <span className="text-xs text-slate-500 dark:text-slate-400">
-                          {profileLastSavedAt ? `Last saved ${profileLastSavedAt}` : "Not saved yet."}
+                          {profileLastSavedAt instanceof Date
+                            ? `Last saved ${profileLastSavedAt.toLocaleString()}`
+                            : "Not saved yet."}
                         </span>
                         {profileSaveError ? <p className="mt-2 text-sm text-red-600 dark:text-red-400">{profileSaveError}</p> : null}
                         {profileSaveSuccess ? <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">{profileSaveSuccess}</p> : null}
@@ -2959,9 +2961,9 @@ export default function MacroTrackerApp(){
 
                 <div className="flex flex-wrap gap-3">
                   <Button
-                    variant="destructive"
                     onClick={handleSaveBodyProfile}
                     disabled={profileSaving}
+                    className="bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
                   >
                     {profileSaving ? "Saving..." : "Save"}
                   </Button>
