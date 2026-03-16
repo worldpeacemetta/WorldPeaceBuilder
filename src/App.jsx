@@ -938,7 +938,11 @@ export default function MacroTrackerApp(){
                 activity: data.activity_level ?? merged.profile.activity,
               },
               dailyGoals: ensureDailyGoals(data.daily_macro_goals ?? merged.dailyGoals),
-              profileHistory: ensureBodyHistory(data.profile_history ?? merged.profileHistory),
+              profileHistory: ensureBodyHistory(
+                Array.isArray(data.profile_history) && data.profile_history.length > 0
+                  ? data.profile_history
+                  : merged.profileHistory
+              ),
             };
           });
 
