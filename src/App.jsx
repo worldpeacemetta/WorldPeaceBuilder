@@ -449,7 +449,6 @@ function stripProfileSettingsForStorage(value) {
   return {
     ...normalized,
     profile: { ...DEFAULT_SETTINGS.profile },
-    dailyGoals: ensureDailyGoals(DEFAULT_SETTINGS.dailyGoals),
   };
 }
 
@@ -988,6 +987,31 @@ export default function MacroTrackerApp(){
 
     return { ok: true, message: "My stats saved." };
   }, [session?.user?.id]);
+
+  // Auto-save daily schedule (byDate) to Supabase whenever it changes.
+  // We use a ref to capture the byDate reference after the initial profile load
+  // so we don't fire an unnecessary write on first mount.
+  const scheduleSavedRef = useRef(undefined);
+  useEffect(() => {
+    if (profileLoading || !session?.user?.id) return;
+    const currentByDate = settings.dailyGoals?.byDate ?? {};
+    if (scheduleSavedRef.current === undefined) {
+      scheduleSavedRef.current = currentByDate;
+      return;
+    }
+    if (currentByDate === scheduleSavedRef.current) return;
+    scheduleSavedRef.current = currentByDate;
+    const goalsToSave = ensureDailyGoals(settings.dailyGoals);
+    supabase
+      .from("user_profile")
+      .upsert(
+        { id: session.user.id, daily_macro_goals: goalsToSave, updated_at: new Date().toISOString() },
+        { onConflict: "id" }
+      )
+      .then(({ error }) => {
+        if (error) console.error("Failed to auto-save daily schedule", error);
+      });
+  }, [settings.dailyGoals?.byDate, session?.user?.id, profileLoading]);
 
   // Daily log state
   const [logDate, setLogDate] = useState(todayISO());
