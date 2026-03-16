@@ -7,17 +7,20 @@ create table if not exists public.user_badges (
 
 alter table public.user_badges enable row level security;
 
-create policy if not exists "user_badges_select_own"
+drop policy if exists "user_badges_select_own" on public.user_badges;
+create policy "user_badges_select_own"
   on public.user_badges for select
   to authenticated
   using (user_id = auth.uid());
 
-create policy if not exists "user_badges_insert_own"
+drop policy if exists "user_badges_insert_own" on public.user_badges;
+create policy "user_badges_insert_own"
   on public.user_badges for insert
   to authenticated
   with check (user_id = auth.uid());
 
-create policy if not exists "user_badges_delete_own"
+drop policy if exists "user_badges_delete_own" on public.user_badges;
+create policy "user_badges_delete_own"
   on public.user_badges for delete
   to authenticated
   using (user_id = auth.uid());
