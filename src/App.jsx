@@ -712,7 +712,7 @@ export default function MacroTrackerApp(){
       if (!mounted) return;
       setSession(nextSession);
 
-      if (event === "SIGNED_IN") {
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         setAuthRefreshKey((value) => value + 1);
       }
 

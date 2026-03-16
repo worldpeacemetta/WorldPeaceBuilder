@@ -28,12 +28,66 @@ function emitAuthChange(event, session) {
   listeners.forEach((callback) => callback(event, session));
 }
 
+function getTokenExpiresAt(accessToken) {
+  try {
+    const payload = JSON.parse(atob(accessToken.split('.')[1]));
+    return typeof payload.exp === 'number' ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
 let currentSession = readSession();
+let refreshTimer = null;
+let refreshPromise = null;
+
+// Proactively refresh the token before it expires so the session never breaks.
+if (currentSession) scheduleRefresh(currentSession);
 
 function setSession(session, event) {
   currentSession = session;
   writeSession(session);
+  scheduleRefresh(session);
   emitAuthChange(event, session);
+}
+
+// Refresh the access token using the stored refresh_token.
+// Returns a shared promise so concurrent callers don't trigger duplicate requests.
+async function refreshSessionInBackground() {
+  if (refreshPromise) return refreshPromise;
+  if (!currentSession?.refresh_token) return;
+  refreshPromise = (async () => {
+    try {
+      const { data, error } = await authRequest("/token?grant_type=refresh_token", {
+        method: "POST",
+        body: JSON.stringify({ refresh_token: currentSession.refresh_token }),
+      });
+      if (error || !data?.access_token) {
+        setSession(null, "SIGNED_OUT");
+        return;
+      }
+      setSession({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token || currentSession.refresh_token,
+        user: data.user || currentSession.user,
+      }, "TOKEN_REFRESHED");
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+  return refreshPromise;
+}
+
+// Schedule a proactive refresh 60 seconds before the token expires.
+function scheduleRefresh(session) {
+  clearTimeout(refreshTimer);
+  refreshTimer = null;
+  if (!session?.access_token) return;
+  const expiresAt = getTokenExpiresAt(session.access_token);
+  if (!expiresAt) return;
+  const delay = expiresAt - Date.now() - 60_000;
+  if (delay <= 0) { refreshSessionInBackground(); return; }
+  refreshTimer = setTimeout(refreshSessionInBackground, delay);
 }
 
 function authHeader(useSessionToken = false) {
@@ -522,6 +576,12 @@ export const supabase = {
     },
 
     async getSession() {
+      if (!currentSession) return { data: { session: null }, error: null };
+      const expiresAt = getTokenExpiresAt(currentSession.access_token);
+      // Refresh synchronously if token is expired or expires within 10 seconds
+      if (expiresAt && expiresAt - Date.now() < 10_000) {
+        await refreshSessionInBackground();
+      }
       return { data: { session: currentSession }, error: null };
     },
 
