@@ -2248,11 +2248,11 @@ export default function MacroTrackerApp(){
             <div className="grid lg:grid-cols-2 gap-4">
               <Card className="h-full min-h-[360px] flex flex-col">
                 <CardHeader>
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <CardTitle>Goal vs Actual</CardTitle>
                     <div className="flex items-center gap-2">
                       <GoalModeBadge value={goalDateEntry} />
-                      <DatePickerButton value={goalDate} onChange={(value)=>setGoalDate(value||todayISO())} className="w-44" />
+                      <DatePickerButton value={goalDate} onChange={(value)=>setGoalDate(value||todayISO())} className="w-full sm:w-44" />
                     </div>
                   </div>
                 </CardHeader>
@@ -2274,11 +2274,11 @@ export default function MacroTrackerApp(){
             {/* Macros Trend */}
             <Card>
               <CardHeader className="pb-0">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <CardTitle>Macros Trend</CardTitle>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Select value={trendRange} onValueChange={(v)=>setTrendRange(v)}>
-                      <SelectTrigger className="h-8 w-36"><SelectValue placeholder="Range" /></SelectTrigger>
+                      <SelectTrigger className="h-8 w-full sm:w-36"><SelectValue placeholder="Range" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="7">Last 7 days</SelectItem>
                         <SelectItem value="14">Last 14 days</SelectItem>
@@ -2443,11 +2443,11 @@ export default function MacroTrackerApp(){
             {/* Macro Split per Meal */}
             <Card>
               <CardHeader className="pb-0">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <CardTitle className="flex items-center gap-2"><UtensilsCrossed className="h-5 w-5"/>Macro Split per Meal</CardTitle>
                   <div className="flex items-center gap-2">
                     <GoalModeBadge value={splitEntry} />
-                    <DatePickerButton value={splitDate} onChange={(value)=>setSplitDate(value||todayISO())} className="w-44" />
+                    <DatePickerButton value={splitDate} onChange={(value)=>setSplitDate(value||todayISO())} className="w-full sm:w-44" />
                   </div>
                 </div>
               </CardHeader>
@@ -3081,7 +3081,7 @@ function GoalModeToggle({ active, onChange }){
             <span className="inline-flex items-center justify-center">
               <Icon className={`h-3 w-3 ${isActive? '' : 'opacity-80'}`} />
             </span>
-            <span>{label}</span>
+            <span className="hidden sm:inline">{label}</span>
             <span className="ml-1 inline-flex h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} aria-hidden="true" />
           </button>
         );
@@ -3811,13 +3811,13 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between gap-3">
-          <CardTitle>Top Foods by Macros — {dayLabel}</CardTitle>
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <CardTitle className="min-w-0 truncate">Top Foods by Macros — {dayLabel}</CardTitle>
+          <div className="flex flex-wrap items-center gap-2">
             <GoalModeBadge value={goalMode} />
-            <DatePickerButton value={selectedDate} onChange={onDateChange} className="w-44" />
+            <DatePickerButton value={selectedDate} onChange={onDateChange} className="w-full sm:w-44" />
             <Select value={topMacroKey} onValueChange={onMacroChange}>
-              <SelectTrigger className="h-8 w-40">
+              <SelectTrigger className="h-8 w-full sm:w-40">
                 <SelectValue placeholder="Macro" />
               </SelectTrigger>
               <SelectContent>
@@ -3830,12 +3830,12 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
           </div>
         </div>
       </CardHeader>
-      <CardContent className="h-80">
-        <div className="grid h-full w-full grid-cols-[1fr_auto_1fr] grid-rows-[1fr_auto] items-center gap-6">
-          <div className="flex w-full flex-col items-stretch justify-center gap-3">
+      <CardContent className="sm:h-80">
+        <div className="flex flex-col sm:grid sm:h-full w-full sm:grid-cols-[1fr_auto_1fr] sm:grid-rows-[1fr_auto] items-center gap-4 sm:gap-6">
+          <div className="hidden sm:flex w-full flex-col items-stretch justify-center gap-3">
             {leftItems.map((item, index) => renderLegendItem(item, index, `left-${index}`))}
           </div>
-          <div className="relative row-span-2 flex h-full w-[260px] min-w-[220px] items-center justify-center">
+          <div className="relative sm:row-span-2 flex h-[240px] sm:h-full w-full sm:w-[260px] sm:min-w-[220px] items-center justify-center">
             <ResponsiveContainer width="100%" height="100%" style={{ overflow: "visible" }}>
               <PieChart margin={{ top: 32, right: 40, bottom: 32, left: 40 }} style={{ overflow: "visible" }}>
                 <defs>
@@ -3886,10 +3886,14 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
               </span>
             </div>
           </div>
-          <div className="flex w-full flex-col items-stretch justify-center gap-3">
+          <div className="hidden sm:flex w-full flex-col items-stretch justify-center gap-3">
             {rightItems.map((item, index) => renderLegendItem(item, index + leftItems.length, `right-${index}`))}
           </div>
-          <div className="col-span-3 flex flex-wrap items-center justify-center gap-3">
+          <div className="sm:col-span-3 flex flex-wrap items-center justify-center gap-3">
+            {/* On mobile, show all legend items here */}
+            <div className="flex sm:hidden w-full flex-col gap-3">
+              {slices.filter(item => !item.isOther).map((item, index) => renderLegendItem(item, index, `mobile-${index}`))}
+            </div>
             {bottomItems.length === 0 ? (
               slices.length === 0 ? (
                 <p className="text-sm text-slate-500">No foods logged for this day.</p>
