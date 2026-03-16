@@ -66,6 +66,10 @@ import {
   Zap,
   Crown,
   X,
+  Star,
+  ChefHat,
+  Leaf,
+  Target,
 } from "lucide-react";
 import { format, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval, startOfWeek, endOfWeek } from "date-fns";
 
@@ -3101,88 +3105,37 @@ const DUAL_PROFILE_OPTIONS = PROFILE_MODE_OPTIONS.slice(0, 2);
 // BADGES
 // ========================
 const BADGE_DEFINITIONS = [
-  // Logging streak badges
-  {
-    id: "log_first",
-    category: "Logging",
-    label: "First Entry",
-    description: "Log your first food",
-    Icon: BookOpenText,
-    color: "#6366f1",
-  },
-  {
-    id: "log_streak_7",
-    category: "Logging",
-    label: "Week Streak",
-    description: "Log food 7 days in a row",
-    Icon: Flame,
-    color: "#f97316",
-  },
-  {
-    id: "log_streak_14",
-    category: "Logging",
-    label: "Fortnight Streak",
-    description: "Log food 14 days in a row",
-    Icon: Flame,
-    color: "#ef4444",
-  },
-  {
-    id: "log_streak_30",
-    category: "Logging",
-    label: "Monthly Streak",
-    description: "Log food 30 days in a row",
-    Icon: Trophy,
-    color: "#eab308",
-  },
-  {
-    id: "log_streak_90",
-    category: "Logging",
-    label: "Quarterly Streak",
-    description: "Log food 90 days in a row",
-    Icon: Crown,
-    color: "#a855f7",
-  },
-  // Protein goal badges
-  {
-    id: "protein_first",
-    category: "Protein",
-    label: "Protein Hit",
-    description: "Reach your protein goal once",
-    Icon: Zap,
-    color: "#22c55e",
-  },
-  {
-    id: "protein_streak_7",
-    category: "Protein",
-    label: "Protein Week",
-    description: "Hit protein goal 7 days in a row",
-    Icon: Zap,
-    color: "#10b981",
-  },
-  {
-    id: "protein_streak_14",
-    category: "Protein",
-    label: "Protein Fortnight",
-    description: "Hit protein goal 14 days in a row",
-    Icon: Award,
-    color: "#0ea5e9",
-  },
-  {
-    id: "protein_streak_30",
-    category: "Protein",
-    label: "Protein Month",
-    description: "Hit protein goal 30 days in a row",
-    Icon: Award,
-    color: "#6366f1",
-  },
-  {
-    id: "protein_streak_90",
-    category: "Protein",
-    label: "Protein Quarter",
-    description: "Hit protein goal 90 days in a row",
-    Icon: Crown,
-    color: "#f59e0b",
-  },
+  // ── Streaks ──────────────────────────────────────────
+  { id: "log_streak_7",       category: "Streaks", label: "Week Logger",       description: "Log food 7 days in a row",               Icon: Flame,       color: "#f97316" },
+  { id: "log_streak_14",      category: "Streaks", label: "Fortnight Logger",  description: "Log food 14 days in a row",              Icon: Flame,       color: "#ef4444" },
+  { id: "log_streak_30",      category: "Streaks", label: "Monthly Logger",    description: "Log food 30 days in a row",              Icon: Trophy,      color: "#eab308" },
+  { id: "log_streak_90",      category: "Streaks", label: "Quarterly Logger",  description: "Log food 90 days in a row",              Icon: Crown,       color: "#a855f7" },
+  { id: "protein_streak_7",   category: "Streaks", label: "Protein Week",      description: "Hit protein goal 7 days in a row",       Icon: Dumbbell,    color: "#22c55e" },
+  { id: "protein_streak_14",  category: "Streaks", label: "Protein Fortnight", description: "Hit protein goal 14 days in a row",      Icon: Dumbbell,    color: "#10b981" },
+  { id: "protein_streak_30",  category: "Streaks", label: "Protein Month",     description: "Hit protein goal 30 days in a row",      Icon: Award,       color: "#0ea5e9" },
+  { id: "protein_streak_90",  category: "Streaks", label: "Protein Quarter",   description: "Hit protein goal 90 days in a row",      Icon: Crown,       color: "#f59e0b" },
+  { id: "veggie_streak_7",    category: "Streaks", label: "Green Week",        description: "Log a vegetable or fruit 7 days in a row", Icon: Leaf,      color: "#4ade80" },
+  // ── Milestones ───────────────────────────────────────
+  { id: "log_first",          category: "Milestones", label: "First Step",       description: "Log your first food",                Icon: BookOpenText, color: "#6366f1" },
+  { id: "log_days_10",        category: "Milestones", label: "10 Days Logged",   description: "Log food on 10 different days",       Icon: CalendarIcon, color: "#818cf8" },
+  { id: "log_days_30",        category: "Milestones", label: "30 Days Logged",   description: "Log food on 30 different days",       Icon: CalendarIcon, color: "#a78bfa" },
+  { id: "log_days_100",       category: "Milestones", label: "100 Days Logged",  description: "Log food on 100 different days",      Icon: CalendarIcon, color: "#c084fc" },
+  { id: "protein_first",      category: "Milestones", label: "Protein Hit",      description: "Reach your protein goal for the first time", Icon: Zap,   color: "#22c55e" },
+  { id: "protein_hits_10",    category: "Milestones", label: "10 Protein Days",  description: "Hit your protein goal on 10 days",    Icon: Target,      color: "#34d399" },
+  { id: "protein_hits_20",    category: "Milestones", label: "20 Protein Days",  description: "Hit your protein goal on 20 days",    Icon: Target,      color: "#2dd4bf" },
+  { id: "protein_hits_50",    category: "Milestones", label: "50 Protein Days",  description: "Hit your protein goal on 50 days",    Icon: Trophy,      color: "#38bdf8" },
+  { id: "protein_hits_100",   category: "Milestones", label: "100 Protein Days", description: "Hit your protein goal on 100 days",   Icon: Crown,       color: "#818cf8" },
+  { id: "perfect_day_1",      category: "Milestones", label: "Perfect Day",      description: "All macros in range on the same day", Icon: Star,        color: "#facc15" },
+  { id: "perfect_day_3",      category: "Milestones", label: "Hat Trick",        description: "3 perfect days",                      Icon: Star,        color: "#fb923c" },
+  { id: "perfect_day_7",      category: "Milestones", label: "Perfect Week",     description: "7 perfect days",                      Icon: Star,        color: "#f43f5e" },
+  { id: "perfect_day_30",     category: "Milestones", label: "Perfect Month",    description: "30 perfect days",                     Icon: Crown,       color: "#e879f9" },
+  { id: "veggie_day_1",       category: "Milestones", label: "Eat the Rainbow",  description: "Log a vegetable or fruit",            Icon: Leaf,        color: "#86efac" },
+  { id: "foods_added_10",     category: "Milestones", label: "Food Collector",   description: "Add 10 foods to your database",       Icon: Database,    color: "#94a3b8" },
+  { id: "foods_added_25",     category: "Milestones", label: "Food Enthusiast",  description: "Add 25 foods to your database",       Icon: Database,    color: "#64748b" },
+  { id: "foods_added_50",     category: "Milestones", label: "Food Expert",      description: "Add 50 foods to your database",       Icon: Database,    color: "#f97316" },
+  { id: "foods_added_100",    category: "Milestones", label: "Food Nerd",        description: "Add 100 foods to your database",      Icon: Database,    color: "#eab308" },
+  { id: "foods_added_200",    category: "Milestones", label: "Food Encyclopaedia", description: "Add 200 foods to your database",   Icon: Database,    color: "#a855f7" },
+  { id: "recipe_first",       category: "Milestones", label: "Home Chef",        description: "Create your first home recipe",       Icon: ChefHat,     color: "#f472b6" },
 ];
 
 function computeMaxStreak(sortedDates) {
@@ -3202,30 +3155,86 @@ function computeEarnedBadgeIds(entries, foods, goalValuesForDate) {
   const loggedDates = [...new Set(entries.map((e) => e.date))].sort();
   const maxLogStreak = loggedDates.length > 0 ? computeMaxStreak(loggedDates) : 0;
 
-  const proteinDates = loggedDates.filter((date) => {
+  // Per-day stats
+  const dateStats = loggedDates.map((date) => {
     const dayEntries = entries.filter((e) => e.date === date);
-    const totalProtein = dayEntries.reduce((sum, e) => {
+    const totals = { kcal: 0, protein: 0, carbs: 0, fat: 0 };
+    dayEntries.forEach((e) => {
       const f = foods.find((x) => x.id === e.foodId);
-      if (!f) return sum;
-      const scaled = scaleMacros(f, e.qty);
-      return sum + (scaled.protein || 0);
-    }, 0);
+      if (!f) return;
+      const s = scaleMacros(f, e.qty);
+      totals.kcal += s.kcal || 0;
+      totals.protein += s.protein || 0;
+      totals.carbs += s.carbs || 0;
+      totals.fat += s.fat || 0;
+    });
     const goals = goalValuesForDate(date);
-    return goals.protein > 0 && totalProtein >= goals.protein;
+    const proteinHit = goals.protein > 0 && totals.protein >= goals.protein;
+    const isPerfect =
+      goals.kcal > 0 && goals.protein > 0 && goals.carbs > 0 && goals.fat > 0 &&
+      totals.kcal >= goals.kcal * 0.95 && totals.kcal <= goals.kcal &&
+      totals.protein >= goals.protein &&
+      totals.carbs >= goals.carbs * 0.95 && totals.carbs <= goals.carbs &&
+      totals.fat >= goals.fat * 0.95 && totals.fat <= goals.fat;
+    const hasVeggie = dayEntries.some((e) => {
+      const f = foods.find((x) => x.id === e.foodId);
+      return f && (f.category === "vegetable" || f.category === "fruit");
+    });
+    return { date, proteinHit, isPerfect, hasVeggie };
   });
+
+  const proteinDates = dateStats.filter((d) => d.proteinHit).map((d) => d.date);
+  const perfectDates = dateStats.filter((d) => d.isPerfect).map((d) => d.date);
+  const veggieDates  = dateStats.filter((d) => d.hasVeggie).map((d) => d.date);
   const maxProteinStreak = proteinDates.length > 0 ? computeMaxStreak(proteinDates) : 0;
+  const maxVeggieStreak  = veggieDates.length  > 0 ? computeMaxStreak(veggieDates)  : 0;
 
   const earned = new Set();
-  if (loggedDates.length >= 1) earned.add("log_first");
-  if (maxLogStreak >= 7) earned.add("log_streak_7");
-  if (maxLogStreak >= 14) earned.add("log_streak_14");
-  if (maxLogStreak >= 30) earned.add("log_streak_30");
-  if (maxLogStreak >= 90) earned.add("log_streak_90");
-  if (proteinDates.length >= 1) earned.add("protein_first");
-  if (maxProteinStreak >= 7) earned.add("protein_streak_7");
+
+  // Streaks
+  if (maxLogStreak >= 7)     earned.add("log_streak_7");
+  if (maxLogStreak >= 14)    earned.add("log_streak_14");
+  if (maxLogStreak >= 30)    earned.add("log_streak_30");
+  if (maxLogStreak >= 90)    earned.add("log_streak_90");
+  if (maxProteinStreak >= 7)  earned.add("protein_streak_7");
   if (maxProteinStreak >= 14) earned.add("protein_streak_14");
   if (maxProteinStreak >= 30) earned.add("protein_streak_30");
   if (maxProteinStreak >= 90) earned.add("protein_streak_90");
+  if (maxVeggieStreak >= 7)   earned.add("veggie_streak_7");
+
+  // Milestones — logging
+  if (loggedDates.length >= 1)   earned.add("log_first");
+  if (loggedDates.length >= 10)  earned.add("log_days_10");
+  if (loggedDates.length >= 30)  earned.add("log_days_30");
+  if (loggedDates.length >= 100) earned.add("log_days_100");
+
+  // Milestones — protein hits
+  if (proteinDates.length >= 1)   earned.add("protein_first");
+  if (proteinDates.length >= 10)  earned.add("protein_hits_10");
+  if (proteinDates.length >= 20)  earned.add("protein_hits_20");
+  if (proteinDates.length >= 50)  earned.add("protein_hits_50");
+  if (proteinDates.length >= 100) earned.add("protein_hits_100");
+
+  // Milestones — perfect days
+  if (perfectDates.length >= 1)  earned.add("perfect_day_1");
+  if (perfectDates.length >= 3)  earned.add("perfect_day_3");
+  if (perfectDates.length >= 7)  earned.add("perfect_day_7");
+  if (perfectDates.length >= 30) earned.add("perfect_day_30");
+
+  // Milestones — veggies
+  if (veggieDates.length >= 1) earned.add("veggie_day_1");
+
+  // Milestones — food library
+  if (foods.length >= 10)  earned.add("foods_added_10");
+  if (foods.length >= 25)  earned.add("foods_added_25");
+  if (foods.length >= 50)  earned.add("foods_added_50");
+  if (foods.length >= 100) earned.add("foods_added_100");
+  if (foods.length >= 200) earned.add("foods_added_200");
+
+  // Milestones — recipe
+  if (foods.some((f) => f.category === "homeRecipe" && (f.components?.length ?? 0) > 0))
+    earned.add("recipe_first");
+
   return earned;
 }
 
