@@ -1286,18 +1286,22 @@ export default function MacroTrackerApp(){
     if (!session?.user?.id || entriesLoading || profileLoading) return;
     const freshEarned = computeEarnedBadgeIds(entries, foods, goalValuesForDate);
     const newlyEarned = [...freshEarned].filter((id) => !earnedBadgeIds.has(id));
-    if (newlyEarned.length === 0) {
-      setEarnedBadgeIds(freshEarned);
-      if (!badgesLoadedRef.current) badgesLoadedRef.current = true;
+
+    // Always merge — never remove a badge once earned, even if data changes
+    if (newlyEarned.length > 0) {
+      setEarnedBadgeIds((prev) => new Set([...prev, ...newlyEarned]));
+    }
+
+    if (!badgesLoadedRef.current) {
+      badgesLoadedRef.current = true;
       return;
     }
-    setEarnedBadgeIds(freshEarned);
-    // Only show unlock popups after initial badge load, not on first sync
-    if (badgesLoadedRef.current) {
-      setBadgeUnlockQueue((q) => [...q, ...newlyEarned]);
-    } else {
-      badgesLoadedRef.current = true;
-    }
+
+    if (newlyEarned.length === 0) return;
+
+    // Show unlock popups for newly earned badges
+    setBadgeUnlockQueue((q) => [...q, ...newlyEarned]);
+
     const rows = newlyEarned.map((badge_id) => ({ user_id: session.user.id, badge_id }));
     supabase.from("user_badges").upsert(rows, { onConflict: "user_id,badge_id" }).then(({ error }) => {
       if (error) console.error("Failed to save badges", error);
