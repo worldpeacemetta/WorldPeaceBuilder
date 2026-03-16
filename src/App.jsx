@@ -1071,27 +1071,11 @@ export default function MacroTrackerApp(){
 
   const weightTrendSummary = useMemo(() => {
     if (!profileHistory.length) {
-      return { data: [], latestWeight: null, latestDate: null };
+      return { history: [], latestWeight: null, latestDate: null };
     }
-    const today = startOfDay(new Date());
-    const start = subDays(today, 29);
-    const startIso = toISODate(start);
-    const endIso = toISODate(today);
-    const data = profileHistory
-      .filter((entry) => entry.date >= startIso && entry.date <= endIso)
-      .map((entry) => {
-        const weightValue = Number.isFinite(entry.weightKg) ? +Number(entry.weightKg).toFixed(1) : null;
-        const bodyFatValue = Number.isFinite(entry.bodyFatPct) ? +Number(entry.bodyFatPct).toFixed(1) : null;
-        return {
-          date: entry.date,
-          label: format(new Date(`${entry.date}T00:00:00`), "MMM d"),
-          weight: weightValue,
-          bodyFat: bodyFatValue,
-        };
-      });
     const latest = profileHistory[profileHistory.length - 1];
     return {
-      data,
+      history: profileHistory,
       latestWeight: Number.isFinite(latest?.weightKg) ? +Number(latest.weightKg).toFixed(1) : null,
       latestDate: latest ? format(new Date(`${latest.date}T00:00:00`), "PP") : null,
     };
@@ -2634,7 +2618,7 @@ export default function MacroTrackerApp(){
             </div>
             <div className="grid md:grid-cols-2 gap-4">
               <WeightTrendCard
-                data={weightTrendSummary.data}
+                history={weightTrendSummary.history}
                 latestWeight={weightTrendSummary.latestWeight}
                 latestDate={weightTrendSummary.latestDate}
               />
@@ -3812,37 +3796,63 @@ function AverageSummaryCard({ label, averages, scaleMax }) {
   );
 }
 
-function WeightTrendCard({ data, latestWeight, latestDate }) {
-  const gradientId = useId();
-  const hasData = Array.isArray(data) && data.some((point) => point.weight != null || point.bodyFat != null);
+const WEIGHT_RANGE_OPTIONS = [
+  { value: "30",  label: "Last 30 days" },
+  { value: "90",  label: "Last 3 months" },
+  { value: "180", label: "Last 6 months" },
+  { value: "365", label: "Last 12 months" },
+  { value: "all", label: "All time" },
+];
 
-  const weightValues = Array.isArray(data)
-    ? data.map((point) => point?.weight).filter((value) => Number.isFinite(value))
-    : [];
-  const bodyFatValues = Array.isArray(data)
-    ? data.map((point) => point?.bodyFat).filter((value) => Number.isFinite(value))
-    : [];
+function WeightTrendCard({ history, latestWeight, latestDate }) {
+  const [range, setRange] = useState("90");
+  const gradientId = useId();
+
+  const data = useMemo(() => {
+    if (!Array.isArray(history) || !history.length) return [];
+    const today = startOfDay(new Date());
+    const startIso = range === "all" ? null : toISODate(subDays(today, Number(range) - 1));
+    const endIso = toISODate(today);
+    return history
+      .filter((e) => (!startIso || e.date >= startIso) && e.date <= endIso)
+      .map((e) => ({
+        date: e.date,
+        label: format(new Date(`${e.date}T00:00:00`), range === "365" || range === "all" ? "MMM d yy" : "MMM d"),
+        weight: Number.isFinite(e.weightKg) ? +Number(e.weightKg).toFixed(1) : null,
+        bodyFat: Number.isFinite(e.bodyFatPct) ? +Number(e.bodyFatPct).toFixed(1) : null,
+      }));
+  }, [history, range]);
+
+  const hasData = data.some((p) => p.weight != null || p.bodyFat != null);
 
   const computeDomain = (values, padFallback = 0.5) => {
     if (!values.length) return null;
     const min = Math.min(...values);
     const max = Math.max(...values);
-    if (min === max) {
-      return [min - padFallback, max + padFallback];
-    }
-    const span = max - min;
-    const pad = Math.max(span * 0.1, padFallback);
+    if (min === max) return [min - padFallback, max + padFallback];
+    const pad = Math.max((max - min) * 0.1, padFallback);
     return [min - pad, max + pad];
   };
 
-  const weightDomain = computeDomain(weightValues, 0.5);
-  const bodyFatDomain = computeDomain(bodyFatValues, 0.3);
+  const weightDomain = computeDomain(data.map((p) => p.weight).filter(Number.isFinite), 0.5);
+  const bodyFatDomain = computeDomain(data.map((p) => p.bodyFat).filter(Number.isFinite), 0.3);
 
   return (
     <Card>
       <CardHeader className="pb-1.5">
-        <CardTitle>Weight Trend</CardTitle>
-        <p className="text-sm text-slate-500 dark:text-slate-400">Last Month</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <CardTitle>Weight Trend</CardTitle>
+          <Select value={range} onValueChange={setRange}>
+            <SelectTrigger className="h-8 w-full sm:w-40 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {WEIGHT_RANGE_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3 pt-0">
         <div className="h-44">
@@ -3875,7 +3885,7 @@ function WeightTrendCard({ data, latestWeight, latestDate }) {
                   tickFormatter={(value) => `${formatNumber(value)}%`}
                   width={56}
                   domain={bodyFatDomain ?? undefined}
-                  hide={!data.some((point) => point.bodyFat != null)}
+                  hide={!data.some((p) => p.bodyFat != null)}
                 />
                 <RTooltip
                   content={({ active, payload }) => {
