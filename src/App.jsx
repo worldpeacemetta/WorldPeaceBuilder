@@ -2260,7 +2260,7 @@ export default function MacroTrackerApp(){
                 </CardHeader>
                 <CardContent className="flex-1">
                   <div className="flex h-full items-center justify-center">
-                    <div className="grid h-full grid-cols-2 gap-4 content-center origin-center scale-90">
+                    <div className="grid w-full grid-cols-2 gap-2 sm:gap-4 content-center">
                       <GoalDonut label="Calories" theme={MACRO_THEME.kcal} actual={goalTotals.kcal} goal={goalTarget.kcal} unit="kcal" />
                       <GoalDonut label="Protein" theme={MACRO_THEME.protein} actual={goalTotals.protein} goal={goalTarget.protein} unit="g" />
                       <GoalDonut label="Carbs" theme={MACRO_THEME.carbs} actual={goalTotals.carbs} goal={goalTarget.carbs} unit="g" />
@@ -3220,8 +3220,8 @@ function WeeklyNutritionCard({ data }) {
           <p className="text-sm text-slate-500">Log entries to see your weekly breakdown.</p>
         ) : (
           <div className="overflow-x-auto">
-            <div className="min-w-max">
-              <div className="grid grid-cols-[auto_repeat(7,minmax(0,1fr))_auto] items-end gap-x-3 gap-y-3 text-[13px] origin-top-left scale-90 mt-3">
+            <div className="min-w-[340px]">
+              <div className="grid grid-cols-[auto_repeat(7,minmax(0,1fr))_auto] items-end gap-x-1 sm:gap-x-3 gap-y-2 sm:gap-y-3 text-[11px] sm:text-[13px] mt-3">
                 <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Macro</div>
                 {days.map((day) => (
                   <div key={day.iso} className="flex justify-center">
@@ -3682,7 +3682,7 @@ function GoalDonut({ label, theme, actual, goal, unit }) {
   return (
     <div className="flex flex-col items-center justify-center">
       <div className="mb-1 text-base font-medium">{label}</div>
-      <div className="relative h-32 w-32">
+      <div className="relative h-24 w-24 sm:h-32 sm:w-32">
         <svg viewBox="0 0 120 120" className="h-full w-full">
           <defs>
             <linearGradient id={baseGradientId} x1="0" y1="0" x2="0" y2="1">
