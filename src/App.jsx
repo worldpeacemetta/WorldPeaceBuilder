@@ -60,6 +60,12 @@ import {
   User,
   LogOut,
   Menu,
+  Flame,
+  Trophy,
+  Award,
+  Zap,
+  Crown,
+  X,
 } from "lucide-react";
 import { format, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval, startOfWeek, endOfWeek } from "date-fns";
 
@@ -682,6 +688,8 @@ export default function MacroTrackerApp(){
   const [profileSaveSuccess, setProfileSaveSuccess] = useState("");
   const [profileLastSavedAt, setProfileLastSavedAt] = useState(null);
 
+  const [earnedBadgeIds, setEarnedBadgeIds] = useState(new Set());
+
   // Theme handling
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -1252,6 +1260,35 @@ export default function MacroTrackerApp(){
   const splitEntry = useMemo(() => resolveModeEntry(splitDate), [resolveModeEntry, splitDate]);
   const goalDateEntry = goalTargetEntry;
   const topFoodsEntry = useMemo(() => resolveModeEntry(topFoodsDate), [resolveModeEntry, topFoodsDate]);
+
+  // Load earned badges from Supabase on sign-in
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    supabase
+      .from("user_badges")
+      .select("badge_id")
+      .eq("user_id", session.user.id)
+      .then(({ data }) => {
+        if (data) setEarnedBadgeIds(new Set(data.map((r) => r.badge_id)));
+      });
+  }, [session?.user?.id, authRefreshKey]);
+
+  // Recompute badges whenever entries/foods/goals change, save newly earned ones
+  useEffect(() => {
+    if (!session?.user?.id || entriesLoading || profileLoading) return;
+    const freshEarned = computeEarnedBadgeIds(entries, foods, goalValuesForDate);
+    const newlyEarned = [...freshEarned].filter((id) => !earnedBadgeIds.has(id));
+    if (newlyEarned.length === 0) {
+      // Still update local state in case it's stale (e.g. after initial load)
+      setEarnedBadgeIds(freshEarned);
+      return;
+    }
+    setEarnedBadgeIds(freshEarned);
+    const rows = newlyEarned.map((badge_id) => ({ user_id: session.user.id, badge_id }));
+    supabase.from("user_badges").upsert(rows, { onConflict: "user_id,badge_id" }).then(({ error }) => {
+      if (error) console.error("Failed to save badges", error);
+    });
+  }, [entries, foods, goalValuesForDate, session?.user?.id, entriesLoading, profileLoading]);
 
   const headerPillClass = "gap-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60 px-3 py-2 text-xs font-medium shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800";
 
@@ -2991,10 +3028,7 @@ export default function MacroTrackerApp(){
                       </div>
                     </div>
                   </div>
-                  <div className="rounded-xl border p-4 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40">
-                    <div className="font-medium mb-1">My Badges</div>
-                    <div className="text-sm text-slate-500">Badges coming soon.</div>
-                  </div>
+                  <BadgesCard earnedBadgeIds={earnedBadgeIds} />
                 </div>
 
                 <div className="flex flex-wrap gap-3">
@@ -3062,6 +3096,138 @@ const PROFILE_MODE_OPTIONS = [
 ];
 
 const DUAL_PROFILE_OPTIONS = PROFILE_MODE_OPTIONS.slice(0, 2);
+
+// ========================
+// BADGES
+// ========================
+const BADGE_DEFINITIONS = [
+  // Logging streak badges
+  {
+    id: "log_first",
+    category: "Logging",
+    label: "First Entry",
+    description: "Log your first food",
+    Icon: BookOpenText,
+    color: "#6366f1",
+  },
+  {
+    id: "log_streak_7",
+    category: "Logging",
+    label: "Week Streak",
+    description: "Log food 7 days in a row",
+    Icon: Flame,
+    color: "#f97316",
+  },
+  {
+    id: "log_streak_14",
+    category: "Logging",
+    label: "Fortnight Streak",
+    description: "Log food 14 days in a row",
+    Icon: Flame,
+    color: "#ef4444",
+  },
+  {
+    id: "log_streak_30",
+    category: "Logging",
+    label: "Monthly Streak",
+    description: "Log food 30 days in a row",
+    Icon: Trophy,
+    color: "#eab308",
+  },
+  {
+    id: "log_streak_90",
+    category: "Logging",
+    label: "Quarterly Streak",
+    description: "Log food 90 days in a row",
+    Icon: Crown,
+    color: "#a855f7",
+  },
+  // Protein goal badges
+  {
+    id: "protein_first",
+    category: "Protein",
+    label: "Protein Hit",
+    description: "Reach your protein goal once",
+    Icon: Zap,
+    color: "#22c55e",
+  },
+  {
+    id: "protein_streak_7",
+    category: "Protein",
+    label: "Protein Week",
+    description: "Hit protein goal 7 days in a row",
+    Icon: Zap,
+    color: "#10b981",
+  },
+  {
+    id: "protein_streak_14",
+    category: "Protein",
+    label: "Protein Fortnight",
+    description: "Hit protein goal 14 days in a row",
+    Icon: Award,
+    color: "#0ea5e9",
+  },
+  {
+    id: "protein_streak_30",
+    category: "Protein",
+    label: "Protein Month",
+    description: "Hit protein goal 30 days in a row",
+    Icon: Award,
+    color: "#6366f1",
+  },
+  {
+    id: "protein_streak_90",
+    category: "Protein",
+    label: "Protein Quarter",
+    description: "Hit protein goal 90 days in a row",
+    Icon: Crown,
+    color: "#f59e0b",
+  },
+];
+
+function computeMaxStreak(sortedDates) {
+  if (!sortedDates.length) return 0;
+  let max = 1, cur = 1;
+  for (let i = 1; i < sortedDates.length; i++) {
+    const prev = new Date(sortedDates[i - 1]);
+    const curr = new Date(sortedDates[i]);
+    const diff = Math.round((curr - prev) / (1000 * 60 * 60 * 24));
+    if (diff === 1) { cur++; max = Math.max(max, cur); }
+    else if (diff > 1) cur = 1;
+  }
+  return max;
+}
+
+function computeEarnedBadgeIds(entries, foods, goalValuesForDate) {
+  const loggedDates = [...new Set(entries.map((e) => e.date))].sort();
+  const maxLogStreak = loggedDates.length > 0 ? computeMaxStreak(loggedDates) : 0;
+
+  const proteinDates = loggedDates.filter((date) => {
+    const dayEntries = entries.filter((e) => e.date === date);
+    const totalProtein = dayEntries.reduce((sum, e) => {
+      const f = foods.find((x) => x.id === e.foodId);
+      if (!f) return sum;
+      const scaled = scaleMacros(f, e.qty);
+      return sum + (scaled.protein || 0);
+    }, 0);
+    const goals = goalValuesForDate(date);
+    return goals.protein > 0 && totalProtein >= goals.protein;
+  });
+  const maxProteinStreak = proteinDates.length > 0 ? computeMaxStreak(proteinDates) : 0;
+
+  const earned = new Set();
+  if (loggedDates.length >= 1) earned.add("log_first");
+  if (maxLogStreak >= 7) earned.add("log_streak_7");
+  if (maxLogStreak >= 14) earned.add("log_streak_14");
+  if (maxLogStreak >= 30) earned.add("log_streak_30");
+  if (maxLogStreak >= 90) earned.add("log_streak_90");
+  if (proteinDates.length >= 1) earned.add("protein_first");
+  if (maxProteinStreak >= 7) earned.add("protein_streak_7");
+  if (maxProteinStreak >= 14) earned.add("protein_streak_14");
+  if (maxProteinStreak >= 30) earned.add("protein_streak_30");
+  if (maxProteinStreak >= 90) earned.add("protein_streak_90");
+  return earned;
+}
 
 function GoalModeToggle({ active, onChange }){
   return (
@@ -3199,6 +3365,122 @@ function TogglePill({ label, active, onClick, color }){
     <button onClick={onClick} className={`text-xs px-3 py-1 rounded-full border transition ${active? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900': 'bg-transparent text-slate-700 dark:text-slate-200'}`} style={{ borderColor: color }}>
       <span className="inline-block w-2 h-2 rounded-full mr-2" style={{ backgroundColor: color }} />{label}
     </button>
+  );
+}
+
+function BadgesCard({ earnedBadgeIds }) {
+  const [showAll, setShowAll] = useState(false);
+  const earnedCount = BADGE_DEFINITIONS.filter((b) => earnedBadgeIds.has(b.id)).length;
+  const previewBadges = BADGE_DEFINITIONS.filter((b) => earnedBadgeIds.has(b.id)).slice(0, 4);
+  const categories = [...new Set(BADGE_DEFINITIONS.map((b) => b.category))];
+
+  return (
+    <>
+      <div className="rounded-xl border p-4 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div className="font-medium">My Badges</div>
+          <span className="text-xs text-slate-500">{earnedCount} / {BADGE_DEFINITIONS.length} earned</span>
+        </div>
+
+        {/* Preview: up to 4 earned badges as colored icons */}
+        <div className="flex items-center gap-2 flex-wrap min-h-[2.5rem]">
+          {previewBadges.length > 0 ? (
+            previewBadges.map((b) => (
+              <span
+                key={b.id}
+                title={b.label}
+                className="flex h-10 w-10 items-center justify-center rounded-full shadow-sm"
+                style={{ backgroundColor: b.color + "22", border: `2px solid ${b.color}` }}
+              >
+                <b.Icon className="h-5 w-5" style={{ color: b.color }} />
+              </span>
+            ))
+          ) : (
+            <p className="text-xs text-slate-400">Log food to start earning badges.</p>
+          )}
+          {earnedCount > 4 && (
+            <span className="text-xs text-slate-500">+{earnedCount - 4} more</span>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowAll(true)}
+          className="text-xs text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 underline self-start"
+        >
+          See all badges
+        </button>
+      </div>
+
+      {/* Full badges modal */}
+      {showAll && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/50 px-4 pb-4 sm:pb-0">
+          <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl overflow-y-auto max-h-[85vh]">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-4">
+              <div>
+                <h2 className="font-semibold text-base">All Badges</h2>
+                <p className="text-xs text-slate-500">{earnedCount} of {BADGE_DEFINITIONS.length} earned</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAll(false)}
+                className="rounded-full p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-6">
+              {categories.map((cat) => (
+                <div key={cat}>
+                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">{cat}</h3>
+                  <div className="space-y-2">
+                    {BADGE_DEFINITIONS.filter((b) => b.category === cat).map((b) => {
+                      const earned = earnedBadgeIds.has(b.id);
+                      return (
+                        <div
+                          key={b.id}
+                          className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition ${
+                            earned
+                              ? "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60"
+                              : "border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40 opacity-50"
+                          }`}
+                        >
+                          <span
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+                            style={
+                              earned
+                                ? { backgroundColor: b.color + "22", border: `2px solid ${b.color}` }
+                                : { backgroundColor: "transparent", border: "2px solid #94a3b8" }
+                            }
+                          >
+                            <b.Icon
+                              className="h-5 w-5"
+                              style={{ color: earned ? b.color : "#94a3b8" }}
+                            />
+                          </span>
+                          <div className="min-w-0">
+                            <div className={`font-medium text-sm ${earned ? "" : "text-slate-400 dark:text-slate-500"}`}>
+                              {b.label}
+                            </div>
+                            <div className="text-xs text-slate-500">{b.description}</div>
+                          </div>
+                          {earned && (
+                            <span className="ml-auto shrink-0 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full" style={{ backgroundColor: b.color + "22", color: b.color }}>
+                              Earned
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
