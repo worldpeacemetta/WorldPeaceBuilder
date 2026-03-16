@@ -924,6 +924,7 @@ export default function MacroTrackerApp(){
                 activity: data.activity_level ?? merged.profile.activity,
               },
               dailyGoals: ensureDailyGoals(data.daily_macro_goals ?? merged.dailyGoals),
+              profileHistory: ensureBodyHistory(data.profile_history ?? merged.profileHistory),
             };
           });
 
@@ -978,6 +979,7 @@ export default function MacroTrackerApp(){
       carbs: Number(selectedGoals.carbs ?? 0),
       fat: Number(selectedGoals.fat ?? 0),
       daily_macro_goals: normalizedGoals,
+      profile_history: ensureBodyHistory(normalized.profileHistory),
       updated_at: new Date().toISOString(),
     };
 
@@ -2113,7 +2115,7 @@ export default function MacroTrackerApp(){
               alt="OneBodyOneLife"
               className="hidden dark:block h-8 w-auto"
             />
-            <div>
+            <div className="hidden sm:block">
               <h1 className="font-semibold text-base sm:text-lg leading-tight">OneBodyOneLife</h1>
               <p className="hidden sm:block text-xs text-slate-500">Track protein, calories, fat & carbs by meal</p>
             </div>
