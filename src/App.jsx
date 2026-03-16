@@ -58,6 +58,8 @@ import {
   Scissors,
   Equal,
   User,
+  LogOut,
+  Menu,
 } from "lucide-react";
 import { format, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval, startOfWeek, endOfWeek } from "date-fns";
 
@@ -2112,41 +2114,42 @@ export default function MacroTrackerApp(){
               className="hidden dark:block h-8 w-auto"
             />
             <div>
-              <h1 className="font-semibold text-lg leading-tight">OneBodyOneLife</h1>
-              <p className="text-xs text-slate-500">Track protein, calories, fat & carbs by meal</p>
+              <h1 className="font-semibold text-base sm:text-lg leading-tight">OneBodyOneLife</h1>
+              <p className="hidden sm:block text-xs text-slate-500">Track protein, calories, fat & carbs by meal</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" className={headerPillClass} onClick={exportJSON}>
+          <div className="flex items-center gap-1 sm:gap-2">
+            <Button variant="ghost" className={headerPillClass} onClick={exportJSON} title="Export">
               <Download className="h-4 w-4" />
-              <span>Export</span>
+              <span className="hidden sm:inline">Export</span>
             </Button>
-            <label className={`inline-flex items-center ${headerPillClass} cursor-pointer`}>
+            <label className={`inline-flex items-center ${headerPillClass} cursor-pointer`} title="Import">
               <Upload className="h-4 w-4" />
-              <span>Import</span>
+              <span className="hidden sm:inline">Import</span>
               <input type="file" accept="application/json" className="hidden" onChange={(e)=>e.target.files&&importJSON(e.target.files[0])} />
             </label>
             {activeSetup === "dual" ? (
               <GoalModeToggle active={activeDualProfile} onChange={handleDualProfileChange} />
             ) : (
-              <GoalModeBadge value={{ setup: activeSetup }} className="h-9 px-4" />
+              <GoalModeBadge value={{ setup: activeSetup }} className="h-9 px-3 sm:px-4" />
             )}
             <div className="hidden sm:block text-xs text-slate-600 dark:text-slate-300 max-w-[180px] truncate" title={profileUsername || session.user?.email || ""}>
               {profileUsername || session.user?.email}
             </div>
-            <Button variant="ghost" className={headerPillClass} onClick={handleSignOut}>
-              <span>Sign out</span>
+            <Button variant="ghost" className={headerPillClass} onClick={handleSignOut} title="Sign out">
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline">Sign out</span>
             </Button>
             <button
               type="button"
               onClick={() => setTab('settings')}
-              className="h-10 w-10 overflow-hidden rounded-full border border-slate-300 bg-slate-200 dark:border-slate-700 dark:bg-slate-800 flex items-center justify-center text-xs font-semibold transition hover:scale-[1.03] hover:bg-slate-300/60 dark:hover:bg-slate-700"
+              className="h-9 w-9 sm:h-10 sm:w-10 overflow-hidden rounded-full border border-slate-300 bg-slate-200 dark:border-slate-700 dark:bg-slate-800 flex items-center justify-center text-xs font-semibold transition hover:scale-[1.03] hover:bg-slate-300/60 dark:hover:bg-slate-700"
               aria-label="Go to Profile"
             >
               {profileAvatarUrl ? (
                 <img src={profileAvatarUrl} alt="Profile avatar" className="h-full w-full object-cover" />
               ) : (
-                <User className="h-5 w-5 text-slate-500 dark:text-slate-300" />
+                <User className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 dark:text-slate-300" />
               )}
             </button>
           </div>
@@ -2231,13 +2234,13 @@ export default function MacroTrackerApp(){
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-6">
+      <main className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="grid w-full grid-cols-4 rounded-full border border-slate-200 bg-white/80 p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900/70 md:w-auto">
-            <TabsTrigger value="dashboard" className="gap-2 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><BarChart3 className="h-4 w-4"/>Dashboard</TabsTrigger>
-            <TabsTrigger value="daily" className="gap-2 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><BookOpenText className="h-4 w-4"/>Daily Log</TabsTrigger>
-            <TabsTrigger value="foods" className="gap-2 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><Database className="h-4 w-4"/>Food DB</TabsTrigger>
-            <TabsTrigger value="settings" className="gap-2 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><SettingsIcon className="h-4 w-4"/>Profile</TabsTrigger>
+            <TabsTrigger value="dashboard" className="gap-1.5 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><BarChart3 className="h-4 w-4 shrink-0"/><span className="hidden sm:inline">Dashboard</span></TabsTrigger>
+            <TabsTrigger value="daily" className="gap-1.5 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><BookOpenText className="h-4 w-4 shrink-0"/><span className="hidden sm:inline">Daily Log</span></TabsTrigger>
+            <TabsTrigger value="foods" className="gap-1.5 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><Database className="h-4 w-4 shrink-0"/><span className="hidden sm:inline">Food DB</span></TabsTrigger>
+            <TabsTrigger value="settings" className="gap-1.5 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><SettingsIcon className="h-4 w-4 shrink-0"/><span className="hidden sm:inline">Profile</span></TabsTrigger>
           </TabsList>
 
           {/* DASHBOARD */}
@@ -2637,49 +2640,83 @@ export default function MacroTrackerApp(){
                   return (
                     <div key={mk} className="mb-6">
                       <div className="flex items-center gap-2 text-sm font-semibold mb-2"><UtensilsCrossed className="h-4 w-4"/>{MEAL_LABELS[mk]}</div>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Food</TableHead>
-                            <TableHead className="text-right">Qty</TableHead>
-                            <TableHead className="text-right">kcal</TableHead>
-                            <TableHead className="text-right">Protein (g)</TableHead>
-                            <TableHead className="text-right">Carbs (g)</TableHead>
-                            <TableHead className="text-right">Fat (g)</TableHead>
-                            <TableHead>Meal</TableHead>
-                            <TableHead></TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {group.map((r)=> (
-                            <TableRow key={r.id}>
-                              <TableCell>
+
+                      {/* Mobile card layout */}
+                      <div className="sm:hidden space-y-2">
+                        {group.map((r)=>(
+                          <div key={r.id} className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
                                 <EditableFoodCell entryId={r.id} currentFoodId={r.foodId||null} fallbackLabel={r.label} foods={foods} onSelect={(foodId)=>updateEntryFood(r.id, foodId)} />
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <input className="w-20 text-right bg-transparent border rounded px-2 py-1 border-slate-200 dark:border-slate-700" type="number" step="0.1" defaultValue={r.qty} onBlur={(e)=>updateEntryQuantity(r.id, parseFloat(e.target.value))} onKeyDown={(e)=>{ if(e.key==='Enter'){ e.target.blur(); } }} />
-                              </TableCell>
-                              <TableCell className="text-right">{r.kcal.toFixed(0)}</TableCell>
-                              <TableCell className="text-right">{r.protein.toFixed(1)}</TableCell>
-                              <TableCell className="text-right">{r.carbs.toFixed(1)}</TableCell>
-                              <TableCell className="text-right">{r.fat.toFixed(1)}</TableCell>
-                              <TableCell>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
                                 <MealSelectCell value={r.meal||'other'} onChange={(m)=>updateEntryMeal(r.id, m)} />
-                              </TableCell>
-                              <TableCell className="text-right"><Button variant="ghost" size="icon" onClick={()=>removeEntry(r.id)}><Trash2 className="h-4 w-4"/></Button></TableCell>
+                                <Button variant="ghost" size="icon" onClick={()=>removeEntry(r.id)}><Trash2 className="h-4 w-4"/></Button>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                              <label className="flex items-center gap-1">
+                                <span>Qty</span>
+                                <input className="w-16 bg-transparent border rounded px-1.5 py-0.5 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100" type="number" step="0.1" defaultValue={r.qty} onBlur={(e)=>updateEntryQuantity(r.id, parseFloat(e.target.value))} onKeyDown={(e)=>{ if(e.key==='Enter'){ e.target.blur(); } }} />
+                              </label>
+                              <span className="font-medium text-slate-700 dark:text-slate-300">{r.kcal.toFixed(0)} kcal</span>
+                              <span>P {r.protein.toFixed(1)}g</span>
+                              <span>C {r.carbs.toFixed(1)}g</span>
+                              <span>F {r.fat.toFixed(1)}g</span>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="text-xs text-right text-slate-500 font-medium pt-1 pr-1">
+                          Subtotal: {totals.kcal.toFixed(0)} kcal · P {totals.protein.toFixed(1)}g · C {totals.carbs.toFixed(1)}g · F {totals.fat.toFixed(1)}g
+                        </div>
+                      </div>
+
+                      {/* Desktop table layout */}
+                      <div className="hidden sm:block overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Food</TableHead>
+                              <TableHead className="text-right">Qty</TableHead>
+                              <TableHead className="text-right">kcal</TableHead>
+                              <TableHead className="text-right">Protein (g)</TableHead>
+                              <TableHead className="text-right">Carbs (g)</TableHead>
+                              <TableHead className="text-right">Fat (g)</TableHead>
+                              <TableHead>Meal</TableHead>
+                              <TableHead></TableHead>
                             </TableRow>
-                          ))}
-                          <TableRow>
-                            <TableCell className="font-medium">Subtotal</TableCell>
-                            <TableCell></TableCell>
-                            <TableCell className="text-right font-medium">{totals.kcal.toFixed(0)}</TableCell>
-                            <TableCell className="text-right font-medium">{totals.protein.toFixed(1)}</TableCell>
-                            <TableCell className="text-right font-medium">{totals.carbs.toFixed(1)}</TableCell>
-                            <TableCell className="text-right font-medium">{totals.fat.toFixed(1)}</TableCell>
-                            <TableCell colSpan={2}></TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
+                          </TableHeader>
+                          <TableBody>
+                            {group.map((r)=> (
+                              <TableRow key={r.id}>
+                                <TableCell>
+                                  <EditableFoodCell entryId={r.id} currentFoodId={r.foodId||null} fallbackLabel={r.label} foods={foods} onSelect={(foodId)=>updateEntryFood(r.id, foodId)} />
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <input className="w-20 text-right bg-transparent border rounded px-2 py-1 border-slate-200 dark:border-slate-700" type="number" step="0.1" defaultValue={r.qty} onBlur={(e)=>updateEntryQuantity(r.id, parseFloat(e.target.value))} onKeyDown={(e)=>{ if(e.key==='Enter'){ e.target.blur(); } }} />
+                                </TableCell>
+                                <TableCell className="text-right">{r.kcal.toFixed(0)}</TableCell>
+                                <TableCell className="text-right">{r.protein.toFixed(1)}</TableCell>
+                                <TableCell className="text-right">{r.carbs.toFixed(1)}</TableCell>
+                                <TableCell className="text-right">{r.fat.toFixed(1)}</TableCell>
+                                <TableCell>
+                                  <MealSelectCell value={r.meal||'other'} onChange={(m)=>updateEntryMeal(r.id, m)} />
+                                </TableCell>
+                                <TableCell className="text-right"><Button variant="ghost" size="icon" onClick={()=>removeEntry(r.id)}><Trash2 className="h-4 w-4"/></Button></TableCell>
+                              </TableRow>
+                            ))}
+                            <TableRow>
+                              <TableCell className="font-medium">Subtotal</TableCell>
+                              <TableCell></TableCell>
+                              <TableCell className="text-right font-medium">{totals.kcal.toFixed(0)}</TableCell>
+                              <TableCell className="text-right font-medium">{totals.protein.toFixed(1)}</TableCell>
+                              <TableCell className="text-right font-medium">{totals.carbs.toFixed(1)}</TableCell>
+                              <TableCell className="text-right font-medium">{totals.fat.toFixed(1)}</TableCell>
+                              <TableCell colSpan={2}></TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      </div>
                     </div>
                   );
                 })}
@@ -2688,7 +2725,7 @@ export default function MacroTrackerApp(){
                   <div className="text-center text-slate-500">No entries yet for this day.</div>
                 )}
 
-                <div className="grid md:grid-cols-4 gap-3 mt-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
                   <Card className="bg-slate-50 dark:bg-slate-900/40"><CardHeader className="py-3"><CardTitle className="text-sm">Total kcal</CardTitle></CardHeader><CardContent className="pt-0 text-2xl font-semibold">{totalsForCard.kcal.toFixed(0)}</CardContent></Card>
                   <Card className="bg-slate-50 dark:bg-slate-900/40"><CardHeader className="py-3"><CardTitle className="text-sm">Protein (g)</CardTitle></CardHeader><CardContent className="pt-0 text-2xl font-semibold">{totalsForCard.protein.toFixed(1)}</CardContent></Card>
                   <Card className="bg-slate-50 dark:bg-slate-900/40"><CardHeader className="py-3"><CardTitle className="text-sm">Carbs (g)</CardTitle></CardHeader><CardContent className="pt-0 text-2xl font-semibold">{totalsForCard.carbs.toFixed(1)}</CardContent></Card>
@@ -2706,93 +2743,68 @@ export default function MacroTrackerApp(){
                 </Card>
               ) : <AddFoodCard foods={foods} onAdd={addFood} />}
             <Card>
-              <CardHeader><CardTitle>Database — {foods.length} items</CardTitle></CardHeader>
-              <CardContent className="overflow-x-auto">
-                <Table className="w-full table-fixed">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[26%]">
-                        <button
-                          type="button"
-                          onClick={()=>toggleFoodSort("name")}
-                          className="flex w-full items-center gap-1 text-left text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"
-                        >
-                          <span>Name</span>
-                          {renderSortIcon("name")}
-                        </button>
-                      </TableHead>
-                      <TableHead className="w-[18%]">
-                        <button
-                          type="button"
-                          onClick={()=>toggleFoodSort("category")}
-                          className="flex w-full items-center gap-1 text-left text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"
-                        >
-                          <span>Category</span>
-                          {renderSortIcon("category")}
-                        </button>
-                      </TableHead>
-                      <TableHead className="w-[16%]">
-                        <button
-                          type="button"
-                          onClick={()=>toggleFoodSort("unit")}
-                          className="flex w-full items-center gap-1 text-left text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"
-                        >
-                          <span>Unit</span>
-                          {renderSortIcon("unit")}
-                        </button>
-                      </TableHead>
-                      <TableHead className="w-[7%] text-right">
-                        <button
-                          type="button"
-                          onClick={()=>toggleFoodSort("kcal")}
-                          className="ml-auto flex items-center gap-1 text-right text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"
-                        >
-                          <span>kcal</span>
-                          {renderSortIcon("kcal")}
-                        </button>
-                      </TableHead>
-                      <TableHead className="w-[7%] text-right">
-                        <button
-                          type="button"
-                          onClick={()=>toggleFoodSort("protein")}
-                          className="ml-auto flex items-center gap-1 text-right text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"
-                        >
-                          <span>Protein (g)</span>
-                          {renderSortIcon("protein")}
-                        </button>
-                      </TableHead>
-                      <TableHead className="w-[7%] text-right">
-                        <button
-                          type="button"
-                          onClick={()=>toggleFoodSort("carbs")}
-                          className="ml-auto flex items-center gap-1 text-right text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"
-                        >
-                          <span>Carbs (g)</span>
-                          {renderSortIcon("carbs")}
-                        </button>
-                      </TableHead>
-                      <TableHead className="w-[7%] text-right">
-                        <button
-                          type="button"
-                          onClick={()=>toggleFoodSort("fat")}
-                          className="ml-auto flex items-center gap-1 text-right text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"
-                        >
-                          <span>Fat (g)</span>
-                          {renderSortIcon("fat")}
-                        </button>
-                      </TableHead>
-                      <TableHead className="w-[12%] text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sortedFoods.map((f)=> (
-                      <EditableFoodRow key={f.id} food={f} foods={foods} onUpdate={updateFood} onDelete={requestDeleteFood} />
+              <CardHeader>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <CardTitle>Database — {foods.length} items</CardTitle>
+                  <div className="flex items-center gap-2 text-xs text-slate-500 sm:hidden">
+                    <span>Sort:</span>
+                    {["name","kcal","protein"].map(col=>(
+                      <button key={col} type="button" onClick={()=>toggleFoodSort(col)} className="flex items-center gap-0.5 capitalize font-medium text-slate-600 dark:text-slate-300">
+                        {col}{renderSortIcon(col)}
+                      </button>
                     ))}
-                    {sortedFoods.length===0 && (
-                      <TableRow><TableCell colSpan={8} className="text-center text-slate-500">Your database is empty. Add foods above or import a backup.</TableCell></TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0 sm:p-6 sm:pt-0">
+                {/* Mobile card list */}
+                <div className="sm:hidden divide-y divide-slate-100 dark:divide-slate-800">
+                  {sortedFoods.length === 0 && (
+                    <p className="p-4 text-center text-sm text-slate-500">Your database is empty. Add foods above or import a backup.</p>
+                  )}
+                  {sortedFoods.map((f)=>(
+                    <MobileFoodCard key={f.id} food={f} foods={foods} onUpdate={updateFood} onDelete={requestDeleteFood} />
+                  ))}
+                </div>
+                {/* Desktop table */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>
+                          <button type="button" onClick={()=>toggleFoodSort("name")} className="flex w-full items-center gap-1 text-left text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Name</span>{renderSortIcon("name")}</button>
+                        </TableHead>
+                        <TableHead>
+                          <button type="button" onClick={()=>toggleFoodSort("category")} className="flex w-full items-center gap-1 text-left text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Category</span>{renderSortIcon("category")}</button>
+                        </TableHead>
+                        <TableHead>
+                          <button type="button" onClick={()=>toggleFoodSort("unit")} className="flex w-full items-center gap-1 text-left text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Unit</span>{renderSortIcon("unit")}</button>
+                        </TableHead>
+                        <TableHead className="text-right">
+                          <button type="button" onClick={()=>toggleFoodSort("kcal")} className="ml-auto flex items-center gap-1 text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>kcal</span>{renderSortIcon("kcal")}</button>
+                        </TableHead>
+                        <TableHead className="text-right">
+                          <button type="button" onClick={()=>toggleFoodSort("protein")} className="ml-auto flex items-center gap-1 text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Protein (g)</span>{renderSortIcon("protein")}</button>
+                        </TableHead>
+                        <TableHead className="text-right">
+                          <button type="button" onClick={()=>toggleFoodSort("carbs")} className="ml-auto flex items-center gap-1 text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Carbs (g)</span>{renderSortIcon("carbs")}</button>
+                        </TableHead>
+                        <TableHead className="text-right">
+                          <button type="button" onClick={()=>toggleFoodSort("fat")} className="ml-auto flex items-center gap-1 text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Fat (g)</span>{renderSortIcon("fat")}</button>
+                        </TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sortedFoods.map((f)=> (
+                        <EditableFoodRow key={f.id} food={f} foods={foods} onUpdate={updateFood} onDelete={requestDeleteFood} />
+                      ))}
+                      {sortedFoods.length===0 && (
+                        <TableRow><TableCell colSpan={8} className="text-center text-slate-500">Your database is empty. Add foods above or import a backup.</TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -3941,6 +3953,117 @@ function FoodInput({ foods, selectedFoodId, onSelect }){
     </div>
   );
 }
+function MobileFoodCard({ food, foods, onUpdate, onDelete }) {
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState(() => ({
+    name: food.name,
+    category: food.category ?? DEFAULT_CATEGORY,
+    unit: food.unit,
+    servingSize: food.servingSize ? String(food.servingSize) : "",
+    kcal: String(food.kcal ?? 0),
+    protein: String(food.protein ?? 0),
+    carbs: String(food.carbs ?? 0),
+    fat: String(food.fat ?? 0),
+  }));
+  useEffect(() => {
+    setForm({
+      name: food.name,
+      category: food.category ?? DEFAULT_CATEGORY,
+      unit: food.unit,
+      servingSize: food.servingSize ? String(food.servingSize) : "",
+      kcal: String(food.kcal ?? 0),
+      protein: String(food.protein ?? 0),
+      carbs: String(food.carbs ?? 0),
+      fat: String(food.fat ?? 0),
+    });
+    setEditing(false);
+  }, [food]);
+  function handleSave() {
+    if (!form.name.trim()) { alert("Enter a food name"); return; }
+    onUpdate(food.id, {
+      name: form.name.trim(),
+      category: form.category,
+      unit: form.unit,
+      servingSize: form.unit === "perServing" ? Math.max(1, toNumber(form.servingSize, 1)) : undefined,
+      kcal: toNumber(form.kcal, 0),
+      protein: toNumber(form.protein, 0),
+      carbs: toNumber(form.carbs, 0),
+      fat: toNumber(form.fat, 0),
+    });
+    setEditing(false);
+  }
+  return (
+    <div className="px-4 py-3 space-y-2">
+      {editing ? (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <span>{getCategoryEmoji(form.category)}</span>
+            <Input className="h-8 flex-1" value={form.name} onChange={(e)=>setForm(p=>({...p, name:e.target.value}))} placeholder="Food name" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">Category</Label>
+              <Select value={form.category} onValueChange={(v)=>setForm(p=>({...p, category:v}))}>
+                <SelectTrigger className="h-8 w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>{FOOD_CATEGORIES.map(c=><SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Unit</Label>
+              <Select value={form.unit} onValueChange={(v)=>setForm(p=>({...p, unit:v, servingSize: v==='perServing'?(p.servingSize||'1'):'' }))}>
+                <SelectTrigger className="h-8 w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="per100g">per 100g</SelectItem>
+                  <SelectItem value="perServing">per serving</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {form.unit === "perServing" && (
+              <div>
+                <Label className="text-xs">Serving size (g)</Label>
+                <Input className="h-8" type="number" step="0.1" value={form.servingSize} onChange={(e)=>setForm(p=>({...p, servingSize:e.target.value}))} placeholder="g" />
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {[["kcal","kcal"],["protein","Protein (g)"],["carbs","Carbs (g)"],["fat","Fat (g)"]].map(([key,label])=>(
+              <div key={key}>
+                <Label className="text-xs">{label}</Label>
+                <Input className="h-8" type="number" step="0.01" value={form[key]} onChange={(e)=>setForm(p=>({...p,[key]:e.target.value}))} />
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleSave}>Save</Button>
+            <Button variant="ghost" size="sm" onClick={()=>setEditing(false)}>Cancel</Button>
+            <Button variant="ghost" size="sm" className="ml-auto text-red-500" onClick={()=>onDelete(food)}><Trash2 className="h-4 w-4"/></Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 font-medium text-sm">
+              <span>{getCategoryEmoji(food.category)}</span>
+              <span className="truncate">{food.name}</span>
+              <span className="text-xs font-normal text-slate-400 shrink-0">{food.unit==='per100g'?'/ 100g':`/ ${formatNumber(food.servingSize??1)}g`}</span>
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500 mt-0.5">
+              <span className="font-medium text-slate-700 dark:text-slate-300">{formatNumber(food.kcal)} kcal</span>
+              <span>P {formatNumber(food.protein)}g</span>
+              <span>C {formatNumber(food.carbs)}g</span>
+              <span>F {formatNumber(food.fat)}g</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <Button variant="ghost" size="icon" onClick={()=>setEditing(true)}><Pencil className="h-4 w-4"/></Button>
+            <Button variant="ghost" size="icon" onClick={()=>onDelete(food)}><Trash2 className="h-4 w-4"/></Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EditableFoodRow({ food, foods, onUpdate, onDelete }){
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(()=>({
@@ -4308,7 +4431,7 @@ function AddFoodCard({ foods, onAdd }){
                   <Input type="number" inputMode="decimal" value={basicForm.servingSize} onChange={(e)=>setBasicForm((prev)=>({...prev, servingSize:e.target.value }))} />
                 </div>
               )}
-              <div className="md:col-span-6 grid grid-cols-4 gap-3">
+              <div className="md:col-span-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
                   <Label>kcal</Label>
                   <Input type="number" inputMode="decimal" value={basicForm.kcal} onChange={(e)=>setBasicForm((prev)=>({...prev, kcal:e.target.value }))} />
@@ -4360,7 +4483,7 @@ function AddFoodCard({ foods, onAdd }){
                   foods={foods}
                 />
               </div>
-              <div className="md:col-span-6 grid grid-cols-4 gap-3">
+              <div className="md:col-span-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
                   <Label>kcal</Label>
                   <Input type="number" inputMode="decimal" value={recipeForm.kcal} onChange={(e)=>setRecipeForm((prev)=>({...prev, kcal:e.target.value }))} />
