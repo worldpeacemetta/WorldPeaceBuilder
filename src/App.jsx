@@ -693,6 +693,8 @@ export default function MacroTrackerApp(){
   const [profileLastSavedAt, setProfileLastSavedAt] = useState(null);
 
   const [earnedBadgeIds, setEarnedBadgeIds] = useState(new Set());
+  const [badgeUnlockQueue, setBadgeUnlockQueue] = useState([]);
+  const [badgeUnlockShown, setBadgeUnlockShown] = useState(null);
 
   // Theme handling
   useEffect(() => {
@@ -1277,22 +1279,39 @@ export default function MacroTrackerApp(){
       });
   }, [session?.user?.id, authRefreshKey]);
 
-  // Recompute badges whenever entries/foods/goals change, save newly earned ones
+  // Recompute badges whenever entries/foods/goals change, save newly earned ones.
+  // badgesLoadedRef ensures we don't show popups for badges already in DB on first load.
+  const badgesLoadedRef = useRef(false);
   useEffect(() => {
     if (!session?.user?.id || entriesLoading || profileLoading) return;
     const freshEarned = computeEarnedBadgeIds(entries, foods, goalValuesForDate);
     const newlyEarned = [...freshEarned].filter((id) => !earnedBadgeIds.has(id));
     if (newlyEarned.length === 0) {
-      // Still update local state in case it's stale (e.g. after initial load)
       setEarnedBadgeIds(freshEarned);
+      if (!badgesLoadedRef.current) badgesLoadedRef.current = true;
       return;
     }
     setEarnedBadgeIds(freshEarned);
+    // Only show unlock popups after initial badge load, not on first sync
+    if (badgesLoadedRef.current) {
+      setBadgeUnlockQueue((q) => [...q, ...newlyEarned]);
+    } else {
+      badgesLoadedRef.current = true;
+    }
     const rows = newlyEarned.map((badge_id) => ({ user_id: session.user.id, badge_id }));
     supabase.from("user_badges").upsert(rows, { onConflict: "user_id,badge_id" }).then(({ error }) => {
       if (error) console.error("Failed to save badges", error);
     });
   }, [entries, foods, goalValuesForDate, session?.user?.id, entriesLoading, profileLoading]);
+
+  // Dequeue: show next badge popup when current is dismissed
+  useEffect(() => {
+    if (badgeUnlockShown) return;
+    if (badgeUnlockQueue.length === 0) return;
+    const [next, ...rest] = badgeUnlockQueue;
+    setBadgeUnlockShown(next);
+    setBadgeUnlockQueue(rest);
+  }, [badgeUnlockShown, badgeUnlockQueue]);
 
   const headerPillClass = "gap-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60 px-3 py-2 text-xs font-medium shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800";
 
@@ -3052,6 +3071,10 @@ export default function MacroTrackerApp(){
         </Tabs>
       </main>
 
+      {badgeUnlockShown && (
+        <BadgeUnlockPopup badgeId={badgeUnlockShown} onClose={() => setBadgeUnlockShown(null)} />
+      )}
+
       {foodPendingDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4">
           <Card className="w-full max-w-md border-slate-200 dark:border-slate-700">
@@ -3114,7 +3137,7 @@ const BADGE_DEFINITIONS = [
   { id: "protein_streak_14",  category: "Streaks", label: "Protein Fortnight", description: "Hit protein goal 14 days in a row",      Icon: Dumbbell,    color: "#10b981" },
   { id: "protein_streak_30",  category: "Streaks", label: "Protein Month",     description: "Hit protein goal 30 days in a row",      Icon: Award,       color: "#0ea5e9" },
   { id: "protein_streak_90",  category: "Streaks", label: "Protein Quarter",   description: "Hit protein goal 90 days in a row",      Icon: Crown,       color: "#f59e0b" },
-  { id: "veggie_streak_7",    category: "Streaks", label: "Green Week",        description: "Log a vegetable or fruit 7 days in a row", Icon: Leaf,      color: "#4ade80" },
+  { id: "veggie_streak_7",    category: "Streaks", label: "Green Week",        description: "Log a vegetable AND a fruit on the same day, 7 days in a row", Icon: Leaf, color: "#4ade80" },
   // ── Milestones ───────────────────────────────────────
   { id: "log_first",          category: "Milestones", label: "First Step",       description: "Log your first food",                Icon: BookOpenText, color: "#6366f1" },
   { id: "log_days_10",        category: "Milestones", label: "10 Days Logged",   description: "Log food on 10 different days",       Icon: CalendarIcon, color: "#818cf8" },
@@ -3176,10 +3199,9 @@ function computeEarnedBadgeIds(entries, foods, goalValuesForDate) {
       totals.protein >= goals.protein &&
       totals.carbs >= goals.carbs * 0.95 && totals.carbs <= goals.carbs &&
       totals.fat >= goals.fat * 0.95 && totals.fat <= goals.fat;
-    const hasVeggie = dayEntries.some((e) => {
-      const f = foods.find((x) => x.id === e.foodId);
-      return f && (f.category === "vegetable" || f.category === "fruit");
-    });
+    const hasVeggie =
+      dayEntries.some((e) => { const f = foods.find((x) => x.id === e.foodId); return f?.category === "vegetable"; }) &&
+      dayEntries.some((e) => { const f = foods.find((x) => x.id === e.foodId); return f?.category === "fruit"; });
     return { date, proteinHit, isPerfect, hasVeggie };
   });
 
@@ -3232,7 +3254,7 @@ function computeEarnedBadgeIds(entries, foods, goalValuesForDate) {
   if (foods.length >= 200) earned.add("foods_added_200");
 
   // Milestones — recipe
-  if (foods.some((f) => f.category === "homeRecipe" && (f.components?.length ?? 0) > 0))
+  if (foods.some((f) => f.category === "homeRecipe"))
     earned.add("recipe_first");
 
   return earned;
@@ -3374,6 +3396,79 @@ function TogglePill({ label, active, onClick, color }){
     <button onClick={onClick} className={`text-xs px-3 py-1 rounded-full border transition ${active? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900': 'bg-transparent text-slate-700 dark:text-slate-200'}`} style={{ borderColor: color }}>
       <span className="inline-block w-2 h-2 rounded-full mr-2" style={{ backgroundColor: color }} />{label}
     </button>
+  );
+}
+
+function BadgeUnlockPopup({ badgeId, onClose }) {
+  const badge = BADGE_DEFINITIONS.find((b) => b.id === badgeId);
+  if (!badge) return null;
+  const { Icon, color, label, description } = badge;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center px-6" onClick={onClose}>
+      <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" />
+      <div
+        className="relative w-full max-w-xs rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Decorative sparkles background */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+          {[
+            { top: "12%", left: "18%", size: 6, opacity: 0.5, delay: "0s" },
+            { top: "8%",  left: "72%", size: 8, opacity: 0.4, delay: "0.15s" },
+            { top: "22%", left: "85%", size: 5, opacity: 0.6, delay: "0.3s" },
+            { top: "70%", left: "10%", size: 7, opacity: 0.4, delay: "0.1s" },
+            { top: "78%", left: "80%", size: 6, opacity: 0.5, delay: "0.25s" },
+            { top: "55%", left: "90%", size: 4, opacity: 0.35, delay: "0.4s" },
+            { top: "88%", left: "50%", size: 5, opacity: 0.3, delay: "0.2s" },
+          ].map((s, i) => (
+            <span
+              key={i}
+              className="absolute rounded-full animate-ping"
+              style={{
+                top: s.top, left: s.left,
+                width: s.size, height: s.size,
+                backgroundColor: color,
+                opacity: s.opacity,
+                animationDuration: "2s",
+                animationDelay: s.delay,
+              }}
+            />
+          ))}
+        </div>
+
+        <div className="relative flex flex-col items-center gap-4 px-8 py-10 text-center">
+          {/* Badge icon */}
+          <div
+            className="flex h-20 w-20 items-center justify-center rounded-full shadow-lg"
+            style={{ backgroundColor: color + "22", border: `3px solid ${color}` }}
+          >
+            <Icon className="h-9 w-9" style={{ color }} />
+          </div>
+
+          {/* Text */}
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+              Badge Unlocked
+            </p>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{label}</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 leading-snug">
+              {description}
+            </p>
+          </div>
+
+          {/* CTA */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-2 w-full rounded-full py-3 text-sm font-semibold text-white shadow-md transition hover:opacity-90 active:scale-95"
+            style={{ backgroundColor: color }}
+          >
+            Keep going! 💪
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
