@@ -641,7 +641,7 @@ function suggestMealByNow(){
   const h = new Date().getHours();
   if(h>=5 && h<11) return 'breakfast';
   if(h>=11 && h<16) return 'lunch';
-  if(h>=16 && h<21) return 'dinner';
+  if(h>=16 && h<22) return 'dinner';
   return 'snack';
 }
 
