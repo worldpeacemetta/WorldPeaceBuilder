@@ -4774,7 +4774,7 @@ function BarcodeScannerModal({ onResult, onClose }) {
     readerRef.current = reader;
 
     reader.decodeFromConstraints(
-      { video: { facingMode: 'environment' } },
+      { video: { facingMode: { ideal: 'environment' } } },
       videoRef.current,
       async (res, err) => {
         if (scannedRef.current) return;
