@@ -4769,6 +4769,7 @@ function BarcodeScannerModal({ onResult, onClose }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [result, setResult] = useState(null);
   const scannedRef = useRef(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     const hints = new Map();
@@ -4790,15 +4791,16 @@ function BarcodeScannerModal({ onResult, onClose }) {
             height: { ideal: 720 },
           },
         });
-        const video = videoRef.current;
-        if (!video) { stream.getTracks().forEach(t => t.stop()); return; }
-        video.srcObject = stream;
-        await video.play();
-        scan();
       } catch {
         setErrorMsg('Camera access denied or not available.');
         setPhase('error');
+        return;
       }
+      const video = videoRef.current;
+      if (!video) { stream.getTracks().forEach(t => t.stop()); return; }
+      video.srcObject = stream;
+      video.play().catch(() => {}); // non-fatal; scan loop checks readyState
+      scan();
     }
 
     function scan() {
@@ -4828,13 +4830,14 @@ function BarcodeScannerModal({ onResult, onClose }) {
       animId = requestAnimationFrame(scan);
     }
 
+    scannedRef.current = false;
     start();
 
     return () => {
       cancelAnimationFrame(animId);
       if (stream) stream.getTracks().forEach(t => t.stop());
     };
-  }, []);
+  }, [retryCount]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4">
@@ -4907,7 +4910,7 @@ function BarcodeScannerModal({ onResult, onClose }) {
           )}
           {phase === 'error' && (
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => { scannedRef.current = false; setPhase('scanning'); setErrorMsg(''); }}>
+              <Button variant="outline" className="flex-1" onClick={() => { setPhase('scanning'); setErrorMsg(''); setRetryCount(c => c + 1); }}>
                 Try again
               </Button>
               <Button variant="ghost" className="flex-1" onClick={onClose}>
