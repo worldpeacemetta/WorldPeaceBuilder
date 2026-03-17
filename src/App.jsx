@@ -4776,39 +4776,63 @@ function BarcodeScannerModal({ onResult, onClose }) {
     const reader = new BrowserMultiFormatReader(hints);
     readerRef.current = reader;
 
-    reader.decodeFromConstraints(
-      {
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      },
-      videoRef.current,
-      async (res, err) => {
-        if (scannedRef.current) return;
-        if (res) {
-          scannedRef.current = true;
-          setPhase('fetching');
-          try {
-            const food = await lookupBarcode(res.getText());
-            setResult(food);
-            setPhase('found');
-          } catch (e) {
-            setErrorMsg(e.message === 'Product not found'
-              ? 'Product not found in Open Food Facts database.'
-              : 'Could not reach the food database. Check your connection.');
-            setPhase('error');
-          }
-        }
+    let animId;
+    let stream;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    async function start() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+        });
+        const video = videoRef.current;
+        if (!video) { stream.getTracks().forEach(t => t.stop()); return; }
+        video.srcObject = stream;
+        await video.play();
+        scan();
+      } catch {
+        setErrorMsg('Camera access denied or not available.');
+        setPhase('error');
       }
-    ).catch((e) => {
-      setErrorMsg('Camera access denied or not available.');
-      setPhase('error');
-    });
+    }
+
+    function scan() {
+      if (scannedRef.current) return;
+      const video = videoRef.current;
+      if (video && video.readyState >= video.HAVE_ENOUGH_DATA) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        try {
+          const res = reader.decodeFromCanvas(canvas);
+          if (res) {
+            scannedRef.current = true;
+            setPhase('fetching');
+            lookupBarcode(res.getText())
+              .then(food => { setResult(food); setPhase('found'); })
+              .catch(e => {
+                setErrorMsg(e.message === 'Product not found'
+                  ? 'Product not found in Open Food Facts database.'
+                  : 'Could not reach the food database. Check your connection.');
+                setPhase('error');
+              });
+            return;
+          }
+        } catch { /* NotFoundException on most frames — expected */ }
+      }
+      animId = requestAnimationFrame(scan);
+    }
+
+    start();
 
     return () => {
-      try { readerRef.current?.reset(); } catch {}
+      cancelAnimationFrame(animId);
+      if (stream) stream.getTracks().forEach(t => t.stop());
     };
   }, []);
 
