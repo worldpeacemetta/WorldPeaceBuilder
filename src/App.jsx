@@ -6,6 +6,7 @@
 
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState, useId } from "react";
 import { BrowserMultiFormatReader } from '@zxing/browser';
+import { DecodeHintType } from '@zxing/library';
 import Auth from "./components/Auth";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
@@ -4770,11 +4771,19 @@ function BarcodeScannerModal({ onResult, onClose }) {
   const scannedRef = useRef(false);
 
   useEffect(() => {
-    const reader = new BrowserMultiFormatReader();
+    const hints = new Map();
+    hints.set(DecodeHintType.TRY_HARDER, true);
+    const reader = new BrowserMultiFormatReader(hints);
     readerRef.current = reader;
 
     reader.decodeFromConstraints(
-      { video: { facingMode: { ideal: 'environment' } } },
+      {
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      },
       videoRef.current,
       async (res, err) => {
         if (scannedRef.current) return;
