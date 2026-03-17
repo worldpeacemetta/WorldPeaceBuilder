@@ -5,6 +5,7 @@
 //    (Everything else left untouched.)
 
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState, useId } from "react";
+import { BrowserMultiFormatReader } from '@zxing/browser';
 import Auth from "./components/Auth";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
@@ -70,6 +71,11 @@ import {
   ChefHat,
   Leaf,
   Target,
+  Barcode,
+  Camera,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { format, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval, startOfWeek, endOfWeek } from "date-fns";
 
@@ -4713,10 +4719,183 @@ function EditableFoodRow({ food, foods, onUpdate, onDelete }){
     </>
   );
 }
+/* ─── Open Food Facts category → app category mapping ─── */
+const OFF_CATEGORY_MAP = {
+  'beverages': 'drink', 'drinks': 'drink', 'waters': 'drink', 'juices': 'drink',
+  'dairy': 'dairy', 'cheeses': 'dairy', 'yogurts': 'dairy', 'milks': 'dairy',
+  'meats': 'meat', 'poultry': 'meat', 'seafood': 'meat', 'fish': 'meat',
+  'fruits': 'fruit', 'vegetables': 'vegetable',
+  'cereals': 'grain', 'breads': 'grain', 'pasta': 'grain', 'rice': 'grain',
+  'snacks': 'snack', 'sweets': 'snack', 'chocolates': 'snack',
+  'legumes': 'legume', 'nuts': 'nut',
+};
+
+function mapOffCategory(categories_tags = []) {
+  for (const tag of categories_tags) {
+    const key = tag.replace(/^en:/, '').toLowerCase();
+    if (OFF_CATEGORY_MAP[key]) return OFF_CATEGORY_MAP[key];
+    for (const [pattern, cat] of Object.entries(OFF_CATEGORY_MAP)) {
+      if (key.includes(pattern)) return cat;
+    }
+  }
+  return 'other';
+}
+
+async function lookupBarcode(barcode) {
+  const res = await fetch(
+    `https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=product_name,nutriments,categories_tags,serving_size`
+  );
+  if (!res.ok) throw new Error('Network error');
+  const data = await res.json();
+  if (data.status !== 1) throw new Error('Product not found');
+  const p = data.product;
+  const n = p.nutriments ?? {};
+  return {
+    name: p.product_name ?? '',
+    kcal: String(Math.round(n['energy-kcal_100g'] ?? n['energy-kcal'] ?? 0)),
+    protein: String(Math.round((n['proteins_100g'] ?? n['proteins'] ?? 0) * 10) / 10),
+    carbs: String(Math.round((n['carbohydrates_100g'] ?? n['carbohydrates'] ?? 0) * 10) / 10),
+    fat: String(Math.round((n['fat_100g'] ?? n['fat'] ?? 0) * 10) / 10),
+    category: mapOffCategory(p.categories_tags ?? []),
+    unit: 'per100g',
+  };
+}
+
+function BarcodeScannerModal({ onResult, onClose }) {
+  const videoRef = useRef(null);
+  const readerRef = useRef(null);
+  const [phase, setPhase] = useState('scanning'); // scanning | fetching | found | error
+  const [errorMsg, setErrorMsg] = useState('');
+  const [result, setResult] = useState(null);
+  const scannedRef = useRef(false);
+
+  useEffect(() => {
+    const reader = new BrowserMultiFormatReader();
+    readerRef.current = reader;
+
+    reader.decodeFromConstraints(
+      { video: { facingMode: 'environment' } },
+      videoRef.current,
+      async (res, err) => {
+        if (scannedRef.current) return;
+        if (res) {
+          scannedRef.current = true;
+          setPhase('fetching');
+          try {
+            const food = await lookupBarcode(res.getText());
+            setResult(food);
+            setPhase('found');
+          } catch (e) {
+            setErrorMsg(e.message === 'Product not found'
+              ? 'Product not found in Open Food Facts database.'
+              : 'Could not reach the food database. Check your connection.');
+            setPhase('error');
+          }
+        }
+      }
+    ).catch((e) => {
+      setErrorMsg('Camera access denied or not available.');
+      setPhase('error');
+    });
+
+    return () => {
+      try { readerRef.current?.reset(); } catch {}
+    };
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4">
+      <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 shadow-xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+          <div className="flex items-center gap-2">
+            <Barcode className="h-5 w-5 text-slate-700 dark:text-slate-300" />
+            <span className="font-semibold text-slate-900 dark:text-slate-100">Scan Barcode</span>
+          </div>
+          <button onClick={onClose} className="rounded-full p-1 hover:bg-slate-100 dark:hover:bg-slate-800">
+            <X className="h-5 w-5 text-slate-500" />
+          </button>
+        </div>
+
+        {/* Camera view */}
+        <div className="relative bg-black" style={{ aspectRatio: '4/3' }}>
+          <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
+          {phase === 'scanning' && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              {/* Targeting frame */}
+              <div className="relative w-56 h-32">
+                <div className="absolute inset-0 border-2 border-white/70 rounded-md" />
+                <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-white rounded-tl-md" />
+                <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-white rounded-tr-md" />
+                <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-white rounded-bl-md" />
+                <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-white rounded-br-md" />
+              </div>
+            </div>
+          )}
+          {phase === 'fetching' && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
+              <Loader2 className="h-10 w-10 text-white animate-spin" />
+              <p className="mt-2 text-white text-sm">Looking up product…</p>
+            </div>
+          )}
+          {phase === 'found' && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
+              <CheckCircle2 className="h-10 w-10 text-green-400" />
+              <p className="mt-2 text-white text-sm font-medium">{result?.name || 'Product found!'}</p>
+            </div>
+          )}
+          {phase === 'error' && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 px-6 text-center">
+              <AlertCircle className="h-10 w-10 text-red-400" />
+              <p className="mt-2 text-white text-sm">{errorMsg}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700">
+          {phase === 'scanning' && (
+            <p className="text-xs text-center text-slate-500">Point the camera at a barcode</p>
+          )}
+          {phase === 'found' && result && (
+            <div className="space-y-2">
+              <div className="text-xs text-slate-500 text-center">
+                {result.kcal} kcal · P {result.protein}g · C {result.carbs}g · F {result.fat}g (per 100g)
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => { scannedRef.current = false; setPhase('scanning'); setResult(null); }}>
+                  Scan again
+                </Button>
+                <Button className="flex-1" onClick={() => onResult(result)}>
+                  Use this food
+                </Button>
+              </div>
+            </div>
+          )}
+          {phase === 'error' && (
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => { scannedRef.current = false; setPhase('scanning'); setErrorMsg(''); }}>
+                Try again
+              </Button>
+              <Button variant="ghost" className="flex-1" onClick={onClose}>
+                Cancel
+              </Button>
+            </div>
+          )}
+          {phase === 'fetching' && (
+            <p className="text-xs text-center text-slate-500">Fetching nutrition data…</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AddFoodCard({ foods, onAdd }){
   const [activeTab, setActiveTab] = useState("single");
   const [basicForm, setBasicForm] = useState(()=>createBasicFoodForm());
   const [recipeForm, setRecipeForm] = useState(()=>createRecipeForm());
+  const [showScanner, setShowScanner] = useState(false);
   const [recipeIngredients, setRecipeIngredients] = useState([]);
 
   const derivedTotals = useMemo(
@@ -4799,6 +4978,7 @@ function AddFoodCard({ foods, onAdd }){
   }
 
   return (
+    <>
     <Card>
       <CardHeader><CardTitle>Add Food to Database</CardTitle></CardHeader>
       <CardContent className="space-y-4">
@@ -4859,7 +5039,11 @@ function AddFoodCard({ foods, onAdd }){
                   <Input type="number" inputMode="decimal" value={basicForm.protein} onChange={(e)=>setBasicForm((prev)=>({...prev, protein:e.target.value }))} />
                 </div>
               </div>
-              <div className="md:col-span-6 text-right">
+              <div className="md:col-span-6 flex items-center justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowScanner(true)}>
+                  <Barcode className="mr-2 h-4 w-4" />
+                  Scan Barcode
+                </Button>
                 <Button onClick={handleAddBasic}>Add Food</Button>
               </div>
             </div>
@@ -4922,6 +5106,26 @@ function AddFoodCard({ foods, onAdd }){
         </Tabs>
       </CardContent>
     </Card>
+    {showScanner && (
+      <BarcodeScannerModal
+        onClose={() => setShowScanner(false)}
+        onResult={(food) => {
+          setBasicForm({
+            name: food.name,
+            kcal: food.kcal,
+            protein: food.protein,
+            carbs: food.carbs,
+            fat: food.fat,
+            category: food.category,
+            unit: food.unit,
+            servingSize: '',
+          });
+          setActiveTab('single');
+          setShowScanner(false);
+        }}
+      />
+    )}
+    </>
   );
 }
 
