@@ -695,7 +695,7 @@ export default function MacroTrackerApp(){
   const [settings, setSettings] = useState(()=> ensureSettings(stripProfileSettingsForStorage(load(K_SETTINGS, DEFAULT_SETTINGS))));
   const [tab, setTab] = useState('dashboard');
   const [foodPendingDelete, setFoodPendingDelete] = useState(null);
-  const [foodCategoryFilter, setFoodCategoryFilter] = useState(null);
+  const [foodCategoryFilter, setFoodCategoryFilter] = useState(new Set());
   const [foodSelectedIds, setFoodSelectedIds] = useState(new Set());
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
   const [foodAddOpen, setFoodAddOpen] = useState(false);
@@ -1377,8 +1377,8 @@ export default function MacroTrackerApp(){
 
   const filteredFoods = useMemo(() => {
     let list = sortedFoods;
-    if (foodCategoryFilter) {
-      list = list.filter(f => (f.category ?? DEFAULT_CATEGORY) === foodCategoryFilter);
+    if (foodCategoryFilter.size > 0) {
+      list = list.filter(f => foodCategoryFilter.has(f.category ?? DEFAULT_CATEGORY));
     }
     const q = foodSearch.trim().toLowerCase();
     if (!q) return list;
@@ -2841,7 +2841,7 @@ export default function MacroTrackerApp(){
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <CardTitle className="text-base">
-                      {foodSearch || foodCategoryFilter
+                      {foodSearch || foodCategoryFilter.size > 0
                         ? `${filteredFoods.length} of ${foods.length} items`
                         : `Database — ${foods.length} items`}
                     </CardTitle>
@@ -2906,15 +2906,19 @@ export default function MacroTrackerApp(){
                 </div>
                 {/* Category filter chips */}
                 {availableCategories.length > 0 && (
-                  <div className="flex gap-1.5 flex-wrap mt-2">
+                  <div className="flex gap-1.5 flex-wrap mt-2 items-center">
                     {availableCategories.map(cat => (
                       <button
                         key={cat.value}
                         type="button"
-                        onClick={() => setFoodCategoryFilter(prev => prev === cat.value ? null : cat.value)}
+                        onClick={() => setFoodCategoryFilter(prev => {
+                          const next = new Set(prev);
+                          if (next.has(cat.value)) next.delete(cat.value); else next.add(cat.value);
+                          return next;
+                        })}
                         className={cn(
                           "text-xs px-2 py-0.5 rounded-full border transition",
-                          foodCategoryFilter === cat.value
+                          foodCategoryFilter.has(cat.value)
                             ? "bg-slate-900 text-white border-slate-900 dark:bg-slate-100 dark:text-slate-900 dark:border-slate-100"
                             : "border-slate-200 hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-500"
                         )}
@@ -2922,6 +2926,15 @@ export default function MacroTrackerApp(){
                         {cat.emoji} {cat.label}
                       </button>
                     ))}
+                    {(foodCategoryFilter.size > 0 || foodSearch) && (
+                      <button
+                        type="button"
+                        onClick={() => { setFoodCategoryFilter(new Set()); setFoodSearch(""); }}
+                        className="text-xs px-2 py-0.5 rounded-full border border-slate-300 text-slate-500 hover:border-slate-500 hover:text-slate-700 dark:border-slate-600 dark:text-slate-400 dark:hover:border-slate-400 transition flex items-center gap-1"
+                      >
+                        <X className="h-3 w-3" />Clear filters
+                      </button>
+                    )}
                   </div>
                 )}
               </CardHeader>
@@ -2933,7 +2946,7 @@ export default function MacroTrackerApp(){
                     {/* Mobile card list */}
                     <div className="sm:hidden divide-y divide-slate-100 dark:divide-slate-800">
                       {filteredFoods.length === 0 && (
-                        <p className="p-4 text-center text-sm text-slate-500">{foodSearch || foodCategoryFilter ? "No foods match your filter." : "Your database is empty. Add foods above or import a backup."}</p>
+                        <p className="p-4 text-center text-sm text-slate-500">{foodSearch || foodCategoryFilter.size > 0 ? "No foods match your filter." : "Your database is empty. Add foods above or import a backup."}</p>
                       )}
                       {filteredFoods.map((f)=>(
                         <MobileFoodCard key={f.id} food={f} onEdit={setFoodEditTarget} onDelete={requestDeleteFood} />
@@ -2998,7 +3011,7 @@ export default function MacroTrackerApp(){
                             />
                           ))}
                           {filteredFoods.length===0 && (
-                            <TableRow><TableCell colSpan={9} className="text-center text-slate-500">{foodSearch || foodCategoryFilter ? "No foods match your filter." : "Your database is empty. Add foods above or import a backup."}</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={9} className="text-center text-slate-500">{foodSearch || foodCategoryFilter.size > 0 ? "No foods match your filter." : "Your database is empty. Add foods above or import a backup."}</TableCell></TableRow>
                           )}
                         </TableBody>
                       </Table>
