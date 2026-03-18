@@ -2984,10 +2984,10 @@ export default function MacroTrackerApp(){
                                 }}
                               />
                             </TableHead>
-                            <TableHead className="w-40">
+                            <TableHead className="w-[200px]">
                               <button type="button" onClick={()=>toggleFoodSort("name")} className="flex w-full items-center gap-0.5 text-left font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>Name</span>{renderSortIcon("name")}</button>
                             </TableHead>
-                            <TableHead>
+                            <TableHead className="w-[120px] max-w-[120px]">
                               <button type="button" onClick={()=>toggleFoodSort("category")} className="flex w-full items-center gap-0.5 text-left font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>Category</span>{renderSortIcon("category")}</button>
                             </TableHead>
                             <TableHead>
@@ -4644,7 +4644,7 @@ function EditableFoodRow({ food, onEdit, onDelete, selected, onSelect }) {
           onClick={(e) => e.stopPropagation()}
         />
       </TableCell>
-      <TableCell className="align-middle w-40 max-w-[160px]">
+      <TableCell className="align-middle w-[200px] max-w-[200px]">
         <div className="flex items-center gap-2 min-w-0">
           <span className="shrink-0">{getCategoryEmoji(food.category)}</span>
           <div className="min-w-0">
@@ -4659,8 +4659,8 @@ function EditableFoodRow({ food, onEdit, onDelete, selected, onSelect }) {
           </div>
         </div>
       </TableCell>
-      <TableCell className="align-middle">
-        <span className="whitespace-nowrap text-sm">{getCategoryLabel(food.category)}</span>
+      <TableCell className="align-middle w-[120px] max-w-[120px]">
+        <span className="block truncate text-sm" title={getCategoryLabel(food.category)}>{getCategoryLabel(food.category)}</span>
       </TableCell>
       <TableCell className="align-middle">
         <span className="whitespace-nowrap text-sm">
