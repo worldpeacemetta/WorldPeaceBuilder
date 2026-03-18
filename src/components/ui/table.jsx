@@ -20,11 +20,11 @@ export const TableFooter = ({ className, ...props }) => (
 );
 
 export const TableRow = ({ className, ...props }) => (
-  <tr className={cn("border-b transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50", className)} {...props} />
+  <tr className={cn("border-b border-slate-100 dark:border-slate-800/50 transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/40", className)} {...props} />
 );
 
 export const TableHead = ({ className, ...props }) => (
-  <th className={cn("h-10 px-2 text-left align-middle font-medium text-slate-500 dark:text-slate-400", className)} {...props} />
+  <th className={cn("h-9 px-2 text-left align-middle text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500", className)} {...props} />
 );
 
 export const TableCell = ({ className, ...props }) => (

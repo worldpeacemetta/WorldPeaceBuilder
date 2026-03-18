@@ -1844,11 +1844,11 @@ export default function MacroTrackerApp(){
 
   const renderSortIcon = (column)=>{
     if(foodSort.column !== column){
-      return <ArrowUpDown className="h-3.5 w-3.5 opacity-50" />;
+      return <ArrowUpDown className="h-3 w-3 opacity-40" />;
     }
     return foodSort.direction === "asc"
-      ? <ArrowUp className="h-3.5 w-3.5" />
-      : <ArrowDown className="h-3.5 w-3.5" />;
+      ? <ArrowUp className="h-3 w-3" />
+      : <ArrowDown className="h-3 w-3" />;
   };
 
   const setModeEntryForDate = useCallback(
@@ -2835,7 +2835,7 @@ export default function MacroTrackerApp(){
                 onClose={() => setFoodAddOpen(false)}
               />
             )}
-            <Card>
+            <Card className="overflow-hidden border-slate-100 dark:border-slate-800/60">
               <CardHeader className="pb-3">
                 {/* Top row: title + action buttons */}
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -2955,7 +2955,7 @@ export default function MacroTrackerApp(){
                     {/* Desktop table */}
                     <div className="hidden sm:block overflow-x-auto">
                       <Table>
-                        <TableHeader>
+                        <TableHeader className="bg-slate-50/70 dark:bg-slate-800/25">
                           <TableRow>
                             <TableHead className="w-8 pr-0">
                               <input
@@ -2972,27 +2972,27 @@ export default function MacroTrackerApp(){
                               />
                             </TableHead>
                             <TableHead className="w-40">
-                              <button type="button" onClick={()=>toggleFoodSort("name")} className="flex w-full items-center gap-1 text-left text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Name</span>{renderSortIcon("name")}</button>
+                              <button type="button" onClick={()=>toggleFoodSort("name")} className="flex w-full items-center gap-0.5 text-left font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>Name</span>{renderSortIcon("name")}</button>
                             </TableHead>
                             <TableHead>
-                              <button type="button" onClick={()=>toggleFoodSort("category")} className="flex w-full items-center gap-1 text-left text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Category</span>{renderSortIcon("category")}</button>
+                              <button type="button" onClick={()=>toggleFoodSort("category")} className="flex w-full items-center gap-0.5 text-left font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>Category</span>{renderSortIcon("category")}</button>
                             </TableHead>
                             <TableHead>
-                              <button type="button" onClick={()=>toggleFoodSort("unit")} className="flex w-full items-center gap-1 text-left text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Unit</span>{renderSortIcon("unit")}</button>
+                              <button type="button" onClick={()=>toggleFoodSort("unit")} className="flex w-full items-center gap-0.5 text-left font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>Unit</span>{renderSortIcon("unit")}</button>
                             </TableHead>
                             <TableHead className="text-right">
-                              <button type="button" onClick={()=>toggleFoodSort("kcal")} className="ml-auto flex items-center gap-1 text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>kcal</span>{renderSortIcon("kcal")}</button>
+                              <button type="button" onClick={()=>toggleFoodSort("kcal")} className="ml-auto flex items-center gap-0.5 font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>kcal</span>{renderSortIcon("kcal")}</button>
                             </TableHead>
                             <TableHead className="text-right">
-                              <button type="button" onClick={()=>toggleFoodSort("fat")} className="ml-auto flex items-center gap-1 text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Fat (g)</span>{renderSortIcon("fat")}</button>
+                              <button type="button" onClick={()=>toggleFoodSort("fat")} className="ml-auto flex items-center gap-0.5 font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>Fat (g)</span>{renderSortIcon("fat")}</button>
                             </TableHead>
                             <TableHead className="text-right">
-                              <button type="button" onClick={()=>toggleFoodSort("carbs")} className="ml-auto flex items-center gap-1 text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Carbs (g)</span>{renderSortIcon("carbs")}</button>
+                              <button type="button" onClick={()=>toggleFoodSort("carbs")} className="ml-auto flex items-center gap-0.5 font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>Carbs (g)</span>{renderSortIcon("carbs")}</button>
                             </TableHead>
                             <TableHead className="text-right">
-                              <button type="button" onClick={()=>toggleFoodSort("protein")} className="ml-auto flex items-center gap-1 text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Protein (g)</span>{renderSortIcon("protein")}</button>
+                              <button type="button" onClick={()=>toggleFoodSort("protein")} className="ml-auto flex items-center gap-0.5 font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>Protein (g)</span>{renderSortIcon("protein")}</button>
                             </TableHead>
-                            <TableHead className="text-right sticky right-0 bg-white dark:bg-slate-900 border-l border-slate-100 dark:border-slate-800">Actions</TableHead>
+                            <TableHead className="text-right sticky right-0 bg-slate-50/70 dark:bg-slate-800/25 border-l border-slate-100/80 dark:border-slate-800/40"></TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -4637,7 +4637,7 @@ function EditableFoodRow({ food, onEdit, onDelete, selected, onSelect }) {
           <div className="min-w-0">
             <span className="block truncate text-sm" title={food.name}>{food.name}</span>
             {totalMacros > 0 && (
-              <div className="flex h-1 mt-0.5 rounded-full overflow-hidden w-full max-w-[100px]" title={`Fat ${Math.round(fatPct)}% · Carbs ${Math.round(carbsPct)}% · Protein ${Math.round(proteinPct)}%`}>
+              <div className="flex h-1.5 mt-0.5 rounded-full overflow-hidden w-full max-w-[100px]" title={`Fat ${Math.round(fatPct)}% · Carbs ${Math.round(carbsPct)}% · Protein ${Math.round(proteinPct)}%`}>
                 <div style={{ width: `${fatPct}%` }} className="bg-amber-400" />
                 <div style={{ width: `${carbsPct}%` }} className="bg-sky-400" />
                 <div style={{ width: `${proteinPct}%` }} className="bg-emerald-400" />
@@ -4658,7 +4658,7 @@ function EditableFoodRow({ food, onEdit, onDelete, selected, onSelect }) {
       <TableCell className="text-right tabular-nums align-middle">{formatNumber(food.fat)}</TableCell>
       <TableCell className="text-right tabular-nums align-middle">{formatNumber(food.carbs)}</TableCell>
       <TableCell className="text-right tabular-nums align-middle">{formatNumber(food.protein)}</TableCell>
-      <TableCell className="text-right align-middle sticky right-0 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/50 border-l border-slate-100 dark:border-slate-800">
+      <TableCell className="text-right align-middle sticky right-0 bg-white dark:bg-slate-900 group-hover:bg-slate-50/80 dark:group-hover:bg-slate-800/40 border-l border-slate-100/80 dark:border-slate-800/40">
         <div className="flex justify-end gap-1">
           <Button variant="ghost" size="icon" onClick={() => onEdit(food)}><Pencil className="h-4 w-4" /></Button>
           <Button variant="ghost" size="icon" onClick={() => onDelete(food)}><Trash2 className="h-4 w-4" /></Button>
