@@ -2912,13 +2912,13 @@ export default function MacroTrackerApp(){
                                 ))}
                                 {/* Subtotal row */}
                                 {group.length > 0 && (
-                                  <TableRow className="bg-slate-50/50 dark:bg-slate-800/15 hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
-                                    <TableCell className="text-xs font-medium text-slate-400 dark:text-slate-500 pl-4">Subtotal</TableCell>
+                                  <TableRow className="border-t border-slate-200 dark:border-slate-700 bg-slate-100/50 dark:bg-slate-800/30 hover:bg-slate-100/50 dark:hover:bg-slate-800/30">
+                                    <TableCell className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 pl-4">Subtotal</TableCell>
                                     <TableCell />
-                                    <TableCell className="text-right text-xs font-medium text-slate-600 dark:text-slate-300">{totals.kcal.toFixed(0)}</TableCell>
-                                    <TableCell className="text-right text-xs font-medium text-slate-600 dark:text-slate-300">{totals.protein.toFixed(1)}</TableCell>
-                                    <TableCell className="text-right text-xs font-medium text-slate-600 dark:text-slate-300">{totals.carbs.toFixed(1)}</TableCell>
-                                    <TableCell className="text-right text-xs font-medium text-slate-600 dark:text-slate-300">{totals.fat.toFixed(1)}</TableCell>
+                                    <TableCell className="text-right text-sm font-semibold text-slate-800 dark:text-slate-100">{totals.kcal.toFixed(0)}</TableCell>
+                                    <TableCell className="text-right text-sm font-semibold text-slate-800 dark:text-slate-100">{totals.protein.toFixed(1)}</TableCell>
+                                    <TableCell className="text-right text-sm font-semibold text-slate-800 dark:text-slate-100">{totals.carbs.toFixed(1)}</TableCell>
+                                    <TableCell className="text-right text-sm font-semibold text-slate-800 dark:text-slate-100">{totals.fat.toFixed(1)}</TableCell>
                                     <TableCell colSpan={2} />
                                   </TableRow>
                                 )}
@@ -4918,7 +4918,7 @@ function FoodEditDrawer({ food, foods, onUpdate, onDelete, onAdd, onClose }) {
               <Label>Category</Label>
               <Select value={form.category} onValueChange={(v) => setForm((p) => ({ ...p, category: v }))}>
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                <SelectContent>{FOOD_CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                <SelectContent side="bottom" avoidCollisions={false}>{FOOD_CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
@@ -5322,7 +5322,7 @@ function AddFoodCard({ foods, onAdd, tab, onClose }){
                 <Label>Category</Label>
                 <Select value={basicForm.category} onValueChange={(v)=>setBasicForm((prev)=>({...prev, category:v }))}>
                   <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-                  <SelectContent>
+                  <SelectContent side="bottom" avoidCollisions={false}>
                     {FOOD_CATEGORIES.map(cat=>(
                       <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
                     ))}
