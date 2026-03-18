@@ -78,7 +78,7 @@ import {
   AlertCircle,
   Loader2,
 } from "lucide-react";
-import { format, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval, startOfWeek, endOfWeek } from "date-fns";
+import { format, formatDistanceToNow, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval, startOfWeek, endOfWeek } from "date-fns";
 
 /*******************
  * Types (for readability only)
@@ -700,6 +700,7 @@ export default function MacroTrackerApp(){
   const [profileSaveError, setProfileSaveError] = useState("");
   const [profileSaveSuccess, setProfileSaveSuccess] = useState("");
   const [profileLastSavedAt, setProfileLastSavedAt] = useState(null);
+  const [resetDataConfirmOpen, setResetDataConfirmOpen] = useState(false);
 
   const [earnedBadgeIds, setEarnedBadgeIds] = useState(new Set());
   const [badgeUnlockQueue, setBadgeUnlockQueue] = useState([]);
@@ -2907,200 +2908,204 @@ export default function MacroTrackerApp(){
 
           {/* SETTINGS */}
           <TabsContent value="settings" className="mt-6">
-            <Card>
-              <CardHeader><CardTitle>Profile</CardTitle></CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="font-medium mb-2">Daily macro goals</h3>
-                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                      <p className="text-xs text-slate-500 max-w-xs sm:max-w-md">
-                        Choose your approach and tune the macros for each profile. Days remember their assigned setup so history stays intact.
+            <div className="space-y-6">
+              {/* Page header */}
+              <div>
+                <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">Profile</h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Manage your account, macro goals, and body stats.</p>
+              </div>
+
+              {/* Row 1: Account + Daily macro goals */}
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Account */}
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-5 space-y-5">
+                  <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">Account</h3>
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={() => avatarInputRef.current?.click()}
+                      className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-full border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 flex items-center justify-center group"
+                      aria-label="Upload profile photo"
+                    >
+                      {profileAvatarUrl ? (
+                        <img src={profileAvatarUrl} alt="Profile avatar" className="h-full w-full object-cover" />
+                      ) : (
+                        <User className="h-8 w-8 text-slate-400 dark:text-slate-500" />
+                      )}
+                      <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Camera className="h-5 w-5 text-white" />
+                      </span>
+                    </button>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap gap-2">
+                        <Button type="button" size="sm" variant="outline" onClick={() => avatarInputRef.current?.click()}>
+                          Change photo
+                        </Button>
+                        <Button type="button" size="sm" variant="ghost" onClick={handleRemoveAvatar} disabled={!profileAvatarUrl || avatarUploading}>
+                          Remove
+                        </Button>
+                      </div>
+                      <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">JPG/PNG/WebP • max 2MB • square works best</p>
+                      {avatarUploading && <p className="mt-1 text-xs text-slate-500">Uploading…</p>}
+                    </div>
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) handleAvatarUpload(file);
+                        event.target.value = "";
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">Username</Label>
+                    <div className="flex gap-2">
+                      <Input value={accountUsername} onChange={(e)=>setAccountUsername(e.target.value)} placeholder="username" />
+                      <Button size="sm" onClick={handleUpdateUsername}>Save</Button>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">Email</Label>
+                    <div className="flex gap-2">
+                      <Input type="email" value={accountEmail} onChange={(e)=>setAccountEmail(e.target.value)} placeholder="you@example.com" />
+                      <Button size="sm" onClick={handleUpdateEmail}>Save</Button>
+                    </div>
+                  </div>
+                  {accountError && <p className="text-sm text-red-600 dark:text-red-400">{accountError}</p>}
+                  {accountSuccess && <p className="text-sm text-emerald-600 dark:text-emerald-400">{accountSuccess}</p>}
+                </div>
+
+                {/* Daily macro goals */}
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-5 space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">Daily macro goals</h3>
+                    <Select value={activeSetup} onValueChange={handleSetupChange}>
+                      <SelectTrigger className="h-8 w-44"><SelectValue placeholder="Setup" /></SelectTrigger>
+                      <SelectContent>
+                        {SETUP_MODES.map((mode) => (
+                          <SelectItem key={mode} value={mode}>{SETUP_LABELS[mode]}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Choose your approach and tune the macros. Days remember their assigned setup so history stays intact.
+                  </p>
+                  {activeSetup === "dual" ? (
+                    <>
+                      <Tabs value={activeDualProfile} onValueChange={handleDualProfileChange}>
+                        <TabsList className="mb-3 grid w-full max-w-xs grid-cols-2 rounded-full border border-slate-200 bg-white/80 p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
+                          <TabsTrigger value="train" className="rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900">Train Day</TabsTrigger>
+                          <TabsTrigger value="rest" className="rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900">Rest Day</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="train" className="mt-0">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="col-span-2">
+                              <LabeledNumber label="Calories (kcal)" value={dailyGoals.dual.train.kcal} onChange={updateMacroGoal('dual.train','kcal')} />
+                            </div>
+                            <LabeledNumber label="Protein (g)" value={dailyGoals.dual.train.protein} onChange={updateMacroGoal('dual.train','protein')} />
+                            <LabeledNumber label="Carbs (g)" value={dailyGoals.dual.train.carbs} onChange={updateMacroGoal('dual.train','carbs')} />
+                            <LabeledNumber label="Fat (g)" value={dailyGoals.dual.train.fat} onChange={updateMacroGoal('dual.train','fat')} />
+                          </div>
+                        </TabsContent>
+                        <TabsContent value="rest" className="mt-0">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="col-span-2">
+                              <LabeledNumber label="Calories (kcal)" value={dailyGoals.dual.rest.kcal} onChange={updateMacroGoal('dual.rest','kcal')} />
+                            </div>
+                            <LabeledNumber label="Protein (g)" value={dailyGoals.dual.rest.protein} onChange={updateMacroGoal('dual.rest','protein')} />
+                            <LabeledNumber label="Carbs (g)" value={dailyGoals.dual.rest.carbs} onChange={updateMacroGoal('dual.rest','carbs')} />
+                            <LabeledNumber label="Fat (g)" value={dailyGoals.dual.rest.fat} onChange={updateMacroGoal('dual.rest','fat')} />
+                          </div>
+                        </TabsContent>
+                      </Tabs>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">The active profile powers the sticky macros, dashboard KPIs, and Goal vs Actual chart.</p>
+                    </>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="col-span-2">
+                          <LabeledNumber label="Calories (kcal)" value={dailyGoals[activeSetup]?.kcal ?? 0} onChange={updateMacroGoal(activeSetup,'kcal')} />
+                        </div>
+                        <LabeledNumber label="Protein (g)" value={dailyGoals[activeSetup]?.protein ?? 0} onChange={updateMacroGoal(activeSetup,'protein')} />
+                        <LabeledNumber label="Carbs (g)" value={dailyGoals[activeSetup]?.carbs ?? 0} onChange={updateMacroGoal(activeSetup,'carbs')} />
+                        <LabeledNumber label="Fat (g)" value={dailyGoals[activeSetup]?.fat ?? 0} onChange={updateMacroGoal(activeSetup,'fat')} />
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {SETUP_LABELS[activeSetup]} powers the dashboard whenever this setup is active.
                       </p>
-                      <div className="flex items-center gap-2">
-                        <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Setup</Label>
-                        <Select value={activeSetup} onValueChange={handleSetupChange}>
-                          <SelectTrigger className="h-8 w-44"><SelectValue placeholder="Setup" /></SelectTrigger>
-                          <SelectContent>
-                            {SETUP_MODES.map((mode) => (
-                              <SelectItem key={mode} value={mode}>
-                                {SETUP_LABELS[mode]}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
                     </div>
-                    {activeSetup === "dual" ? (
-                      <>
-                        <Tabs value={activeDualProfile} onValueChange={handleDualProfileChange}>
-                          <TabsList className="mb-3 grid w-full max-w-xs grid-cols-2 rounded-full border border-slate-200 bg-white/80 p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
-                            <TabsTrigger value="train" className="rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900">Train Day</TabsTrigger>
-                            <TabsTrigger value="rest" className="rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900">Rest Day</TabsTrigger>
-                          </TabsList>
-                          <TabsContent value="train" className="mt-0">
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="col-span-2">
-                                <LabeledNumber label="Calories (kcal)" value={dailyGoals.dual.train.kcal} onChange={updateMacroGoal('dual.train','kcal')} />
-                              </div>
-                              <LabeledNumber label="Protein (g)" value={dailyGoals.dual.train.protein} onChange={updateMacroGoal('dual.train','protein')} />
-                              <LabeledNumber label="Carbs (g)" value={dailyGoals.dual.train.carbs} onChange={updateMacroGoal('dual.train','carbs')} />
-                              <LabeledNumber label="Fat (g)" value={dailyGoals.dual.train.fat} onChange={updateMacroGoal('dual.train','fat')} />
-                            </div>
-                          </TabsContent>
-                          <TabsContent value="rest" className="mt-0">
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="col-span-2">
-                                <LabeledNumber label="Calories (kcal)" value={dailyGoals.dual.rest.kcal} onChange={updateMacroGoal('dual.rest','kcal')} />
-                              </div>
-                              <LabeledNumber label="Protein (g)" value={dailyGoals.dual.rest.protein} onChange={updateMacroGoal('dual.rest','protein')} />
-                              <LabeledNumber label="Carbs (g)" value={dailyGoals.dual.rest.carbs} onChange={updateMacroGoal('dual.rest','carbs')} />
-                              <LabeledNumber label="Fat (g)" value={dailyGoals.dual.rest.fat} onChange={updateMacroGoal('dual.rest','fat')} />
-                            </div>
-                          </TabsContent>
-                        </Tabs>
-                        <p className="text-xs text-slate-500 mt-3">The highlighted profile powers the sticky macros, dashboard KPIs, and Goal vs Actual chart.</p>
-                      </>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="col-span-2">
-                            <LabeledNumber label="Calories (kcal)" value={dailyGoals[activeSetup]?.kcal ?? 0} onChange={updateMacroGoal(activeSetup,'kcal')} />
-                          </div>
-                          <LabeledNumber label="Protein (g)" value={dailyGoals[activeSetup]?.protein ?? 0} onChange={updateMacroGoal(activeSetup,'protein')} />
-                          <LabeledNumber label="Carbs (g)" value={dailyGoals[activeSetup]?.carbs ?? 0} onChange={updateMacroGoal(activeSetup,'carbs')} />
-                          <LabeledNumber label="Fat (g)" value={dailyGoals[activeSetup]?.fat ?? 0} onChange={updateMacroGoal(activeSetup,'fat')} />
-                        </div>
-                        <p className="text-xs text-slate-500">
-                          {SETUP_LABELS[activeSetup]} powers the dashboard whenever this setup is active.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="font-medium mb-2">Account</h3>
-                    <div className="space-y-4 rounded-xl border p-4 border-slate-200 dark:border-slate-700">
-                      <div className="space-y-2">
-                        <Label>Profile photo</Label>
-                        <div className="flex items-center gap-4">
-                          <button
-                            type="button"
-                            onClick={() => avatarInputRef.current?.click()}
-                            className="h-20 w-20 overflow-hidden rounded-full border border-slate-300 bg-slate-200 dark:border-slate-700 dark:bg-slate-800 flex items-center justify-center"
-                            aria-label="Upload profile photo"
-                          >
-                            {profileAvatarUrl ? (
-                              <img src={profileAvatarUrl} alt="Profile avatar" className="h-full w-full object-cover" />
-                            ) : (
-                              <User className="h-8 w-8 text-slate-500 dark:text-slate-300" />
-                            )}
-                          </button>
-                          <div className="space-y-2">
-                            <div className="flex gap-2">
-                              <Button type="button" variant="outline" onClick={() => avatarInputRef.current?.click()}>
-                                Change photo
-                              </Button>
-                              <Button type="button" variant="ghost" onClick={handleRemoveAvatar} disabled={!profileAvatarUrl || avatarUploading}>
-                                Remove photo
-                              </Button>
-                            </div>
-                            <input
-                              ref={avatarInputRef}
-                              type="file"
-                              accept="image/jpeg,image/png,image/webp"
-                              className="hidden"
-                              onChange={(event) => {
-                                const file = event.target.files?.[0];
-                                if (file) handleAvatarUpload(file);
-                                event.target.value = "";
-                              }}
-                            />
-                            <p className="text-xs text-slate-500">JPG/PNG/WebP • max 2MB • square works best</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Username</Label>
-                        <div className="flex gap-2">
-                          <Input value={accountUsername} onChange={(e)=>setAccountUsername(e.target.value)} placeholder="username" />
-                          <Button onClick={handleUpdateUsername}>Save</Button>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Email</Label>
-                        <div className="flex gap-2">
-                          <Input type="email" value={accountEmail} onChange={(e)=>setAccountEmail(e.target.value)} placeholder="you@example.com" />
-                          <Button variant="outline" onClick={handleUpdateEmail}>Update</Button>
-                        </div>
-                      </div>
-                      {avatarUploading ? <p className="text-xs text-slate-500">Uploading avatar...</p> : null}
-                      {accountError ? <p className="text-sm text-red-600 dark:text-red-400">{accountError}</p> : null}
-                      {accountSuccess ? <p className="text-sm text-emerald-600 dark:text-emerald-400">{accountSuccess}</p> : null}
-                    </div>
-                  </div>
+                  )}
                 </div>
+              </div>
 
-                {/* Profile */}
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="font-medium mb-2">My Stats</h3>
-                    {profileLoading && <p className="text-xs text-slate-500 mb-2">Loading your stats…</p>}
-                    <div className="grid grid-cols-2 gap-3">
-                      <LabeledNumber label="Age (years)" value={settings.profile?.age ?? 0} onChange={(v)=>setSettings({...settings, profile:{...settings.profile, age:v}})} />
-                      <div>
-                        <Label className="text-sm">Sex</Label>
-                        <Select value={settings.profile?.sex ?? 'other'} onValueChange={(v)=>setSettings({...settings, profile:{...settings.profile, sex:v}})}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="male">Male</SelectItem>
-                            <SelectItem value="female">Female</SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <LabeledNumber label="Height (cm)" value={settings.profile?.heightCm ?? 0} onChange={(v)=>setSettings({...settings, profile:{...settings.profile, heightCm:v}})} />
-                      <LabeledNumber label="Weight (kg)" value={settings.profile?.weightKg ?? 0} onChange={(v)=>setSettings({...settings, profile:{...settings.profile, weightKg:v}})} />
-                      <LabeledNumber label="Body fat (%)" value={settings.profile?.bodyFatPct ?? 0} onChange={(v)=>setSettings({...settings, profile:{...settings.profile, bodyFatPct:v}})} />
-                      <div>
-                        <Label className="text-sm">Activity</Label>
-                        <Select value={settings.profile?.activity ?? 'moderate'} onValueChange={(v)=>setSettings({...settings, profile:{...settings.profile, activity:v}})}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="sedentary">Sedentary</SelectItem>
-                            <SelectItem value="light">Light</SelectItem>
-                            <SelectItem value="moderate">Moderate</SelectItem>
-                            <SelectItem value="active">Active</SelectItem>
-                            <SelectItem value="athlete">Athlete</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="col-span-2 pt-1">
-                        <span className="text-xs text-slate-500 dark:text-slate-400">
-                          {profileLastSavedAt instanceof Date
-                            ? `Last saved ${profileLastSavedAt.toLocaleString()}`
-                            : "Not saved yet."}
-                        </span>
-                        {profileSaveError ? <p className="mt-2 text-sm text-red-600 dark:text-red-400">{profileSaveError}</p> : null}
-                        {profileSaveSuccess ? <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">{profileSaveSuccess}</p> : null}
-                      </div>
+              {/* Row 2: Body stats + Badges */}
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Body stats */}
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-5 space-y-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">Body stats</h3>
+                  {profileLoading && <p className="text-xs text-slate-500">Loading your stats…</p>}
+                  <div className="grid grid-cols-2 gap-3">
+                    <LabeledNumber label="Age (years)" value={settings.profile?.age ?? 0} onChange={(v)=>setSettings({...settings, profile:{...settings.profile, age:v}})} />
+                    <div>
+                      <Label className="text-sm">Sex</Label>
+                      <Select value={settings.profile?.sex ?? 'other'} onValueChange={(v)=>setSettings({...settings, profile:{...settings.profile, sex:v}})}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="male">Male</SelectItem>
+                          <SelectItem value="female">Female</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <LabeledNumber label="Height (cm)" value={settings.profile?.heightCm ?? 0} onChange={(v)=>setSettings({...settings, profile:{...settings.profile, heightCm:v}})} />
+                    <LabeledNumber label="Weight (kg)" value={settings.profile?.weightKg ?? 0} onChange={(v)=>setSettings({...settings, profile:{...settings.profile, weightKg:v}})} />
+                    <LabeledNumber label="Body fat (%)" value={settings.profile?.bodyFatPct ?? 0} onChange={(v)=>setSettings({...settings, profile:{...settings.profile, bodyFatPct:v}})} />
+                    <div>
+                      <Label className="text-sm">Activity</Label>
+                      <Select value={settings.profile?.activity ?? 'moderate'} onValueChange={(v)=>setSettings({...settings, profile:{...settings.profile, activity:v}})}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="sedentary">Sedentary</SelectItem>
+                          <SelectItem value="light">Light</SelectItem>
+                          <SelectItem value="moderate">Moderate</SelectItem>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="athlete">Athlete</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
-                  <BadgesCard earnedBadgeIds={earnedBadgeIds} />
+                  <div className="flex items-center justify-between gap-3 pt-1">
+                    <span className="text-xs text-slate-400 dark:text-slate-500">
+                      {profileLastSavedAt instanceof Date
+                        ? `Saved ${formatDistanceToNow(profileLastSavedAt, { addSuffix: true })}`
+                        : "Not saved yet."}
+                    </span>
+                    <Button
+                      size="sm"
+                      onClick={handleSaveBodyProfile}
+                      disabled={profileSaving}
+                      className="bg-slate-900 text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                    >
+                      {profileSaving ? "Saving…" : "Save stats"}
+                    </Button>
+                  </div>
+                  {profileSaveError && <p className="text-sm text-red-600 dark:text-red-400">{profileSaveError}</p>}
+                  {profileSaveSuccess && <p className="text-sm text-emerald-600 dark:text-emerald-400">{profileSaveSuccess}</p>}
                 </div>
+                <BadgesCard earnedBadgeIds={earnedBadgeIds} />
+              </div>
 
-                <div className="flex flex-wrap gap-3">
-                  <Button
-                    onClick={handleSaveBodyProfile}
-                    disabled={profileSaving}
-                    className="bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
-                  >
-                    {profileSaving ? "Saving..." : "Save"}
-                  </Button>
-                  <Button variant="destructive" onClick={()=>{ if(confirm('Reset all data?')){ resetData(); } }}>Reset data</Button>
-                  <Button variant="outline" onClick={()=>setTab('dashboard')}>Back to Dashboard</Button>
-                </div>
-              </CardContent>
-            </Card>
+              {/* Danger zone */}
+              <div className="rounded-xl border border-red-100 dark:border-red-900/40 p-5">
+                <h3 className="text-xs font-semibold uppercase tracking-widest text-red-500 dark:text-red-400 mb-1">Danger zone</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Permanently deletes all your logs, foods, and settings. This cannot be undone.</p>
+                <Button size="sm" variant="destructive" onClick={() => setResetDataConfirmOpen(true)}>Reset all data</Button>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </main>
@@ -3125,6 +3130,25 @@ export default function MacroTrackerApp(){
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" onClick={() => setFoodPendingDelete(null)}>Cancel</Button>
                 <Button variant="destructive" onClick={confirmDeleteFood}>Delete</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {resetDataConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4">
+          <Card className="w-full max-w-md border-slate-200 dark:border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-lg">Reset all data?</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                This will permanently delete all your logs, foods, and settings. This action cannot be undone.
+              </p>
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => setResetDataConfirmOpen(false)}>Cancel</Button>
+                <Button variant="destructive" onClick={() => { setResetDataConfirmOpen(false); resetData(); }}>Reset everything</Button>
               </div>
             </CardContent>
           </Card>
