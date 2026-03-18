@@ -1078,16 +1078,21 @@ export default function MacroTrackerApp(){
   const [dashboardDate, setDashboardDate] = useState(todayISO());
   const [weekNavDate, setWeekNavDate] = useState(todayISO());
 
-  // Sync dashboard date and week nav to the Daily Log date when it changes;
-  // also auto-switch the header "Totals for" toggle
+  // Sync dashboard date and week nav to the Daily Log date when it changes
   useEffect(() => {
     const target = ISO_DATE_RE.test(logDate) ? logDate : todayISO();
     setDashboardDate(target);
     setWeekNavDate(target);
-    setStickyMode(target === todayISO() ? 'today' : 'selected');
   }, [logDate]);
 
-  const stickyDate = stickyMode==='today'? todayISO(): logDate;
+  // Derive effective sticky mode without state mutation to avoid re-renders
+  // that would close the browser's native date picker mid-interaction.
+  // Auto-switches to 'selected' whenever either date differs from today;
+  // falls back to the user's manual choice when both dates are today.
+  const today = todayISO();
+  const effectiveStickyMode =
+    logDate !== today || dashboardDate !== today ? 'selected' : stickyMode;
+  const stickyDate = effectiveStickyMode === 'today' ? today : dashboardDate;
   const stickyTotals = useMemo(()=> totalsForDate(stickyDate), [entries,foods,stickyDate]);
   const totalsForCard = useMemo(()=> totalsForDate(logDate), [rowsForDay]);
 
@@ -2365,7 +2370,7 @@ export default function MacroTrackerApp(){
             </div>
             <div className="hidden sm:flex items-center gap-2 text-xs">
               <span className="text-slate-500">Totals for</span>
-              <Select value={stickyMode} onValueChange={(v)=>setStickyMode(v)}>
+              <Select value={effectiveStickyMode} onValueChange={(v)=>setStickyMode(v)}>
                 <SelectTrigger className="h-7 w-28"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="today">Today</SelectItem>
@@ -2391,7 +2396,7 @@ export default function MacroTrackerApp(){
             {/* Single shared date picker for Goal vs Actual, Macro Split, Top Foods, and Weekly Nutrition */}
             <div className="flex items-center justify-between">
               <p className="text-sm text-slate-500 dark:text-slate-400">Dashboard date</p>
-              <DatePickerButton value={dashboardDate} onChange={(v) => { const d = v || todayISO(); setDashboardDate(d); setLogDate(d); }} className="w-44" />
+              <DatePickerButton value={dashboardDate} onChange={(v) => setDashboardDate(v || todayISO())} className="w-44" />
             </div>
             <div className="grid lg:grid-cols-2 gap-4">
               <Card className="h-full min-h-[360px] flex flex-col">
