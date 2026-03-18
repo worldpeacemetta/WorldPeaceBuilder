@@ -33,6 +33,7 @@ import {
   XAxis,
   YAxis,
   Legend,
+  LabelList,
   Cell,
 } from "recharts";
 import {
@@ -80,8 +81,10 @@ import {
   Sun,
   Moon,
   Copy,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
-import { format, formatDistanceToNow, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval, startOfWeek, endOfWeek } from "date-fns";
+import { format, formatDistanceToNow, startOfDay, addDays, subDays, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval, startOfWeek, endOfWeek, getDay } from "date-fns";
 
 /*******************
  * Types (for readability only)
@@ -1075,6 +1078,15 @@ export default function MacroTrackerApp(){
   const [goalDate, setGoalDate] = useState(todayISO());
   const [splitDate, setSplitDate] = useState(todayISO());
   const [topFoodsDate, setTopFoodsDate] = useState(todayISO());
+  const [weekNavDate, setWeekNavDate] = useState(todayISO());
+
+  // Sync all dashboard date pickers to the Daily Log date when it changes
+  useEffect(() => {
+    setGoalDate(logDate);
+    setSplitDate(logDate);
+    setTopFoodsDate(logDate);
+    setWeekNavDate(logDate);
+  }, [logDate]);
 
   useEffect(() => {
     const targetDate = ISO_DATE_RE.test(logDate) ? logDate : todayISO();
@@ -1224,15 +1236,9 @@ export default function MacroTrackerApp(){
       { key: "ytd", label: "Average (YTD)", averages: computeForDates(rangeDates(startOfYear(today))) },
     ];
 
-    const macroKeys = ["kcal", "protein", "carbs", "fat"];
-    const macroMaxima = macroKeys.reduce((acc, key) => {
-      const maxValue = summaries.reduce((max, summary) => Math.max(max, summary.averages?.[key] ?? 0), 0);
-      acc[key] = maxValue > 0 ? maxValue : 1;
-      return acc;
-    }, {});
-
-    return summaries.map((summary) => ({ ...summary, scaleMax: macroMaxima }));
-  }, [totalsByDate]);
+    const todayGoals = goalValuesForDate(todayISO());
+    return summaries.map((summary) => ({ ...summary, scaleMax: todayGoals }));
+  }, [totalsByDate, goalValuesForDate]);
 
   const dailyGoals = settings.dailyGoals ?? ensureDailyGoals(DEFAULT_SETTINGS.dailyGoals);
   const activeSetup = normalizeSetupMode(dailyGoals?.setup);
@@ -1461,9 +1467,9 @@ export default function MacroTrackerApp(){
 
   const weeklyNutrition = useMemo(() => {
     const targetISO = ISO_DATE_RE.test(goalDate) ? goalDate : todayISO();
-    const baseDate = new Date(targetISO);
-    const weekStartDate = startOfWeek(baseDate, { weekStartsOn: 1 });
-    const weekEndDate = endOfWeek(baseDate, { weekStartsOn: 1 });
+    const weekAnchor = ISO_DATE_RE.test(weekNavDate) ? weekNavDate : todayISO();
+    const weekStartDate = startOfWeek(new Date(`${weekAnchor}T00:00:00`), { weekStartsOn: 1 });
+    const weekEndDate = endOfWeek(new Date(`${weekAnchor}T00:00:00`), { weekStartsOn: 1 });
     const isoTodayValue = todayISO();
 
     const days = rangeDays(weekStartDate, weekEndDate).map((date) => {
@@ -1519,7 +1525,14 @@ export default function MacroTrackerApp(){
       rows,
       weekLabel: `${format(weekStartDate, "MMM d")} – ${format(weekEndDate, "MMM d")}`,
     };
-  }, [goalDate, entries, foods, goalValuesForDate]);
+  }, [goalDate, weekNavDate, entries, foods, goalValuesForDate]);
+
+  const weekNavAtCurrentWeek = useMemo(() => {
+    const anchor = ISO_DATE_RE.test(weekNavDate) ? weekNavDate : todayISO();
+    const wStart = toISODate(startOfWeek(new Date(`${anchor}T00:00:00`), { weekStartsOn: 1 }));
+    const thisWeekStart = toISODate(startOfWeek(new Date(), { weekStartsOn: 1 }));
+    return wStart >= thisWeekStart;
+  }, [weekNavDate]);
 
   const entriesForSplitDate = useMemo(()=> entries.filter((e)=>e.date===splitDate),[entries, splitDate]);
 
@@ -2401,7 +2414,12 @@ export default function MacroTrackerApp(){
                 </CardContent>
               </Card>
 
-              <WeeklyNutritionCard data={weeklyNutrition} />
+              <WeeklyNutritionCard
+                data={weeklyNutrition}
+                onPrevWeek={() => setWeekNavDate((prev) => toISODate(addDays(new Date(`${prev}T00:00:00`), -7)))}
+                onNextWeek={() => setWeekNavDate((prev) => toISODate(addDays(new Date(`${prev}T00:00:00`), 7)))}
+                canGoForward={!weekNavAtCurrentWeek}
+              />
             </div>
 
             {/* Macros Trend */}
@@ -2466,8 +2484,8 @@ export default function MacroTrackerApp(){
                       </linearGradient>
                     </defs>
                     <XAxis dataKey="date" tickFormatter={(d)=>d.slice(5)} stroke="#94a3b8" tick={{ fill: '#64748b' }} axisLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} tickLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} />
-                    <YAxis stroke="#94a3b8" tick={{ fill: '#64748b' }} axisLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} tickLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} />
-                    <Legend iconType="circle" />
+                    <YAxis yAxisId="kcal" stroke="#94a3b8" tick={{ fill: '#64748b' }} axisLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} tickLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} hide={!show.kcal} />
+                    <YAxis yAxisId="grams" orientation="right" stroke="#94a3b8" tick={{ fill: '#64748b' }} axisLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} tickLine={{ stroke: '#cbd5f5', strokeOpacity: 0.4 }} tickFormatter={(v) => `${v}g`} hide={!show.protein && !show.carbs && !show.fat} />
                     <RTooltip
                       content={({ active, payload, label }) => {
                         if (!active || !payload?.length) return null;
@@ -2518,6 +2536,7 @@ export default function MacroTrackerApp(){
                     />
                     {show.kcal && (
                       <Area
+                        yAxisId="kcal"
                         type="monotone"
                         name="kcal"
                         dataKey="kcal"
@@ -2531,6 +2550,7 @@ export default function MacroTrackerApp(){
                     )}
                     {show.protein && (
                       <Area
+                        yAxisId="grams"
                         type="monotone"
                         name="Protein (g)"
                         dataKey="protein"
@@ -2544,6 +2564,7 @@ export default function MacroTrackerApp(){
                     )}
                     {show.carbs && (
                       <Area
+                        yAxisId="grams"
                         type="monotone"
                         name="Carbs (g)"
                         dataKey="carbs"
@@ -2557,6 +2578,7 @@ export default function MacroTrackerApp(){
                     )}
                     {show.fat && (
                       <Area
+                        yAxisId="grams"
                         type="monotone"
                         name="Fat (g)"
                         dataKey="fat"
@@ -2668,7 +2690,14 @@ export default function MacroTrackerApp(){
                       shape={(props)=>(
                         <RoundedTopBar {...props} radius={28} />
                       )}
-                    />
+                    >
+                      <LabelList
+                        dataKey="kcal"
+                        position="top"
+                        formatter={(v) => v > 0 ? `${Math.round(v)} kcal` : ''}
+                        style={{ fill: '#64748b', fontSize: 11 }}
+                      />
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -3915,24 +3944,62 @@ function BadgesCard({ earnedBadgeIds }) {
   );
 }
 
-function WeeklyNutritionCard({ data }) {
+function WeeklyNutritionCard({ data, onPrevWeek, onNextWeek, canGoForward }) {
   const days = data?.days ?? [];
   const rows = data?.rows ?? [];
   const hasData = days.length > 0 && rows.length > 0;
+  const containerRef = useRef(null);
+  const [hoveredCell, setHoveredCell] = useState(null);
+  const clearHover = () => setHoveredCell(null);
+
+  const handleCellEnter = (event, tooltipText) => {
+    if (!containerRef.current) return;
+    const parentRect = containerRef.current.getBoundingClientRect();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const next = {
+      text: tooltipText,
+      x: rect.left - parentRect.left + rect.width / 2,
+      y: rect.top - parentRect.top,
+    };
+    setHoveredCell((prev) =>
+      prev && prev.text === next.text && Math.abs(prev.x - next.x) < 0.5 && Math.abs(prev.y - next.y) < 0.5
+        ? prev
+        : next
+    );
+  };
 
   return (
     <Card className="h-full min-h-[360px] flex flex-col">
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
           <CardTitle>Weekly Nutrition</CardTitle>
-          {data?.weekLabel && <span className="text-xs text-slate-500">{data.weekLabel}</span>}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={onPrevWeek}
+              className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
+              aria-label="Previous week"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            {data?.weekLabel && <span className="px-1 text-xs text-slate-500 w-[112px] text-center tabular-nums">{data.weekLabel}</span>}
+            <button
+              type="button"
+              onClick={onNextWeek}
+              disabled={!canGoForward}
+              className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+              aria-label="Next week"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="flex-1 pt-3 pb-4">
         {!hasData ? (
           <p className="text-sm text-slate-500">Log entries to see your weekly breakdown.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div ref={containerRef} className="relative overflow-x-auto" onMouseLeave={clearHover}>
             <div className="min-w-[340px]">
               <div className="grid grid-cols-[auto_repeat(7,minmax(0,1fr))_auto] items-end gap-x-1 sm:gap-x-3 gap-y-2 sm:gap-y-3 text-[11px] sm:text-[13px] mt-3">
                 <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Macro</div>
@@ -3972,6 +4039,8 @@ function WeeklyNutritionCard({ data }) {
                           goal={cell.goal}
                           isToday={day?.isToday}
                           isSelected={day?.isSelected}
+                          onEnter={handleCellEnter}
+                          onLeave={clearHover}
                         />
                       );
                     })}
@@ -3990,6 +4059,18 @@ function WeeklyNutritionCard({ data }) {
                 ))}
               </div>
             </div>
+            {hoveredCell && (
+              <div
+                className="pointer-events-none absolute z-20"
+                style={{ left: hoveredCell.x, top: hoveredCell.y }}
+              >
+                <div className="-translate-x-1/2 -translate-y-full pb-2">
+                  <ChartTooltipContainer>
+                    <div className="font-semibold text-slate-100">{hoveredCell.text}</div>
+                  </ChartTooltipContainer>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </CardContent>
@@ -3997,7 +4078,7 @@ function WeeklyNutritionCard({ data }) {
   );
 }
 
-function WeeklyNutritionCell({ theme, unit, actual, goal, isToday, isSelected }) {
+function WeeklyNutritionCell({ theme, unit, actual, goal, isToday, isSelected, onEnter, onLeave }) {
   const palette = theme ?? MACRO_THEME.kcal;
   const safeActual = Math.max(0, actual || 0);
   const safeGoal = Math.max(0, goal || 0);
@@ -4027,7 +4108,8 @@ function WeeklyNutritionCell({ theme, unit, actual, goal, isToday, isSelected })
           "relative flex h-24 w-9 items-end justify-center rounded-xl px-1.5 py-2 transition-all",
           ringClass,
         )}
-        title={tooltip}
+        onMouseEnter={(e) => onEnter?.(e, tooltip)}
+        onMouseLeave={() => onLeave?.()}
       >
         <div className="relative h-full w-[10px]" aria-hidden="true">
           <div className="absolute inset-0 rounded-full bg-slate-200/60 dark:bg-slate-800/60" />
@@ -4139,6 +4221,15 @@ const WEIGHT_RANGE_OPTIONS = [
   { value: "all", label: "All time" },
 ];
 
+function computeChartDomain(values, padFallback = 0.5) {
+  if (!values.length) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  if (min === max) return [min - padFallback, max + padFallback];
+  const pad = Math.max((max - min) * 0.1, padFallback);
+  return [min - pad, max + pad];
+}
+
 function WeightTrendCard({ history, latestWeight, latestDate }) {
   const [range, setRange] = useState("90");
   const gradientId = useId();
@@ -4159,18 +4250,10 @@ function WeightTrendCard({ history, latestWeight, latestDate }) {
   }, [history, range]);
 
   const hasData = data.some((p) => p.weight != null || p.bodyFat != null);
+  const hasBodyFat = data.some((p) => p.bodyFat != null);
 
-  const computeDomain = (values, padFallback = 0.5) => {
-    if (!values.length) return null;
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    if (min === max) return [min - padFallback, max + padFallback];
-    const pad = Math.max((max - min) * 0.1, padFallback);
-    return [min - pad, max + pad];
-  };
-
-  const weightDomain = computeDomain(data.map((p) => p.weight).filter(Number.isFinite), 0.5);
-  const bodyFatDomain = computeDomain(data.map((p) => p.bodyFat).filter(Number.isFinite), 0.3);
+  const weightDomain = computeChartDomain(data.map((p) => p.weight).filter(Number.isFinite), 0.5);
+  const bodyFatDomain = computeChartDomain(data.map((p) => p.bodyFat).filter(Number.isFinite), 0.3);
 
   return (
     <Card>
@@ -4190,6 +4273,18 @@ function WeightTrendCard({ history, latestWeight, latestDate }) {
         </div>
       </CardHeader>
       <CardContent className="space-y-3 pt-0">
+        <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block h-0.5 w-5 rounded" style={{ backgroundColor: '#a855f7' }} />
+            <span>Weight</span>
+          </div>
+          {hasBodyFat && (
+            <div className="flex items-center gap-1.5">
+              <svg width="20" height="4" className="shrink-0"><line x1="0" y1="2" x2="20" y2="2" stroke="#22d3ee" strokeWidth="2" strokeDasharray="4 2" /></svg>
+              <span>Body Fat</span>
+            </div>
+          )}
+        </div>
         <div className="h-44">
           {hasData ? (
             <ResponsiveContainer width="100%" height="100%">
@@ -4220,7 +4315,7 @@ function WeightTrendCard({ history, latestWeight, latestDate }) {
                   tickFormatter={(value) => `${formatNumber(value)}%`}
                   width={56}
                   domain={bodyFatDomain ?? undefined}
-                  hide={!data.some((p) => p.bodyFat != null)}
+                  hide={!hasBodyFat}
                 />
                 <RTooltip
                   content={({ active, payload }) => {
@@ -4332,6 +4427,10 @@ function FoodLoggingCard({ summary }) {
 
   const clearHover = () => setHoveredDay(null);
 
+  const DOW_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  // Compute leading empty cells: getDay returns 0=Sun..6=Sat, convert to Mon-based offset
+  const firstDayOffset = grid.length > 0 ? (getDay(new Date(`${grid[0].iso}T00:00:00`)) + 6) % 7 : 0;
+
   return (
     <Card>
       <CardHeader className="pb-1.5">
@@ -4340,7 +4439,13 @@ function FoodLoggingCard({ summary }) {
       </CardHeader>
       <CardContent className="space-y-3 pt-0 pb-3">
         <div ref={containerRef} className="relative" onMouseLeave={clearHover}>
-          <div className="grid grid-cols-6 gap-2 py-1">
+          <div className="grid grid-cols-7 gap-2 py-1">
+            {DOW_LABELS.map((d, i) => (
+              <div key={i} className="flex h-5 items-center justify-center text-[10px] font-medium text-slate-400 dark:text-slate-500">{d}</div>
+            ))}
+            {Array.from({ length: firstDayOffset }).map((_, i) => (
+              <div key={`pad-${i}`} />
+            ))}
             {grid.map((day) => {
               const isoDate = `${day.iso}T00:00:00`;
               const fullLabel = format(new Date(isoDate), "PP");
@@ -4633,7 +4738,7 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
           <div className="sm:col-span-3 flex flex-wrap items-center justify-center gap-3">
             {/* On mobile, show all legend items here */}
             <div className="flex sm:hidden w-full flex-col gap-3">
-              {slices.filter(item => !item.isOther).map((item, index) => renderLegendItem(item, index, `mobile-${index}`))}
+              {slices.map((item, index) => renderLegendItem(item, index, `mobile-${index}`))}
             </div>
             {bottomItems.length === 0 ? (
               slices.length === 0 ? (
