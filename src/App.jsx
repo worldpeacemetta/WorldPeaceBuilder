@@ -2984,13 +2984,13 @@ export default function MacroTrackerApp(){
                                 }}
                               />
                             </TableHead>
-                            <TableHead className="w-[200px]">
+                            <TableHead className="w-[230px]">
                               <button type="button" onClick={()=>toggleFoodSort("name")} className="flex w-full items-center gap-0.5 text-left font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>Name</span>{renderSortIcon("name")}</button>
                             </TableHead>
-                            <TableHead className="w-[120px] max-w-[120px]">
+                            <TableHead className="w-[160px] max-w-[160px]">
                               <button type="button" onClick={()=>toggleFoodSort("category")} className="flex w-full items-center gap-0.5 text-left font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>Category</span>{renderSortIcon("category")}</button>
                             </TableHead>
-                            <TableHead>
+                            <TableHead className="w-[120px] max-w-[120px]">
                               <button type="button" onClick={()=>toggleFoodSort("unit")} className="flex w-full items-center gap-0.5 text-left font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>Unit</span>{renderSortIcon("unit")}</button>
                             </TableHead>
                             <TableHead className="text-right">
@@ -4644,7 +4644,7 @@ function EditableFoodRow({ food, onEdit, onDelete, selected, onSelect }) {
           onClick={(e) => e.stopPropagation()}
         />
       </TableCell>
-      <TableCell className="align-middle w-[200px] max-w-[200px]">
+      <TableCell className="align-middle w-[230px] max-w-[230px]">
         <div className="flex items-center gap-2 min-w-0">
           <span className="shrink-0">{getCategoryEmoji(food.category)}</span>
           <div className="min-w-0">
@@ -4659,11 +4659,11 @@ function EditableFoodRow({ food, onEdit, onDelete, selected, onSelect }) {
           </div>
         </div>
       </TableCell>
-      <TableCell className="align-middle w-[120px] max-w-[120px]">
+      <TableCell className="align-middle w-[160px] max-w-[160px]">
         <span className="block truncate text-sm" title={getCategoryLabel(food.category)}>{getCategoryLabel(food.category)}</span>
       </TableCell>
-      <TableCell className="align-middle">
-        <span className="whitespace-nowrap text-sm">
+      <TableCell className="align-middle w-[120px] max-w-[120px]">
+        <span className="block truncate text-sm" title={food.unit === 'per100g' ? 'per 100 g' : `per ${formatNumber(food.servingSize ?? 1)} g serving`}>
           {food.unit === 'per100g' ? 'per 100 g' : `per ${formatNumber(food.servingSize ?? 1)} g serving`}
         </span>
       </TableCell>
