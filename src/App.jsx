@@ -1236,9 +1236,8 @@ export default function MacroTrackerApp(){
       { key: "ytd", label: "Average (YTD)", averages: computeForDates(rangeDates(startOfYear(today))) },
     ];
 
-    const todayGoals = goalValuesForDate(todayISO());
-    return summaries.map((summary) => ({ ...summary, scaleMax: todayGoals }));
-  }, [totalsByDate, goalValuesForDate]);
+    return summaries;
+  }, [totalsByDate]);
 
   const dailyGoals = settings.dailyGoals ?? ensureDailyGoals(DEFAULT_SETTINGS.dailyGoals);
   const activeSetup = normalizeSetupMode(dailyGoals?.setup);
@@ -1297,6 +1296,12 @@ export default function MacroTrackerApp(){
     },
     [getGoalsForEntry, resolveModeEntry]
   );
+
+  // Attach today's goal as scaleMax — defined here because goalValuesForDate is available now
+  const averageSummariesWithGoal = useMemo(() => {
+    const todayGoals = goalValuesForDate(todayISO());
+    return averageSummaries.map((summary) => ({ ...summary, scaleMax: todayGoals }));
+  }, [averageSummaries, goalValuesForDate]);
 
   const stickyEntry = useMemo(() => resolveModeEntry(stickyDate), [resolveModeEntry, stickyDate]);
   const stickyGoals = useMemo(() => getGoalsForEntry(stickyEntry), [getGoalsForEntry, stickyEntry]);
@@ -2715,7 +2720,7 @@ export default function MacroTrackerApp(){
 
             {/* Averages tiles (non-empty days only) */}
             <div className="grid md:grid-cols-4 gap-4">
-              {averageSummaries.map((summary) => (
+              {averageSummariesWithGoal.map((summary) => (
                 <AverageSummaryCard
                   key={summary.key}
                   label={summary.label}
