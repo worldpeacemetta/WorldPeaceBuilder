@@ -1078,11 +1078,13 @@ export default function MacroTrackerApp(){
   const [dashboardDate, setDashboardDate] = useState(todayISO());
   const [weekNavDate, setWeekNavDate] = useState(todayISO());
 
-  // Sync dashboard date and week nav to the Daily Log date when it changes
+  // Sync dashboard date and week nav to the Daily Log date when it changes;
+  // also auto-switch the header "Totals for" toggle
   useEffect(() => {
     const target = ISO_DATE_RE.test(logDate) ? logDate : todayISO();
     setDashboardDate(target);
     setWeekNavDate(target);
+    setStickyMode(target === todayISO() ? 'today' : 'selected');
   }, [logDate]);
 
   const stickyDate = stickyMode==='today'? todayISO(): logDate;
@@ -2389,7 +2391,7 @@ export default function MacroTrackerApp(){
             {/* Single shared date picker for Goal vs Actual, Macro Split, Top Foods, and Weekly Nutrition */}
             <div className="flex items-center justify-between">
               <p className="text-sm text-slate-500 dark:text-slate-400">Dashboard date</p>
-              <DatePickerButton value={dashboardDate} onChange={(v) => setDashboardDate(v || todayISO())} className="w-44" />
+              <DatePickerButton value={dashboardDate} onChange={(v) => { const d = v || todayISO(); setDashboardDate(d); setLogDate(d); }} className="w-44" />
             </div>
             <div className="grid lg:grid-cols-2 gap-4">
               <Card className="h-full min-h-[360px] flex flex-col">
