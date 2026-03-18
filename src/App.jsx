@@ -701,6 +701,7 @@ export default function MacroTrackerApp(){
   const [profileSaveSuccess, setProfileSaveSuccess] = useState("");
   const [profileLastSavedAt, setProfileLastSavedAt] = useState(null);
   const [resetDataConfirmOpen, setResetDataConfirmOpen] = useState(false);
+  const [resetDataInput, setResetDataInput] = useState("");
 
   const [earnedBadgeIds, setEarnedBadgeIds] = useState(new Set());
   const [badgeUnlockQueue, setBadgeUnlockQueue] = useState([]);
@@ -3146,9 +3147,24 @@ export default function MacroTrackerApp(){
               <p className="text-sm text-slate-600 dark:text-slate-300">
                 This will permanently delete all your logs, foods, and settings. This action cannot be undone.
               </p>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Type <span className="font-mono font-bold tracking-widest">RESET</span> to confirm</Label>
+                <Input
+                  value={resetDataInput}
+                  onChange={(e) => setResetDataInput(e.target.value)}
+                  placeholder="RESET"
+                  autoComplete="off"
+                />
+              </div>
               <div className="flex justify-end gap-2">
-                <Button variant="ghost" onClick={() => setResetDataConfirmOpen(false)}>Cancel</Button>
-                <Button variant="destructive" onClick={() => { setResetDataConfirmOpen(false); resetData(); }}>Reset everything</Button>
+                <Button variant="ghost" onClick={() => { setResetDataConfirmOpen(false); setResetDataInput(""); }}>Cancel</Button>
+                <Button
+                  variant="destructive"
+                  disabled={resetDataInput !== "RESET"}
+                  onClick={() => { setResetDataConfirmOpen(false); setResetDataInput(""); resetData(); }}
+                >
+                  Reset everything
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -3533,7 +3549,7 @@ function BadgeUnlockPopup({ badgeId, onClose }) {
 function BadgesCard({ earnedBadgeIds }) {
   const [showAll, setShowAll] = useState(false);
   const earnedCount = BADGE_DEFINITIONS.filter((b) => earnedBadgeIds.has(b.id)).length;
-  const previewBadges = BADGE_DEFINITIONS.filter((b) => earnedBadgeIds.has(b.id)).slice(0, 4);
+  const previewBadges = BADGE_DEFINITIONS.filter((b) => earnedBadgeIds.has(b.id)).slice(0, 15);
   const categories = [...new Set(BADGE_DEFINITIONS.map((b) => b.category))];
 
   return (
@@ -3544,10 +3560,10 @@ function BadgesCard({ earnedBadgeIds }) {
           <span className="text-xs text-slate-500">{earnedCount} / {BADGE_DEFINITIONS.length} earned</span>
         </div>
 
-        {/* Preview: up to 4 earned badges as colored icons */}
-        <div className="flex items-center gap-2 flex-wrap min-h-[2.5rem]">
-          {previewBadges.length > 0 ? (
-            previewBadges.map((b) => (
+        {/* Preview: up to 15 earned badges, 5 per row */}
+        {previewBadges.length > 0 ? (
+          <div className="grid grid-cols-5 gap-2">
+            {previewBadges.map((b) => (
               <span
                 key={b.id}
                 title={b.label}
@@ -3556,14 +3572,14 @@ function BadgesCard({ earnedBadgeIds }) {
               >
                 <b.Icon className="h-5 w-5" style={{ color: b.color }} />
               </span>
-            ))
-          ) : (
-            <p className="text-xs text-slate-400">Log food to start earning badges.</p>
-          )}
-          {earnedCount > 4 && (
-            <span className="text-xs text-slate-500">+{earnedCount - 4} more</span>
-          )}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-slate-400 min-h-[2.5rem] flex items-center">Log food to start earning badges.</p>
+        )}
+        {earnedCount > 15 && (
+          <span className="text-xs text-slate-500">+{earnedCount - 15} more</span>
+        )}
 
         <button
           type="button"
