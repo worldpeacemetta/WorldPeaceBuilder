@@ -1075,24 +1075,14 @@ export default function MacroTrackerApp(){
   const totalsForDate = (iso)=>{ const dayEntries = entries.filter(e=>e.date===iso); const rows = dayEntries.map(e=>{ const f=foods.find(x=>x.id===e.foodId); return f? scaleMacros(f,e.qty) : {kcal:0,fat:0,carbs:0,protein:0};}); return sumMacros(rows); };
 
   const [stickyMode, setStickyMode] = useState('today');
-  const [goalDate, setGoalDate] = useState(todayISO());
-  const [splitDate, setSplitDate] = useState(todayISO());
-  const [topFoodsDate, setTopFoodsDate] = useState(todayISO());
+  const [dashboardDate, setDashboardDate] = useState(todayISO());
   const [weekNavDate, setWeekNavDate] = useState(todayISO());
 
-  // Sync all dashboard date pickers to the Daily Log date when it changes
+  // Sync dashboard date and week nav to the Daily Log date when it changes
   useEffect(() => {
-    setGoalDate(logDate);
-    setSplitDate(logDate);
-    setTopFoodsDate(logDate);
-    setWeekNavDate(logDate);
-  }, [logDate]);
-
-  useEffect(() => {
-    const targetDate = ISO_DATE_RE.test(logDate) ? logDate : todayISO();
-    setGoalDate((prev) => (prev === targetDate ? prev : targetDate));
-    setSplitDate((prev) => (prev === targetDate ? prev : targetDate));
-    setTopFoodsDate((prev) => (prev === targetDate ? prev : targetDate));
+    const target = ISO_DATE_RE.test(logDate) ? logDate : todayISO();
+    setDashboardDate(target);
+    setWeekNavDate(target);
   }, [logDate]);
 
   const stickyDate = stickyMode==='today'? todayISO(): logDate;
@@ -1307,12 +1297,12 @@ export default function MacroTrackerApp(){
   const stickyGoals = useMemo(() => getGoalsForEntry(stickyEntry), [getGoalsForEntry, stickyEntry]);
   const dashboardEntry = useMemo(() => resolveModeEntry(logDate), [resolveModeEntry, logDate]);
   const dashboardGoals = useMemo(() => getGoalsForEntry(dashboardEntry), [getGoalsForEntry, dashboardEntry]);
-  const goalTargetEntry = useMemo(() => resolveModeEntry(goalDate), [resolveModeEntry, goalDate]);
+  const goalTargetEntry = useMemo(() => resolveModeEntry(dashboardDate), [resolveModeEntry, dashboardDate]);
   const goalTarget = useMemo(() => getGoalsForEntry(goalTargetEntry), [getGoalsForEntry, goalTargetEntry]);
   const logDateEntry = dashboardEntry;
-  const splitEntry = useMemo(() => resolveModeEntry(splitDate), [resolveModeEntry, splitDate]);
+  const splitEntry = goalTargetEntry;
   const goalDateEntry = goalTargetEntry;
-  const topFoodsEntry = useMemo(() => resolveModeEntry(topFoodsDate), [resolveModeEntry, topFoodsDate]);
+  const topFoodsEntry = goalTargetEntry;
 
   // Load earned badges from Supabase on sign-in
   useEffect(() => {
@@ -1451,7 +1441,7 @@ export default function MacroTrackerApp(){
   const topFoods = useMemo(()=>{
     const map = new Map();
     entries
-      .filter(e=>e.date===topFoodsDate)
+      .filter(e=>e.date===dashboardDate)
       .forEach(e=>{
         const f=foods.find(x=>x.id===e.foodId);
         if(!f) return;
@@ -1466,12 +1456,12 @@ export default function MacroTrackerApp(){
     const remainder = Math.max(0,total-topSum);
     const items = remainder>0 ? [...topFive,{name:'Other',val:remainder,isOther:true}] : topFive;
     return { items, total };
-  },[entries,foods,topFoodsDate,topMacroKey]);
+  },[entries,foods,dashboardDate,topMacroKey]);
 
-  const goalTotals = useMemo(()=> totalsForDate(goalDate),[entries, foods, goalDate]);
+  const goalTotals = useMemo(()=> totalsForDate(dashboardDate),[entries, foods, dashboardDate]);
 
   const weeklyNutrition = useMemo(() => {
-    const targetISO = ISO_DATE_RE.test(goalDate) ? goalDate : todayISO();
+    const targetISO = ISO_DATE_RE.test(dashboardDate) ? dashboardDate : todayISO();
     const weekAnchor = ISO_DATE_RE.test(weekNavDate) ? weekNavDate : todayISO();
     const weekStartDate = startOfWeek(new Date(`${weekAnchor}T00:00:00`), { weekStartsOn: 1 });
     const weekEndDate = endOfWeek(new Date(`${weekAnchor}T00:00:00`), { weekStartsOn: 1 });
@@ -1530,7 +1520,7 @@ export default function MacroTrackerApp(){
       rows,
       weekLabel: `${format(weekStartDate, "MMM d")} – ${format(weekEndDate, "MMM d")}`,
     };
-  }, [goalDate, weekNavDate, entries, foods, goalValuesForDate]);
+  }, [dashboardDate, weekNavDate, entries, foods, goalValuesForDate]);
 
   const weekNavAtCurrentWeek = useMemo(() => {
     const anchor = ISO_DATE_RE.test(weekNavDate) ? weekNavDate : todayISO();
@@ -1539,7 +1529,7 @@ export default function MacroTrackerApp(){
     return wStart >= thisWeekStart;
   }, [weekNavDate]);
 
-  const entriesForSplitDate = useMemo(()=> entries.filter((e)=>e.date===splitDate),[entries, splitDate]);
+  const entriesForSplitDate = useMemo(()=> entries.filter((e)=>e.date===dashboardDate),[entries, dashboardDate]);
 
   // Meal-split dataset for dashboard (stacked bar)
   const mealSplit = useMemo(()=>{
@@ -2396,6 +2386,11 @@ export default function MacroTrackerApp(){
 
           {/* DASHBOARD */}
           <TabsContent value="dashboard" className="mt-6 space-y-6">
+            {/* Single shared date picker for Goal vs Actual, Macro Split, Top Foods, and Weekly Nutrition */}
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-slate-500 dark:text-slate-400">Dashboard date</p>
+              <DatePickerButton value={dashboardDate} onChange={(v) => setDashboardDate(v || todayISO())} className="w-44" />
+            </div>
             <div className="grid lg:grid-cols-2 gap-4">
               <Card className="h-full min-h-[360px] flex flex-col">
                 <CardHeader>
@@ -2403,7 +2398,6 @@ export default function MacroTrackerApp(){
                     <CardTitle>Goal vs Actual</CardTitle>
                     <div className="flex items-center gap-2">
                       <GoalModeBadge value={goalDateEntry} />
-                      <DatePickerButton value={goalDate} onChange={(value)=>setGoalDate(value||todayISO())} className="w-full sm:w-44" />
                     </div>
                   </div>
                 </CardHeader>
@@ -2607,7 +2601,6 @@ export default function MacroTrackerApp(){
                   <CardTitle className="flex items-center gap-2"><UtensilsCrossed className="h-5 w-5"/>Macro Split per Meal</CardTitle>
                   <div className="flex items-center gap-2">
                     <GoalModeBadge value={splitEntry} />
-                    <DatePickerButton value={splitDate} onChange={(value)=>setSplitDate(value||todayISO())} className="w-full sm:w-44" />
                   </div>
                 </div>
               </CardHeader>
@@ -2713,8 +2706,7 @@ export default function MacroTrackerApp(){
               topFoods={topFoods}
               topMacroKey={topMacroKey}
               onMacroChange={setTopMacroKey}
-              selectedDate={topFoodsDate}
-              onDateChange={(value)=>setTopFoodsDate(value||todayISO())}
+              selectedDate={dashboardDate}
               goalMode={topFoodsEntry}
             />
 
@@ -4593,7 +4585,7 @@ function GoalDonut({ label, theme, actual, goal, unit }) {
     </div>
   );
 }
-function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDateChange, goalMode }) {
+function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, goalMode }) {
   const dayLabel = selectedDate ? format(new Date(selectedDate), "PP") : "Select a day";
   const gradientPrefix = useId();
   const unit = topMacroKey === "kcal" ? "kcal" : "g";
@@ -4666,7 +4658,6 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, onDa
           <CardTitle className="min-w-0 truncate">Top Foods by Macros — {dayLabel}</CardTitle>
           <div className="flex flex-wrap items-center gap-2">
             <GoalModeBadge value={goalMode} />
-            <DatePickerButton value={selectedDate} onChange={onDateChange} className="w-full sm:w-44" />
             <Select value={topMacroKey} onValueChange={onMacroChange}>
               <SelectTrigger className="h-8 w-full sm:w-40">
                 <SelectValue placeholder="Macro" />
