@@ -77,6 +77,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { format, formatDistanceToNow, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval, startOfWeek, endOfWeek } from "date-fns";
 
@@ -2230,6 +2232,17 @@ export default function MacroTrackerApp(){
               <LogOut className="h-4 w-4" />
               <span className="hidden sm:inline">Sign out</span>
             </Button>
+            <button
+              type="button"
+              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+              className="h-9 w-9 sm:h-10 sm:w-10 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500 transition hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+              aria-label="Toggle light/dark mode"
+              title={resolvedTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {resolvedTheme === 'dark'
+                ? <Sun className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+                : <Moon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />}
+            </button>
             <button
               type="button"
               onClick={() => setTab('settings')}
