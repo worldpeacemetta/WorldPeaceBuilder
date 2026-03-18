@@ -2879,7 +2879,7 @@ export default function MacroTrackerApp(){
                         <TableHead className="text-right">
                           <button type="button" onClick={()=>toggleFoodSort("fat")} className="ml-auto flex items-center gap-1 text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Fat (g)</span>{renderSortIcon("fat")}</button>
                         </TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead className="text-right sticky right-0 bg-white dark:bg-slate-900 border-l border-slate-100 dark:border-slate-800">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -4433,7 +4433,7 @@ function MobileFoodCard({ food, onEdit, onDelete }) {
 
 function EditableFoodRow({ food, onEdit, onDelete }) {
   return (
-    <TableRow>
+    <TableRow className="group">
       <TableCell className="align-middle">
         <div className="flex items-center gap-2 min-w-0">
           <span>{getCategoryEmoji(food.category)}</span>
@@ -4452,7 +4452,7 @@ function EditableFoodRow({ food, onEdit, onDelete }) {
       <TableCell className="text-right tabular-nums align-middle">{formatNumber(food.protein)}</TableCell>
       <TableCell className="text-right tabular-nums align-middle">{formatNumber(food.carbs)}</TableCell>
       <TableCell className="text-right tabular-nums align-middle">{formatNumber(food.fat)}</TableCell>
-      <TableCell className="text-right align-middle">
+      <TableCell className="text-right align-middle sticky right-0 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/50 border-l border-slate-100 dark:border-slate-800">
         <div className="flex justify-end gap-1">
           <Button variant="ghost" size="icon" onClick={() => onEdit(food)}><Pencil className="h-4 w-4" /></Button>
           <Button variant="ghost" size="icon" onClick={() => onDelete(food)}><Trash2 className="h-4 w-4" /></Button>
