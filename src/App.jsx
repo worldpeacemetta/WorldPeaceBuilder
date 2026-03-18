@@ -4674,6 +4674,10 @@ function FoodInput({ foods, selectedFoodId, onSelect }){
   const current = foods.find(f=>f.id===selectedFoodId) || null;
   const results = useMemo(()=>{ if(!query.trim()) return foods.slice(0,20); const q=query.toLowerCase(); return foods.filter(f=>`${f.name}`.toLowerCase().includes(q)).slice(0,20); },[query,foods]);
   const handlePick = (f)=>{ onSelect(f.id); setQuery(f.name); setOpen(false); };
+  useEffect(()=>{
+    if(selectedFoodId){ const f=foods.find(x=>x.id===selectedFoodId); if(f) setQuery(f.name); }
+    else setQuery("");
+  },[selectedFoodId]);
   return (
     <div className="relative">
       <Input
