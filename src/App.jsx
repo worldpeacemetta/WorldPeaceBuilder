@@ -695,6 +695,11 @@ export default function MacroTrackerApp(){
   const [settings, setSettings] = useState(()=> ensureSettings(stripProfileSettingsForStorage(load(K_SETTINGS, DEFAULT_SETTINGS))));
   const [tab, setTab] = useState('dashboard');
   const [foodPendingDelete, setFoodPendingDelete] = useState(null);
+  const [foodCategoryFilter, setFoodCategoryFilter] = useState(null);
+  const [foodSelectedIds, setFoodSelectedIds] = useState(new Set());
+  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+  const [foodAddOpen, setFoodAddOpen] = useState(false);
+  const [foodAddTab, setFoodAddTab] = useState("single");
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaveError, setProfileSaveError] = useState("");
@@ -1371,14 +1376,23 @@ export default function MacroTrackerApp(){
   }, [foods, foodSort]);
 
   const filteredFoods = useMemo(() => {
+    let list = sortedFoods;
+    if (foodCategoryFilter) {
+      list = list.filter(f => (f.category ?? DEFAULT_CATEGORY) === foodCategoryFilter);
+    }
     const q = foodSearch.trim().toLowerCase();
-    if (!q) return sortedFoods;
-    return sortedFoods.filter(f =>
+    if (!q) return list;
+    return list.filter(f =>
       f.name.toLowerCase().includes(q) ||
       (f.brand ?? "").toLowerCase().includes(q) ||
       getCategoryLabel(f.category ?? DEFAULT_CATEGORY).toLowerCase().includes(q)
     );
-  }, [sortedFoods, foodSearch]);
+  }, [sortedFoods, foodSearch, foodCategoryFilter]);
+
+  const availableCategories = useMemo(() => {
+    const seen = new Set(foods.map(f => f.category ?? DEFAULT_CATEGORY));
+    return FOOD_CATEGORIES.filter(c => seen.has(c.value));
+  }, [foods]);
 
   // Trend
   const [trendRange, setTrendRange] = useState('7');
@@ -1647,6 +1661,16 @@ export default function MacroTrackerApp(){
 
   function requestDeleteFood(food){
     setFoodPendingDelete(food);
+  }
+
+  async function bulkDeleteFoods(ids) {
+    if (!session?.user?.id) return;
+    const idArray = [...ids];
+    const { error } = await supabase.from("foods").delete().in("id", idArray).eq("user_id", session.user.id);
+    if (error) { alert(error.message || "Unable to delete foods."); return; }
+    setFoods(prev => prev.filter(f => !ids.has(f.id)));
+    setFoodSelectedIds(new Set());
+    setBulkDeleteConfirmOpen(false);
   }
 
   async function confirmDeleteFood(){
@@ -2194,15 +2218,6 @@ export default function MacroTrackerApp(){
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
-            <Button variant="ghost" className={headerPillClass} onClick={exportJSON} title="Export">
-              <Download className="h-4 w-4" />
-              <span className="hidden sm:inline">Export</span>
-            </Button>
-            <label className={`inline-flex items-center ${headerPillClass} cursor-pointer`} title="Import">
-              <Upload className="h-4 w-4" />
-              <span className="hidden sm:inline">Import</span>
-              <input type="file" accept="application/json" className="hidden" onChange={(e)=>e.target.files&&importJSON(e.target.files[0])} />
-            </label>
             {activeSetup === "dual" ? (
               <GoalModeToggle active={activeDualProfile} onChange={handleDualProfileChange} />
             ) : (
@@ -2811,26 +2826,71 @@ export default function MacroTrackerApp(){
           </TabsContent>
 
           {/* FOOD DB */}
-          <TabsContent value="foods" className="mt-6 space-y-6">
-            {foodsLoading ? (
-                <Card>
-                  <CardContent className="py-6 text-sm text-slate-500">Loading foods...</CardContent>
-                </Card>
-              ) : <AddFoodCard foods={foods} onAdd={addFood} />}
+          <TabsContent value="foods" className="mt-6 space-y-4">
+            {foodAddOpen && !foodsLoading && (
+              <AddFoodCard
+                foods={foods}
+                onAdd={addFood}
+                tab={foodAddTab}
+                onClose={() => setFoodAddOpen(false)}
+              />
+            )}
             <Card>
-              <CardHeader>
+              <CardHeader className="pb-3">
+                {/* Top row: title + action buttons */}
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <CardTitle>Database — {foods.length} items</CardTitle>
-                  <div className="flex items-center gap-2 text-xs text-slate-500 sm:hidden">
-                    <span>Sort:</span>
-                    {["name","kcal","protein"].map(col=>(
-                      <button key={col} type="button" onClick={()=>toggleFoodSort(col)} className="flex items-center gap-0.5 capitalize font-medium text-slate-600 dark:text-slate-300">
-                        {col}{renderSortIcon(col)}
-                      </button>
-                    ))}
+                  <div>
+                    <CardTitle className="text-base">
+                      {foodSearch || foodCategoryFilter
+                        ? `${filteredFoods.length} of ${foods.length} items`
+                        : `Database — ${foods.length} items`}
+                    </CardTitle>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {foodSelectedIds.size > 0 && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setBulkDeleteConfirmOpen(true)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                        Delete {foodSelectedIds.size} selected
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => { setFoodAddTab("single"); setFoodAddOpen(true); }}
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1" />Add Food
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => { setFoodAddTab("recipe"); setFoodAddOpen(true); }}
+                    >
+                      <ChefHat className="h-3.5 w-3.5 mr-1" />Add Recipe
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={exportJSON} title="Export backup">
+                      <Download className="h-3.5 w-3.5 mr-1" />Export
+                    </Button>
+                    <label className="inline-flex items-center gap-1 cursor-pointer rounded-md px-2.5 py-1.5 text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8" title="Import backup">
+                      <Upload className="h-3.5 w-3.5" />Import
+                      <input type="file" accept="application/json" className="hidden" onChange={(e)=>e.target.files&&importJSON(e.target.files[0])} />
+                    </label>
                   </div>
                 </div>
-                <div className="relative mt-1">
+                {/* Mobile sort */}
+                <div className="flex items-center gap-2 text-xs text-slate-500 sm:hidden mt-1">
+                  <span>Sort:</span>
+                  {["name","kcal","fat"].map(col=>(
+                    <button key={col} type="button" onClick={()=>toggleFoodSort(col)} className="flex items-center gap-0.5 capitalize font-medium text-slate-600 dark:text-slate-300">
+                      {col}{renderSortIcon(col)}
+                    </button>
+                  ))}
+                </div>
+                {/* Search */}
+                <div className="relative mt-2">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                   <Input
                     className="pl-8 h-8 text-sm"
@@ -2844,56 +2904,107 @@ export default function MacroTrackerApp(){
                     </button>
                   )}
                 </div>
+                {/* Category filter chips */}
+                {availableCategories.length > 0 && (
+                  <div className="flex gap-1.5 flex-wrap mt-2">
+                    {availableCategories.map(cat => (
+                      <button
+                        key={cat.value}
+                        type="button"
+                        onClick={() => setFoodCategoryFilter(prev => prev === cat.value ? null : cat.value)}
+                        className={cn(
+                          "text-xs px-2 py-0.5 rounded-full border transition",
+                          foodCategoryFilter === cat.value
+                            ? "bg-slate-900 text-white border-slate-900 dark:bg-slate-100 dark:text-slate-900 dark:border-slate-100"
+                            : "border-slate-200 hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-500"
+                        )}
+                      >
+                        {cat.emoji} {cat.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="p-0 sm:p-6 sm:pt-0">
-                {/* Mobile card list */}
-                <div className="sm:hidden divide-y divide-slate-100 dark:divide-slate-800">
-                  {filteredFoods.length === 0 && (
-                    <p className="p-4 text-center text-sm text-slate-500">{foodSearch ? "No foods match your search." : "Your database is empty. Add foods above or import a backup."}</p>
-                  )}
-                  {filteredFoods.map((f)=>(
-                    <MobileFoodCard key={f.id} food={f} onEdit={setFoodEditTarget} onDelete={requestDeleteFood} />
-                  ))}
-                </div>
-                {/* Desktop table */}
-                <div className="hidden sm:block overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>
-                          <button type="button" onClick={()=>toggleFoodSort("name")} className="flex w-full items-center gap-1 text-left text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Name</span>{renderSortIcon("name")}</button>
-                        </TableHead>
-                        <TableHead>
-                          <button type="button" onClick={()=>toggleFoodSort("category")} className="flex w-full items-center gap-1 text-left text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Category</span>{renderSortIcon("category")}</button>
-                        </TableHead>
-                        <TableHead>
-                          <button type="button" onClick={()=>toggleFoodSort("unit")} className="flex w-full items-center gap-1 text-left text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Unit</span>{renderSortIcon("unit")}</button>
-                        </TableHead>
-                        <TableHead className="text-right">
-                          <button type="button" onClick={()=>toggleFoodSort("kcal")} className="ml-auto flex items-center gap-1 text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>kcal</span>{renderSortIcon("kcal")}</button>
-                        </TableHead>
-                        <TableHead className="text-right">
-                          <button type="button" onClick={()=>toggleFoodSort("protein")} className="ml-auto flex items-center gap-1 text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Protein (g)</span>{renderSortIcon("protein")}</button>
-                        </TableHead>
-                        <TableHead className="text-right">
-                          <button type="button" onClick={()=>toggleFoodSort("carbs")} className="ml-auto flex items-center gap-1 text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Carbs (g)</span>{renderSortIcon("carbs")}</button>
-                        </TableHead>
-                        <TableHead className="text-right">
-                          <button type="button" onClick={()=>toggleFoodSort("fat")} className="ml-auto flex items-center gap-1 text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Fat (g)</span>{renderSortIcon("fat")}</button>
-                        </TableHead>
-                        <TableHead className="text-right sticky right-0 bg-white dark:bg-slate-900 border-l border-slate-100 dark:border-slate-800">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredFoods.map((f)=> (
-                        <EditableFoodRow key={f.id} food={f} onEdit={setFoodEditTarget} onDelete={requestDeleteFood} />
-                      ))}
-                      {filteredFoods.length===0 && (
-                        <TableRow><TableCell colSpan={8} className="text-center text-slate-500">{foodSearch ? "No foods match your search." : "Your database is empty. Add foods above or import a backup."}</TableCell></TableRow>
+                {foodsLoading ? (
+                  <p className="p-4 text-center text-sm text-slate-500">Loading foods...</p>
+                ) : (
+                  <>
+                    {/* Mobile card list */}
+                    <div className="sm:hidden divide-y divide-slate-100 dark:divide-slate-800">
+                      {filteredFoods.length === 0 && (
+                        <p className="p-4 text-center text-sm text-slate-500">{foodSearch || foodCategoryFilter ? "No foods match your filter." : "Your database is empty. Add foods above or import a backup."}</p>
                       )}
-                    </TableBody>
-                  </Table>
-                </div>
+                      {filteredFoods.map((f)=>(
+                        <MobileFoodCard key={f.id} food={f} onEdit={setFoodEditTarget} onDelete={requestDeleteFood} />
+                      ))}
+                    </div>
+                    {/* Desktop table */}
+                    <div className="hidden sm:block overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-8 pr-0">
+                              <input
+                                type="checkbox"
+                                className="rounded border-slate-300"
+                                checked={filteredFoods.length > 0 && filteredFoods.every(f => foodSelectedIds.has(f.id))}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setFoodSelectedIds(new Set(filteredFoods.map(f => f.id)));
+                                  } else {
+                                    setFoodSelectedIds(new Set());
+                                  }
+                                }}
+                              />
+                            </TableHead>
+                            <TableHead className="w-40">
+                              <button type="button" onClick={()=>toggleFoodSort("name")} className="flex w-full items-center gap-1 text-left text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Name</span>{renderSortIcon("name")}</button>
+                            </TableHead>
+                            <TableHead>
+                              <button type="button" onClick={()=>toggleFoodSort("category")} className="flex w-full items-center gap-1 text-left text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Category</span>{renderSortIcon("category")}</button>
+                            </TableHead>
+                            <TableHead>
+                              <button type="button" onClick={()=>toggleFoodSort("unit")} className="flex w-full items-center gap-1 text-left text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Unit</span>{renderSortIcon("unit")}</button>
+                            </TableHead>
+                            <TableHead className="text-right">
+                              <button type="button" onClick={()=>toggleFoodSort("kcal")} className="ml-auto flex items-center gap-1 text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>kcal</span>{renderSortIcon("kcal")}</button>
+                            </TableHead>
+                            <TableHead className="text-right">
+                              <button type="button" onClick={()=>toggleFoodSort("fat")} className="ml-auto flex items-center gap-1 text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Fat (g)</span>{renderSortIcon("fat")}</button>
+                            </TableHead>
+                            <TableHead className="text-right">
+                              <button type="button" onClick={()=>toggleFoodSort("carbs")} className="ml-auto flex items-center gap-1 text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Carbs (g)</span>{renderSortIcon("carbs")}</button>
+                            </TableHead>
+                            <TableHead className="text-right">
+                              <button type="button" onClick={()=>toggleFoodSort("protein")} className="ml-auto flex items-center gap-1 text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"><span>Protein (g)</span>{renderSortIcon("protein")}</button>
+                            </TableHead>
+                            <TableHead className="text-right sticky right-0 bg-white dark:bg-slate-900 border-l border-slate-100 dark:border-slate-800">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredFoods.map((f)=> (
+                            <EditableFoodRow
+                              key={f.id}
+                              food={f}
+                              onEdit={setFoodEditTarget}
+                              onDelete={requestDeleteFood}
+                              selected={foodSelectedIds.has(f.id)}
+                              onSelect={(id, checked) => setFoodSelectedIds(prev => {
+                                const next = new Set(prev);
+                                if (checked) next.add(id); else next.delete(id);
+                                return next;
+                              })}
+                            />
+                          ))}
+                          {filteredFoods.length===0 && (
+                            <TableRow><TableCell colSpan={9} className="text-center text-slate-500">{foodSearch || foodCategoryFilter ? "No foods match your filter." : "Your database is empty. Add foods above or import a backup."}</TableCell></TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
             {foodEditTarget && (
@@ -2902,8 +3013,28 @@ export default function MacroTrackerApp(){
                 foods={foods}
                 onUpdate={updateFood}
                 onDelete={requestDeleteFood}
+                onAdd={addFood}
                 onClose={() => setFoodEditTarget(null)}
               />
+            )}
+            {/* Bulk delete confirmation */}
+            {bulkDeleteConfirmOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4">
+                <Card className="w-full max-w-md border-slate-200 dark:border-slate-700">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Delete {foodSelectedIds.size} foods</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <p className="text-sm text-slate-600 dark:text-slate-300">
+                      This will permanently delete {foodSelectedIds.size} food {foodSelectedIds.size === 1 ? "entry" : "entries"} from your database. This action cannot be undone.
+                    </p>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="ghost" onClick={() => setBulkDeleteConfirmOpen(false)}>Cancel</Button>
+                      <Button variant="destructive" onClick={() => bulkDeleteFoods(foodSelectedIds)}>Delete {foodSelectedIds.size} foods</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             )}
           </TabsContent>
 
@@ -4457,9 +4588,9 @@ function MobileFoodCard({ food, onEdit, onDelete }) {
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500 mt-0.5">
             <span className="font-medium text-slate-700 dark:text-slate-300">{formatNumber(food.kcal)} kcal</span>
-            <span>P {formatNumber(food.protein)}g</span>
-            <span>C {formatNumber(food.carbs)}g</span>
             <span>F {formatNumber(food.fat)}g</span>
+            <span>C {formatNumber(food.carbs)}g</span>
+            <span>P {formatNumber(food.protein)}g</span>
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -4471,13 +4602,35 @@ function MobileFoodCard({ food, onEdit, onDelete }) {
   );
 }
 
-function EditableFoodRow({ food, onEdit, onDelete }) {
+function EditableFoodRow({ food, onEdit, onDelete, selected, onSelect }) {
+  const totalMacros = (food.fat ?? 0) + (food.carbs ?? 0) + (food.protein ?? 0);
+  const fatPct = totalMacros > 0 ? ((food.fat ?? 0) / totalMacros) * 100 : 0;
+  const carbsPct = totalMacros > 0 ? ((food.carbs ?? 0) / totalMacros) * 100 : 0;
+  const proteinPct = totalMacros > 0 ? ((food.protein ?? 0) / totalMacros) * 100 : 0;
   return (
     <TableRow className="group">
-      <TableCell className="align-middle">
+      <TableCell className="w-8 pr-0 align-middle">
+        <input
+          type="checkbox"
+          className="rounded border-slate-300"
+          checked={selected}
+          onChange={(e) => onSelect(food.id, e.target.checked)}
+          onClick={(e) => e.stopPropagation()}
+        />
+      </TableCell>
+      <TableCell className="align-middle w-40 max-w-[160px]">
         <div className="flex items-center gap-2 min-w-0">
-          <span>{getCategoryEmoji(food.category)}</span>
-          <span className="truncate" title={food.name}>{food.name}</span>
+          <span className="shrink-0">{getCategoryEmoji(food.category)}</span>
+          <div className="min-w-0">
+            <span className="block truncate text-sm" title={food.name}>{food.name}</span>
+            {totalMacros > 0 && (
+              <div className="flex h-1 mt-0.5 rounded-full overflow-hidden w-full max-w-[100px]" title={`Fat ${Math.round(fatPct)}% · Carbs ${Math.round(carbsPct)}% · Protein ${Math.round(proteinPct)}%`}>
+                <div style={{ width: `${fatPct}%` }} className="bg-amber-400" />
+                <div style={{ width: `${carbsPct}%` }} className="bg-sky-400" />
+                <div style={{ width: `${proteinPct}%` }} className="bg-emerald-400" />
+              </div>
+            )}
+          </div>
         </div>
       </TableCell>
       <TableCell className="align-middle">
@@ -4489,9 +4642,9 @@ function EditableFoodRow({ food, onEdit, onDelete }) {
         </span>
       </TableCell>
       <TableCell className="text-right tabular-nums align-middle">{formatNumber(food.kcal)}</TableCell>
-      <TableCell className="text-right tabular-nums align-middle">{formatNumber(food.protein)}</TableCell>
-      <TableCell className="text-right tabular-nums align-middle">{formatNumber(food.carbs)}</TableCell>
       <TableCell className="text-right tabular-nums align-middle">{formatNumber(food.fat)}</TableCell>
+      <TableCell className="text-right tabular-nums align-middle">{formatNumber(food.carbs)}</TableCell>
+      <TableCell className="text-right tabular-nums align-middle">{formatNumber(food.protein)}</TableCell>
       <TableCell className="text-right align-middle sticky right-0 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/50 border-l border-slate-100 dark:border-slate-800">
         <div className="flex justify-end gap-1">
           <Button variant="ghost" size="icon" onClick={() => onEdit(food)}><Pencil className="h-4 w-4" /></Button>
@@ -4501,7 +4654,7 @@ function EditableFoodRow({ food, onEdit, onDelete }) {
     </TableRow>
   );
 }
-function FoodEditDrawer({ food, foods, onUpdate, onDelete, onClose }) {
+function FoodEditDrawer({ food, foods, onUpdate, onDelete, onAdd, onClose }) {
   const [form, setForm] = useState(() => ({
     name: food.name,
     category: food.category ?? DEFAULT_CATEGORY,
@@ -4541,11 +4694,24 @@ function FoodEditDrawer({ food, foods, onUpdate, onDelete, onClose }) {
     });
   }, [form.category, derived.kcal, derived.protein, derived.carbs, derived.fat]);
 
+  const isDirty = form.name !== food.name ||
+    form.category !== (food.category ?? DEFAULT_CATEGORY) ||
+    form.unit !== food.unit ||
+    form.kcal !== String(food.kcal ?? 0) ||
+    form.protein !== String(food.protein ?? 0) ||
+    form.carbs !== String(food.carbs ?? 0) ||
+    form.fat !== String(food.fat ?? 0);
+
+  function handleClose() {
+    if (isDirty && !confirm("You have unsaved changes. Discard them?")) return;
+    onClose();
+  }
+
   useEffect(() => {
-    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    const handler = (e) => { if (e.key === "Escape") handleClose(); };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
+  }, [isDirty]);
 
   function handleSave() {
     if (!form.name.trim()) { alert("Enter a food name"); return; }
@@ -4573,9 +4739,32 @@ function FoodEditDrawer({ food, foods, onUpdate, onDelete, onClose }) {
     onClose();
   }
 
+  function handleDuplicate() {
+    const sizeValue = Math.max(1, toNumber(form.servingSize, 1));
+    const includeSize = form.category === "homeRecipe" || isPerServing;
+    const components = (form.components ?? [])
+      .map((c) => ({ foodId: c.foodId, quantity: toNumber(c.quantity, 0) }))
+      .filter((c) => c.foodId && c.quantity > 0);
+    const payload = {
+      id: crypto.randomUUID(),
+      name: form.name.trim() + " (copy)",
+      category: form.category,
+      unit: form.unit,
+      servingSize: includeSize ? sizeValue : undefined,
+      kcal: toNumber(form.kcal, 0),
+      protein: toNumber(form.protein, 0),
+      carbs: toNumber(form.carbs, 0),
+      fat: toNumber(form.fat, 0),
+      createdAt: new Date().toISOString(),
+    };
+    if (form.category === "homeRecipe") payload.components = components;
+    onAdd(payload);
+    onClose();
+  }
+
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-black/40" onClick={handleClose} />
       <div className="fixed right-0 top-0 z-50 flex h-full w-full flex-col bg-white shadow-2xl dark:bg-slate-950 sm:w-[480px]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
@@ -4583,7 +4772,7 @@ function FoodEditDrawer({ food, foods, onUpdate, onDelete, onClose }) {
             <h2 className="font-semibold text-base">Edit food</h2>
             <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[320px]">{food.name}</p>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={handleClose}><X className="h-4 w-4" /></Button>
         </div>
 
         {/* Body */}
@@ -4630,7 +4819,7 @@ function FoodEditDrawer({ food, foods, onUpdate, onDelete, onClose }) {
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Macros</Label>
             <div className="grid grid-cols-2 gap-3">
-              {[["kcal", "kcal"], ["protein", "Protein (g)"], ["carbs", "Carbs (g)"], ["fat", "Fat (g)"]].map(([key, label]) => (
+              {[["kcal", "kcal"], ["fat", "Fat (g)"], ["carbs", "Carbs (g)"], ["protein", "Protein (g)"]].map(([key, label]) => (
                 <div key={key} className="space-y-1">
                   <Label className="text-xs text-slate-500">{label}</Label>
                   <Input
@@ -4668,7 +4857,10 @@ function FoodEditDrawer({ food, foods, onUpdate, onDelete, onClose }) {
         {/* Footer */}
         <div className="flex items-center gap-2 border-t border-slate-200 px-5 py-4 dark:border-slate-800">
           <Button onClick={handleSave}>Save changes</Button>
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button variant="ghost" onClick={handleClose}>Cancel</Button>
+          <Button variant="outline" onClick={handleDuplicate} title="Duplicate this food">
+            Duplicate
+          </Button>
           <Button
             variant="ghost"
             className="ml-auto text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
@@ -4889,8 +5081,9 @@ function BarcodeScannerModal({ onResult, onClose }) {
   );
 }
 
-function AddFoodCard({ foods, onAdd }){
-  const [activeTab, setActiveTab] = useState("single");
+function AddFoodCard({ foods, onAdd, tab, onClose }){
+  const [activeTab, setActiveTab] = useState(tab ?? "single");
+  useEffect(() => { if (tab) setActiveTab(tab); }, [tab]);
   const [basicForm, setBasicForm] = useState(()=>createBasicFoodForm());
   const [recipeForm, setRecipeForm] = useState(()=>createRecipeForm());
   const [showScanner, setShowScanner] = useState(false);
@@ -4946,6 +5139,7 @@ function AddFoodCard({ foods, onAdd }){
     };
     onAdd(payload);
     setBasicForm(createBasicFoodForm());
+    onClose?.();
   }
 
   function handleAddRecipe(){
@@ -4973,12 +5167,18 @@ function AddFoodCard({ foods, onAdd }){
     onAdd(payload);
     setRecipeForm(createRecipeForm());
     setRecipeIngredients([]);
+    onClose?.();
   }
 
   return (
     <>
     <Card>
-      <CardHeader><CardTitle>Add Food to Database</CardTitle></CardHeader>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle>{activeTab === "recipe" ? "Add Home Recipe" : "Add Food"}</CardTitle>
+          {onClose && <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>}
+        </div>
+      </CardHeader>
       <CardContent className="space-y-4">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full max-w-xs grid-cols-2 rounded-full border border-slate-200 bg-white/80 p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
