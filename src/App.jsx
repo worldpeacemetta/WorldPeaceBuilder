@@ -79,6 +79,7 @@ import {
   Loader2,
   Sun,
   Moon,
+  Copy,
 } from "lucide-react";
 import { format, formatDistanceToNow, startOfDay, subDays, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval, startOfWeek, endOfWeek } from "date-fns";
 
@@ -667,6 +668,7 @@ function suggestMealByNow(){
 }
 
 const MEAL_LABELS = { breakfast:'Breakfast', lunch:'Lunch', dinner:'Dinner', snack:'Snack', other:'Other' };
+const MEAL_EMOJIS = { breakfast:'🌅', lunch:'☀️', dinner:'🌙', snack:'🍎', other:'🍽️' };
 const MEAL_ORDER = ['breakfast','lunch','dinner','snack','other'];
 
 /*******************
@@ -1084,6 +1086,34 @@ export default function MacroTrackerApp(){
   const stickyDate = stickyMode==='today'? todayISO(): logDate;
   const stickyTotals = useMemo(()=> totalsForDate(stickyDate), [entries,foods,stickyDate]);
   const totalsForCard = useMemo(()=> totalsForDate(logDate), [rowsForDay]);
+
+  const recentFoods = useMemo(() => {
+    const seen = new Set();
+    const result = [];
+    const sorted = [...entries].sort((a, b) => b.date.localeCompare(a.date));
+    for (const e of sorted) {
+      if (e.foodId && !seen.has(e.foodId)) {
+        const f = foods.find(x => x.id === e.foodId);
+        if (f) { seen.add(e.foodId); result.push(f); if (result.length >= 6) break; }
+      }
+    }
+    return result;
+  }, [entries, foods]);
+
+  async function copyPreviousDay() {
+    if (!session?.user?.id) return;
+    const prevDate = format(subDays(new Date(logDate), 1), 'yyyy-MM-dd');
+    const prevEntries = entries.filter(e => e.date === prevDate);
+    if (prevEntries.length === 0) { alert('No entries found for the previous day.'); return; }
+    for (const e of prevEntries) {
+      const payload = { user_id: session.user.id, date: logDate, food_id: e.foodId, qty: e.qty, meal: e.meal };
+      const { data, error } = await supabase.from('entries').insert(payload);
+      if (error) { alert(error.message || 'Unable to copy entries.'); return; }
+      const inserted = Array.isArray(data) ? data[0] : null;
+      if (!inserted) continue;
+      setEntries(prev => [{ id: inserted.id, date: inserted.date, foodId: inserted.food_id, qty: Number(inserted.qty) || 0, meal: inserted.meal }, ...prev]);
+    }
+  }
 
   const profileHistory = useMemo(() => ensureBodyHistory(settings.profileHistory), [settings.profileHistory]);
 
@@ -2677,14 +2707,15 @@ export default function MacroTrackerApp(){
 
           {/* DAILY LOG */}
           <TabsContent value="daily" className="mt-6 space-y-6">
-            <Card>
+            {/* Log intake form */}
+            <Card className="overflow-hidden">
               <CardHeader>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <CardTitle className="flex items-center gap-2"><History className="h-5 w-5"/>Log your intake</CardTitle>
                   <GoalModeSelect value={logDateEntry} onChange={(entry)=>setModeEntryForDate(logDate || todayISO(), entry)} />
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 <div className="grid md:grid-cols-6 gap-3 items-end">
                   <div className="md:col-span-2">
                     <Label className="text-sm">Date</Label>
@@ -2728,112 +2759,177 @@ export default function MacroTrackerApp(){
                     <Button className="w-full" onClick={addEntry} disabled={!selectedFood || !qty || qty <= 0}><Plus className="h-4 w-4"/> Add</Button>
                   </div>
                 </div>
+                {/* Recent foods chips */}
+                {recentFoods.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
+                    <span className="text-xs text-slate-400 dark:text-slate-500 mr-0.5">Recent:</span>
+                    {recentFoods.map(f => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setSelectedFoodId(f.id)}
+                        className={cn(
+                          "text-xs px-2.5 py-1 rounded-full border transition",
+                          selectedFoodId === f.id
+                            ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 border-transparent"
+                            : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-slate-400 dark:hover:border-slate-500"
+                        )}
+                      >
+                        {f.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader><CardTitle>Entries — {format(new Date(logDate), "PPPP")}</CardTitle></CardHeader>
-              <CardContent>
-                {entriesLoading ? (
-                  <div className="text-center text-slate-500">Loading entries...</div>
-                ) : MEAL_ORDER.map(mk=>{
-                  const group = rowsForDay.filter(r=> (r.meal||'other')===mk);
-                  if(group.length===0) return null;
-                  const totals = sumMacros(group);
-                  return (
-                    <div key={mk} className="mb-6">
-                      <div className="flex items-center gap-2 text-sm font-semibold mb-2"><UtensilsCrossed className="h-4 w-4"/>{MEAL_LABELS[mk]}</div>
-
-                      {/* Mobile card layout */}
-                      <div className="sm:hidden space-y-2">
-                        {group.map((r)=>(
-                          <div key={r.id} className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 space-y-2">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1 min-w-0">
-                                <EditableFoodCell entryId={r.id} currentFoodId={r.foodId||null} fallbackLabel={r.label} foods={foods} onSelect={(foodId)=>updateEntryFood(r.id, foodId)} />
-                              </div>
-                              <div className="flex items-center gap-1 shrink-0">
-                                <MealSelectCell value={r.meal||'other'} onChange={(m)=>updateEntryMeal(r.id, m)} />
-                                <Button variant="ghost" size="icon" onClick={()=>removeEntry(r.id)}><Trash2 className="h-4 w-4"/></Button>
-                              </div>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-                              <label className="flex items-center gap-1">
-                                <span>Qty</span>
-                                <input className="w-16 bg-transparent border rounded px-1.5 py-0.5 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100" type="number" step="0.1" defaultValue={r.qty} onBlur={(e)=>updateEntryQuantity(r.id, parseFloat(e.target.value))} onKeyDown={(e)=>{ if(e.key==='Enter'){ e.target.blur(); } }} />
-                              </label>
-                              <span className="font-medium text-slate-700 dark:text-slate-300">{r.kcal.toFixed(0)} kcal</span>
-                              <span>P {r.protein.toFixed(1)}g</span>
-                              <span>C {r.carbs.toFixed(1)}g</span>
-                              <span>F {r.fat.toFixed(1)}g</span>
-                            </div>
-                          </div>
-                        ))}
-                        <div className="text-xs text-right text-slate-500 font-medium pt-1 pr-1">
-                          Subtotal: {totals.kcal.toFixed(0)} kcal · P {totals.protein.toFixed(1)}g · C {totals.carbs.toFixed(1)}g · F {totals.fat.toFixed(1)}g
-                        </div>
-                      </div>
-
-                      {/* Desktop table layout */}
-                      <div className="hidden sm:block overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Food</TableHead>
-                              <TableHead className="text-right">Qty</TableHead>
-                              <TableHead className="text-right">kcal</TableHead>
-                              <TableHead className="text-right">Protein (g)</TableHead>
-                              <TableHead className="text-right">Carbs (g)</TableHead>
-                              <TableHead className="text-right">Fat (g)</TableHead>
-                              <TableHead>Meal</TableHead>
-                              <TableHead></TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {group.map((r)=> (
-                              <TableRow key={r.id}>
-                                <TableCell>
-                                  <EditableFoodCell entryId={r.id} currentFoodId={r.foodId||null} fallbackLabel={r.label} foods={foods} onSelect={(foodId)=>updateEntryFood(r.id, foodId)} />
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <input className="w-20 text-right bg-transparent border rounded px-2 py-1 border-slate-200 dark:border-slate-700" type="number" step="0.1" defaultValue={r.qty} onBlur={(e)=>updateEntryQuantity(r.id, parseFloat(e.target.value))} onKeyDown={(e)=>{ if(e.key==='Enter'){ e.target.blur(); } }} />
-                                </TableCell>
-                                <TableCell className="text-right">{r.kcal.toFixed(0)}</TableCell>
-                                <TableCell className="text-right">{r.protein.toFixed(1)}</TableCell>
-                                <TableCell className="text-right">{r.carbs.toFixed(1)}</TableCell>
-                                <TableCell className="text-right">{r.fat.toFixed(1)}</TableCell>
-                                <TableCell>
-                                  <MealSelectCell value={r.meal||'other'} onChange={(m)=>updateEntryMeal(r.id, m)} />
-                                </TableCell>
-                                <TableCell className="text-right"><Button variant="ghost" size="icon" onClick={()=>removeEntry(r.id)}><Trash2 className="h-4 w-4"/></Button></TableCell>
-                              </TableRow>
-                            ))}
-                            <TableRow>
-                              <TableCell className="font-medium">Subtotal</TableCell>
-                              <TableCell></TableCell>
-                              <TableCell className="text-right font-medium">{totals.kcal.toFixed(0)}</TableCell>
-                              <TableCell className="text-right font-medium">{totals.protein.toFixed(1)}</TableCell>
-                              <TableCell className="text-right font-medium">{totals.carbs.toFixed(1)}</TableCell>
-                              <TableCell className="text-right font-medium">{totals.fat.toFixed(1)}</TableCell>
-                              <TableCell colSpan={2}></TableCell>
-                            </TableRow>
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {!entriesLoading && rowsForDay.length===0 && (
-                  <div className="text-center text-slate-500">No entries yet for this day.</div>
-                )}
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-                  <Card className="bg-slate-50 dark:bg-slate-900/40"><CardHeader className="py-3"><CardTitle className="text-sm">Total kcal</CardTitle></CardHeader><CardContent className="pt-0 text-2xl font-semibold">{totalsForCard.kcal.toFixed(0)}</CardContent></Card>
-                  <Card className="bg-slate-50 dark:bg-slate-900/40"><CardHeader className="py-3"><CardTitle className="text-sm">Protein (g)</CardTitle></CardHeader><CardContent className="pt-0 text-2xl font-semibold">{totalsForCard.protein.toFixed(1)}</CardContent></Card>
-                  <Card className="bg-slate-50 dark:bg-slate-900/40"><CardHeader className="py-3"><CardTitle className="text-sm">Carbs (g)</CardTitle></CardHeader><CardContent className="pt-0 text-2xl font-semibold">{totalsForCard.carbs.toFixed(1)}</CardContent></Card>
-                  <Card className="bg-slate-50 dark:bg-slate-900/40"><CardHeader className="py-3"><CardTitle className="text-sm">Fat (g)</CardTitle></CardHeader><CardContent className="pt-0 text-2xl font-semibold">{totalsForCard.fat.toFixed(1)}</CardContent></Card>
+            {/* Entries card */}
+            <Card className="overflow-hidden">
+              <CardHeader>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <CardTitle className="flex flex-wrap items-baseline gap-2">
+                    <span>Entries</span>
+                    <span className="text-sm font-normal text-slate-400 dark:text-slate-500">{format(new Date(logDate), "PPPP")}</span>
+                  </CardTitle>
+                  <Button variant="outline" size="sm" onClick={copyPreviousDay} title="Copy all entries from the previous day" className="gap-1.5 text-xs">
+                    <Copy className="h-3.5 w-3.5" />
+                    <span>Copy prev. day</span>
+                  </Button>
                 </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {entriesLoading ? (
+                  <div className="text-center text-slate-500 py-8">Loading entries...</div>
+                ) : (
+                  <>
+                    {/* Mobile layout */}
+                    <div className="sm:hidden divide-y divide-slate-100 dark:divide-slate-800">
+                      {MEAL_ORDER.map(mk => {
+                        const group = rowsForDay.filter(r => (r.meal||'other') === mk);
+                        const totals = sumMacros(group);
+                        const mealPct = totalsForCard.kcal > 0 ? Math.round((totals.kcal / totalsForCard.kcal) * 100) : 0;
+                        return (
+                          <div key={mk} className="px-4 py-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-semibold">{MEAL_EMOJIS[mk]} {MEAL_LABELS[mk]}</span>
+                              {group.length > 0 && mealPct > 0 && (
+                                <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">{mealPct}% of day</span>
+                              )}
+                            </div>
+                            {group.length === 0 ? (
+                              <p className="text-xs text-slate-400 dark:text-slate-500 italic">No entries</p>
+                            ) : (
+                              <>
+                                <div className="space-y-2">
+                                  {group.map((r) => (
+                                    <div key={r.id} className="rounded-lg border border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-900 p-3 space-y-2">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="flex-1 min-w-0">
+                                          <EditableFoodCell entryId={r.id} currentFoodId={r.foodId||null} fallbackLabel={r.label} foods={foods} onSelect={(foodId)=>updateEntryFood(r.id, foodId)} />
+                                        </div>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          <MealSelectCell value={r.meal||'other'} onChange={(m)=>updateEntryMeal(r.id, m)} />
+                                          <Button variant="ghost" size="icon" onClick={()=>removeEntry(r.id)}><Trash2 className="h-4 w-4"/></Button>
+                                        </div>
+                                      </div>
+                                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                                        <label className="flex items-center gap-1">
+                                          <span>Qty</span>
+                                          <input className="w-16 rounded border border-slate-200 dark:border-slate-700 bg-transparent px-1.5 py-0.5 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-slate-400" type="number" step="0.1" defaultValue={r.qty} onBlur={(e)=>updateEntryQuantity(r.id, parseFloat(e.target.value))} onKeyDown={(e)=>{ if(e.key==='Enter'){ e.target.blur(); } }} />
+                                        </label>
+                                        <span className="font-medium text-slate-700 dark:text-slate-300">{r.kcal.toFixed(0)} kcal</span>
+                                        <span>P {r.protein.toFixed(1)}g</span>
+                                        <span>C {r.carbs.toFixed(1)}g</span>
+                                        <span>F {r.fat.toFixed(1)}g</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="text-xs text-right text-slate-400 dark:text-slate-500 font-medium pt-2">
+                                  Subtotal: {totals.kcal.toFixed(0)} kcal · P {totals.protein.toFixed(1)}g · C {totals.carbs.toFixed(1)}g · F {totals.fat.toFixed(1)}g
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Desktop table — single header, meal separator rows */}
+                    <div className="hidden sm:block overflow-x-auto">
+                      <Table>
+                        <TableHeader className="bg-slate-50/70 dark:bg-slate-800/25">
+                          <TableRow>
+                            <TableHead>Food</TableHead>
+                            <TableHead className="w-24 text-right">Qty</TableHead>
+                            <TableHead className="text-right">kcal</TableHead>
+                            <TableHead className="text-right">Protein (g)</TableHead>
+                            <TableHead className="text-right">Carbs (g)</TableHead>
+                            <TableHead className="text-right">Fat (g)</TableHead>
+                            <TableHead className="w-36">Meal</TableHead>
+                            <TableHead className="w-10"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {MEAL_ORDER.map(mk => {
+                            const group = rowsForDay.filter(r => (r.meal||'other') === mk);
+                            const totals = sumMacros(group);
+                            const mealPct = totalsForCard.kcal > 0 ? Math.round((totals.kcal / totalsForCard.kcal) * 100) : 0;
+                            return (
+                              <Fragment key={mk}>
+                                {/* Meal separator */}
+                                <TableRow className="bg-slate-50/70 dark:bg-slate-800/20 hover:bg-slate-50/70 dark:hover:bg-slate-800/20 border-t border-slate-200/80 dark:border-slate-700/50">
+                                  <TableCell colSpan={8} className="py-2 px-3">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{MEAL_EMOJIS[mk]} {MEAL_LABELS[mk]}</span>
+                                      {group.length > 0 && mealPct > 0 && (
+                                        <span className="text-[11px] text-slate-400 dark:text-slate-500">{mealPct}% of day</span>
+                                      )}
+                                      {group.length === 0 && (
+                                        <span className="text-[11px] italic text-slate-400 dark:text-slate-500">No entries</span>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                                {/* Entry rows */}
+                                {group.map((r) => (
+                                  <TableRow key={r.id}>
+                                    <TableCell>
+                                      <EditableFoodCell entryId={r.id} currentFoodId={r.foodId||null} fallbackLabel={r.label} foods={foods} onSelect={(foodId)=>updateEntryFood(r.id, foodId)} />
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      <input className="w-20 rounded border border-slate-200 dark:border-slate-700 bg-transparent px-2 py-1 text-right text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-slate-400" type="number" step="0.1" defaultValue={r.qty} onBlur={(e)=>updateEntryQuantity(r.id, parseFloat(e.target.value))} onKeyDown={(e)=>{ if(e.key==='Enter'){ e.target.blur(); } }} />
+                                    </TableCell>
+                                    <TableCell className="text-right">{r.kcal.toFixed(0)}</TableCell>
+                                    <TableCell className="text-right">{r.protein.toFixed(1)}</TableCell>
+                                    <TableCell className="text-right">{r.carbs.toFixed(1)}</TableCell>
+                                    <TableCell className="text-right">{r.fat.toFixed(1)}</TableCell>
+                                    <TableCell>
+                                      <MealSelectCell value={r.meal||'other'} onChange={(m)=>updateEntryMeal(r.id, m)} />
+                                    </TableCell>
+                                    <TableCell className="text-right"><Button variant="ghost" size="icon" onClick={()=>removeEntry(r.id)}><Trash2 className="h-4 w-4"/></Button></TableCell>
+                                  </TableRow>
+                                ))}
+                                {/* Subtotal row */}
+                                {group.length > 0 && (
+                                  <TableRow className="bg-slate-50/50 dark:bg-slate-800/15 hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
+                                    <TableCell className="text-xs font-medium text-slate-400 dark:text-slate-500 pl-4">Subtotal</TableCell>
+                                    <TableCell />
+                                    <TableCell className="text-right text-xs font-medium text-slate-600 dark:text-slate-300">{totals.kcal.toFixed(0)}</TableCell>
+                                    <TableCell className="text-right text-xs font-medium text-slate-600 dark:text-slate-300">{totals.protein.toFixed(1)}</TableCell>
+                                    <TableCell className="text-right text-xs font-medium text-slate-600 dark:text-slate-300">{totals.carbs.toFixed(1)}</TableCell>
+                                    <TableCell className="text-right text-xs font-medium text-slate-600 dark:text-slate-300">{totals.fat.toFixed(1)}</TableCell>
+                                    <TableCell colSpan={2} />
+                                  </TableRow>
+                                )}
+                              </Fragment>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
