@@ -2609,7 +2609,7 @@ export default function MacroTrackerApp(){
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={mealSplit}
-                    margin={{ left: 12, right: 12 }}
+                    margin={{ top: 24, left: 12, right: 12 }}
                     barCategoryGap={24}
                     barGap={16}
                   >
