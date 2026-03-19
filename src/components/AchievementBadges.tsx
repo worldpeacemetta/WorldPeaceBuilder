@@ -126,7 +126,8 @@ export const BadgeShape = ({ shape, colors, children, locked, size = 120, title 
   };
 
   return (
-    <svg viewBox="0 0 120 115" width={size} height={svgHeight} style={{ overflow: "visible" }} title={title}>
+    <svg viewBox="0 0 120 115" width={size} height={svgHeight} style={{ overflow: "visible" }}>
+      {title && <title>{title}</title>}
       {shapes[shape]}
       {children}
       {locked && (
