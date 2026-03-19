@@ -6,6 +6,7 @@
 
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState, useId } from "react";
 import Auth from "./components/Auth";
+import AchievementBadges from "./components/AchievementBadges";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -2990,8 +2991,7 @@ export default function MacroTrackerApp(){
                     </div>
                   </div>
                   <div className="rounded-xl border p-4 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40">
-                    <div className="font-medium mb-1">My Badges</div>
-                    <div className="text-sm text-slate-500">Badges coming soon.</div>
+                    <AchievementBadges />
                   </div>
                 </div>
 
