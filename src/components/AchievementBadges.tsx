@@ -182,35 +182,140 @@ export const BadgeIcon = ({ icon, locked, accent }: any) => {
 };
 
 export default function AchievementBadges({ earnedBadgeIds }: { earnedBadgeIds: Set<string> }) {
+  const [showEarnedOnly, setShowEarnedOnly] = useState(false);
   const earnedCount = BADGES.filter(b => earnedBadgeIds.has(b.stringId)).length;
   const categories = [...new Set(BADGES.map(b => b.category))];
 
   return (
-    <div style={{ padding: "20px" }}>
-      {categories.map(cat => {
-        const catBadges = BADGES.filter(b => b.category === cat);
-        return (
-          <div key={cat} style={{ marginBottom: 24 }}>
-            <h3 style={{ fontSize: 12, fontWeight: 600, color: "#666", textTransform: "uppercase", marginBottom: 12, letterSpacing: 1 }}>{cat}</h3>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 12 }}>
-              {catBadges.map(badge => {
-                const earned = earnedBadgeIds.has(badge.stringId);
-                return (
-                  <div key={badge.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 8px", borderRadius: 12, background: earned ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.02)", border: `1px solid ${earned ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.05)"}` }}>
-                    <div style={{ filter: !earned ? "saturate(0) brightness(0.6)" : "none", transition: "filter 0.3s" }}>
-                      <BadgeShape shape={badge.shape} colors={badge.colors} locked={!earned} size={80}>
-                        <BadgeIcon icon={badge.icon} locked={!earned} accent={badge.accent} />
-                      </BadgeShape>
+    <div style={{
+      background: "linear-gradient(135deg, #0F0C29 0%, #1A1640 40%, #24243E 100%)",
+      padding: "28px 20px",
+      fontFamily: "'Nunito', 'Segoe UI', sans-serif",
+    }}>
+      <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet" />
+
+      <div style={{ maxWidth: 960, margin: "0 auto" }}>
+        <p style={{ color: "#9E9EBE", fontSize: 13, textAlign: "center", marginBottom: 20 }}>
+          {earnedCount} of {BADGES.length} earned
+        </p>
+
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 32, gap: 0 }}>
+          <button
+            onClick={() => setShowEarnedOnly(false)}
+            style={{
+              padding: "10px 28px",
+              borderRadius: "24px 0 0 24px",
+              border: "2px solid #6C63FF",
+              background: !showEarnedOnly ? "linear-gradient(135deg, #6C63FF, #8B5CF6)" : "transparent",
+              color: !showEarnedOnly ? "#FFF" : "#9E9EBE",
+              fontWeight: 800,
+              fontSize: 14,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              transition: "all 0.2s",
+            }}
+          >
+            🏅 All Badges
+          </button>
+          <button
+            onClick={() => setShowEarnedOnly(true)}
+            style={{
+              padding: "10px 28px",
+              borderRadius: "0 24px 24px 0",
+              border: "2px solid #6C63FF",
+              borderLeft: "none",
+              background: showEarnedOnly ? "linear-gradient(135deg, #6C63FF, #8B5CF6)" : "transparent",
+              color: showEarnedOnly ? "#FFF" : "#9E9EBE",
+              fontWeight: 800,
+              fontSize: 14,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              transition: "all 0.2s",
+            }}
+          >
+            ✨ Earned
+          </button>
+        </div>
+
+        {categories.map(cat => {
+          const catBadges = BADGES.filter(b => b.category === cat).filter(b => !showEarnedOnly || earnedBadgeIds.has(b.stringId));
+          if (catBadges.length === 0) return null;
+          return (
+            <div key={cat} style={{ marginBottom: 36 }}>
+              <h2 style={{
+                color: "#C5C3E8",
+                fontSize: 16,
+                fontWeight: 800,
+                marginBottom: 16,
+                paddingLeft: 8,
+                textTransform: "uppercase",
+                letterSpacing: "1.5px",
+              }}>
+                {cat}
+              </h2>
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+                gap: 16,
+              }}>
+                {catBadges.map(badge => {
+                  const earned = earnedBadgeIds.has(badge.stringId);
+                  return (
+                    <div
+                      key={badge.id}
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        padding: "16px 8px 12px",
+                        borderRadius: 16,
+                        background: "rgba(255,255,255,0.04)",
+                        border: "1px solid rgba(255,255,255,0.06)",
+                        transition: "all 0.3s",
+                        cursor: "default",
+                      }}
+                      onMouseEnter={e => {
+                        (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.08)";
+                        (e.currentTarget as HTMLDivElement).style.transform = "translateY(-4px)";
+                      }}
+                      onMouseLeave={e => {
+                        (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)";
+                        (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)";
+                      }}
+                    >
+                      <div style={{ filter: !earned ? "saturate(0) brightness(0.6)" : "none", transition: "filter 0.3s" }}>
+                        <BadgeShape shape={badge.shape} colors={badge.colors} locked={!earned}>
+                          <BadgeIcon icon={badge.icon} locked={!earned} accent={badge.accent} />
+                        </BadgeShape>
+                      </div>
+                      <span style={{
+                        color: earned ? "#EEEEFF" : "#7A7A8E",
+                        fontSize: 11,
+                        fontWeight: 800,
+                        marginTop: 8,
+                        textAlign: "center",
+                        lineHeight: 1.3,
+                      }}>
+                        {badge.name}
+                      </span>
+                      <span style={{
+                        color: earned ? "#9E9EBE" : "#55556A",
+                        fontSize: 9,
+                        fontWeight: 600,
+                        marginTop: 2,
+                        textAlign: "center",
+                        lineHeight: 1.3,
+                      }}>
+                        {badge.desc}
+                      </span>
                     </div>
-                    <span style={{ color: earned ? "#eee" : "#888", fontSize: 10, fontWeight: 700, marginTop: 8, textAlign: "center", lineHeight: 1.2 }}>{badge.name}</span>
-                    <span style={{ color: earned ? "#aaa" : "#666", fontSize: 8, fontWeight: 500, marginTop: 2, textAlign: "center", lineHeight: 1.2 }}>{badge.desc}</span>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
