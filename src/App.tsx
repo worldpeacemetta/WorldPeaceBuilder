@@ -855,6 +855,7 @@ export default function MacroTrackerApp(){
           carbs: row.carbs,
           protein: row.protein,
           category: row.category,
+          components: row.components,
           createdAt: row.created_at,
         }));
         setFoods(mapped);
@@ -1694,6 +1695,7 @@ export default function MacroTrackerApp(){
       carbs: sanitized.carbs,
       protein: sanitized.protein,
       category: sanitized.category,
+      components: sanitized.category === "homeRecipe" ? sanitized.components : null,
     };
 
     const { data, error } = await supabase.from("foods").insert(payload);
@@ -1716,6 +1718,7 @@ export default function MacroTrackerApp(){
       carbs: inserted.carbs,
       protein: inserted.protein,
       category: inserted.category,
+      components: inserted.components,
       createdAt: inserted.created_at,
     });
     setFoods(prev => [mapped, ...prev]);
@@ -1775,6 +1778,7 @@ export default function MacroTrackerApp(){
       carbs: updated.carbs,
       protein: updated.protein,
       category: updated.category,
+      components: updated.category === "homeRecipe" ? updated.components : null,
     };
 
     const { error } = await supabase
