@@ -2368,8 +2368,8 @@ export default function MacroTrackerApp(){
                 );
               })()}
             </div>
-            <div className="hidden sm:flex items-center gap-2 text-xs">
-              <span className="text-slate-500">Totals for</span>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-slate-500 hidden sm:inline">Totals for</span>
               <Select value={effectiveStickyMode} onValueChange={(v)=>setStickyMode(v)}>
                 <SelectTrigger className="h-7 w-28"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -2753,8 +2753,8 @@ export default function MacroTrackerApp(){
                   <div className="md:col-span-2">
                     <Label className="text-sm">Date</Label>
                     <div className="flex items-center gap-2">
-                      <Input type="date" value={logDate} onChange={(e)=>setLogDate(e.target.value)} />
-                      <Button variant="outline" onClick={()=>setLogDate(todayISO())}><CalendarIcon className="h-4 w-4"/></Button>
+                      <DatePickerButton value={logDate} onChange={(v) => setLogDate(v || todayISO())} className="flex-1" />
+                      <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={()=>setLogDate(todayISO())}>Today</Button>
                     </div>
                   </div>
                   <div className="md:col-span-2">
@@ -4763,15 +4763,17 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, goal
  * Inline components
  *******************/
 function DatePickerButton({ value, onChange, className }){
+  const inputRef = useRef(null);
   return (
-    <div className="relative">
+    <div className="relative cursor-pointer" onClick={() => inputRef.current?.showPicker?.()}>
       <CalendarIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
       <Input
+        ref={inputRef}
         type="date"
         value={value ?? ''}
         onChange={(event)=>onChange(event.target.value)}
         max={todayISO()}
-        className={cn("h-8 rounded-full border-slate-300 pl-9 pr-3 text-xs", className)}
+        className={cn("h-8 rounded-full border-slate-300 pl-9 pr-3 text-xs cursor-pointer", className)}
       />
     </div>
   );
