@@ -746,6 +746,8 @@ export default function MacroTrackerApp(){
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
   const [foodAddOpen, setFoodAddOpen] = useState(false);
   const [foodAddTab, setFoodAddTab] = useState("single");
+  const [barcodeScanOpen, setBarcodeScanOpen] = useState(false);
+  const [scannedBasicForm, setScannedBasicForm] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaveError, setProfileSaveError] = useState("");
@@ -3036,7 +3038,28 @@ export default function MacroTrackerApp(){
                 foods={foods}
                 onAdd={addFood}
                 tab={foodAddTab}
-                onClose={() => setFoodAddOpen(false)}
+                initialBasicForm={scannedBasicForm}
+                onClose={() => { setFoodAddOpen(false); setScannedBasicForm(null); }}
+              />
+            )}
+            {barcodeScanOpen && (
+              <BarcodeScannerModal
+                onClose={() => setBarcodeScanOpen(false)}
+                onResult={(food) => {
+                  setScannedBasicForm({
+                    name: food.name,
+                    kcal: food.kcal,
+                    protein: food.protein,
+                    carbs: food.carbs,
+                    fat: food.fat,
+                    category: food.category,
+                    unit: food.unit,
+                    servingSize: '',
+                  });
+                  setFoodAddTab("single");
+                  setFoodAddOpen(true);
+                  setBarcodeScanOpen(false);
+                }}
               />
             )}
             <Card className="overflow-hidden border-slate-100 dark:border-slate-800/60">
@@ -3061,6 +3084,12 @@ export default function MacroTrackerApp(){
                         Delete {foodSelectedIds.size} selected
                       </Button>
                     )}
+                    <Button
+                      size="sm"
+                      onClick={() => setBarcodeScanOpen(true)}
+                    >
+                      <Barcode className="h-3.5 w-3.5 mr-1" />Scan
+                    </Button>
                     <Button
                       size="sm"
                       variant="outline"
@@ -5474,10 +5503,10 @@ function BarcodeScannerModal({ onResult, onClose }) {
   );
 }
 
-function AddFoodCard({ foods, onAdd, tab, onClose }){
+function AddFoodCard({ foods, onAdd, tab, onClose, initialBasicForm }){
   const [activeTab, setActiveTab] = useState(tab ?? "single");
   useEffect(() => { if (tab) setActiveTab(tab); }, [tab]);
-  const [basicForm, setBasicForm] = useState(()=>createBasicFoodForm());
+  const [basicForm, setBasicForm] = useState(() => initialBasicForm || createBasicFoodForm());
   const [recipeForm, setRecipeForm] = useState(()=>createRecipeForm());
   const [showScanner, setShowScanner] = useState(false);
   const [recipeIngredients, setRecipeIngredients] = useState([]);
