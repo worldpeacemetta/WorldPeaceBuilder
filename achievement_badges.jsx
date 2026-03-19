@@ -260,90 +260,201 @@ const BadgeIcon = ({ icon, locked, accent }) => {
       </g>
     ),
 
-    // ---- MILESTONE LOGGERS ----
+    // ---- MILESTONE LOGGERS: Plate → Seedling → Tree → Mountain ----
+    // First Step: A plate with fork & knife, one piece of food, sparkle
     footprint: (
       <g opacity={op}>
-        <path d="M52,38 Q48,30 52,26 Q56,22 60,26 Q64,30 60,38 Z" fill={white} opacity="0.9" />
-        <ellipse cx="56" cy="44" rx="12" ry="16" fill={white} opacity="0.85" />
-        <text x="56" y="50" textAnchor="middle" fontSize="11" fontWeight="900" fill="#00897B" fontFamily="sans-serif">1st</text>
-        <circle cx="44" cy="34" r="3.5" fill={white} opacity="0.7" />
-        <circle cx="66" cy="32" r="3" fill={white} opacity="0.7" />
-        <circle cx="70" cy="38" r="2.5" fill={white} opacity="0.6" />
-        <path d="M72,56 L76,52 L78,56" fill="none" stroke={white} strokeWidth="1.5" opacity="0.5" />
+        {/* plate */}
+        <ellipse cx="60" cy="58" rx="26" ry="12" fill={white} opacity="0.15" />
+        <ellipse cx="60" cy="56" rx="24" ry="18" fill={white} opacity="0.95" />
+        <ellipse cx="60" cy="56" rx="18" ry="13" fill={pale} opacity="0.4" />
+        {/* single food item on plate — little piece of sushi/food */}
+        <ellipse cx="60" cy="54" rx="7" ry="5" fill="#FF8A65" opacity="0.85" />
+        <ellipse cx="60" cy="52" rx="5" ry="3" fill="#FFAB91" opacity="0.6" />
+        <ellipse cx="60" cy="50" rx="7" ry="2" fill="#66BB6A" opacity="0.7" />
+        {/* fork left */}
+        <line x1="36" y1="36" x2="42" y2="68" stroke={white} strokeWidth="2.5" strokeLinecap="round" opacity="0.8" />
+        <line x1="34" y1="36" x2="35" y2="44" stroke={white} strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+        <line x1="38" y1="36" x2="39" y2="44" stroke={white} strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+        {/* knife right */}
+        <line x1="84" y1="36" x2="78" y2="68" stroke={white} strokeWidth="2.5" strokeLinecap="round" opacity="0.8" />
+        <path d="M84,36 Q88,40 86,48" fill="none" stroke={white} strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
+        {/* sparkle — first time! */}
+        <path d="M76,30 L78,24 L80,30 L76,27 L80,27" fill="#FFD600" opacity="0.9" />
+        <circle cx="44" cy="30" r="2" fill="#FFD600" opacity="0.6" />
       </g>
     ),
+    // 10 Days Logged: Seedling sprouting from soil with "10" marker
     num10: (
       <g opacity={op}>
-        <circle cx="60" cy="54" r="22" fill={white} opacity="0.2" />
-        <text x="60" y="62" textAnchor="middle" fontSize="28" fontWeight="900" fill={white} fontFamily="sans-serif">10</text>
-        <path d="M40,38 L44,32 L48,38" fill="none" stroke={pale} strokeWidth="2" strokeLinecap="round" />
-        <path d="M72,38 L76,32 L80,38" fill="none" stroke={pale} strokeWidth="2" strokeLinecap="round" />
+        {/* soil mound */}
+        <ellipse cx="60" cy="74" rx="28" ry="8" fill="#8D6E63" opacity={locked ? 0.3 : 0.5} />
+        <ellipse cx="60" cy="72" rx="24" ry="6" fill="#A1887F" opacity={locked ? 0.2 : 0.35} />
+        {/* stem */}
+        <path d="M60,72 Q58,58 60,46" fill="none" stroke="#66BB6A" strokeWidth="3" strokeLinecap="round" opacity="0.9" />
+        {/* two leaves */}
+        <path d="M60,56 Q50,48 46,52 Q50,56 60,56" fill="#66BB6A" opacity="0.85" />
+        <path d="M60,50 Q70,42 74,46 Q70,50 60,50" fill="#81C784" opacity="0.8" />
+        {/* leaf veins */}
+        <line x1="60" y1="56" x2="50" y2="52" stroke="#43A047" strokeWidth="0.8" opacity="0.5" />
+        <line x1="60" y1="50" x2="70" y2="46" stroke="#43A047" strokeWidth="0.8" opacity="0.5" />
+        {/* small bud at top */}
+        <circle cx="60" cy="44" r="3" fill="#A5D6A7" opacity="0.8" />
+        {/* garden marker sign */}
+        <rect x="76" y="48" width="16" height="12" rx="2" fill={white} opacity="0.9" />
+        <line x1="84" y1="60" x2="84" y2="74" stroke={white} strokeWidth="2" strokeLinecap="round" opacity="0.7" />
+        <text x="84" y="57" textAnchor="middle" fontSize="8" fontWeight="900" fill="#00897B" fontFamily="sans-serif">10</text>
       </g>
     ),
+    // 30 Days Logged: Small tree with several branches and leaves
     num30: (
       <g opacity={op}>
-        <circle cx="60" cy="54" r="22" fill={white} opacity="0.2" />
-        <text x="60" y="62" textAnchor="middle" fontSize="28" fontWeight="900" fill={white} fontFamily="sans-serif">30</text>
-        {[44, 52, 60, 68, 76].map((x, i) => <circle key={i} cx={x} cy={34} r="2" fill={pale} />)}
+        {/* trunk */}
+        <rect x="56" y="56" width="8" height="24" rx="2" fill="#8D6E63" opacity={locked ? 0.3 : 0.65} />
+        <rect x="58" y="56" width="3" height="24" rx="1" fill="#A1887F" opacity={locked ? 0.15 : 0.3} />
+        {/* soil */}
+        <ellipse cx="60" cy="80" rx="22" ry="5" fill="#8D6E63" opacity={locked ? 0.2 : 0.35} />
+        {/* canopy — cluster of circles */}
+        <circle cx="48" cy="46" r="12" fill="#66BB6A" opacity="0.75" />
+        <circle cx="72" cy="46" r="12" fill="#81C784" opacity="0.7" />
+        <circle cx="60" cy="40" r="14" fill="#4CAF50" opacity="0.8" />
+        <circle cx="54" cy="36" r="10" fill="#66BB6A" opacity="0.65" />
+        <circle cx="68" cy="38" r="10" fill="#43A047" opacity="0.6" />
+        {/* highlights on canopy */}
+        <circle cx="56" cy="34" r="4" fill={white} opacity="0.15" />
+        <circle cx="66" cy="40" r="3" fill={white} opacity="0.1" />
+        {/* small fruit */}
+        <circle cx="46" cy="50" r="3" fill="#FF7043" opacity="0.7" />
+        <circle cx="70" cy="42" r="2.5" fill="#FFCA28" opacity="0.65" />
+        {/* "30" floating */}
+        <circle cx="84" cy="28" r="9" fill={white} opacity="0.85" />
+        <text x="84" y="32" textAnchor="middle" fontSize="10" fontWeight="900" fill="#00796B" fontFamily="sans-serif">30</text>
       </g>
     ),
+    // 100 Days Logged: Mountain with flag planted at summit
     num100: (
       <g opacity={op}>
-        <circle cx="60" cy="54" r="24" fill={white} opacity="0.2" />
-        <text x="60" y="63" textAnchor="middle" fontSize="24" fontWeight="900" fill={white} fontFamily="sans-serif">100</text>
-        <path d="M34,46 L38,40 L42,46" fill="none" stroke="#FFD600" strokeWidth="2" strokeLinecap="round" />
-        <path d="M78,46 L82,40 L86,46" fill="none" stroke="#FFD600" strokeWidth="2" strokeLinecap="round" />
-        <circle cx="60" cy="32" r="4" fill="#FFD600" opacity="0.8" />
-        {[0,1,2,3,4,5].map(i => <circle key={i} cx={42+i*7} cy={76} r="1.5" fill={pale} opacity="0.6" />)}
+        {/* back mountain */}
+        <polygon points="20,82 50,32 80,82" fill={white} opacity="0.2" />
+        {/* main mountain */}
+        <polygon points="30,82 64,26 98,82" fill={white} opacity="0.9" />
+        <polygon points="38,82 64,32 90,82" fill={pale} opacity="0.4" />
+        {/* snow cap */}
+        <polygon points="64,26 56,42 72,42" fill={white} opacity="0.95" />
+        <path d="M56,42 Q60,46 64,42 Q68,46 72,42" fill={white} opacity="0.8" />
+        {/* flag pole */}
+        <line x1="64" y1="26" x2="64" y2="14" stroke={white} strokeWidth="2" strokeLinecap="round" />
+        {/* flag */}
+        <path d="M64,14 L80,18 L64,22" fill="#FF5252" opacity="0.9" />
+        {/* "100" on flag */}
+        <text x="72" y="20" textAnchor="middle" fontSize="5" fontWeight="900" fill={white} fontFamily="sans-serif">100</text>
+        {/* mountain detail lines */}
+        <line x1="50" y1="58" x2="58" y2="50" stroke={white} strokeWidth="1" opacity="0.2" />
+        <line x1="70" y1="58" x2="66" y2="52" stroke={white} strokeWidth="1" opacity="0.2" />
+        {/* sparkles at summit */}
+        <circle cx="56" cy="18" r="2" fill="#FFD600" opacity="0.8" />
+        <circle cx="78" cy="12" r="1.5" fill="#FFD600" opacity="0.6" />
+        <path d="M48,12 L50,8 L52,12 L48,10 L52,10" fill="#FFD600" opacity="0.7" />
       </g>
     ),
 
-    // ---- PROTEIN MILESTONES: Meat/steak icon ----
+    // ---- PROTEIN MILESTONES: Chicken drumstick → Shaker → Egg → Steak → Trophy ----
+    // Protein Hit: Chicken drumstick with a checkmark spark
     proteinFirst: (
       <g opacity={op}>
-        <ellipse cx="60" cy="54" rx="22" ry="18" fill={white} opacity="0.9" />
-        <ellipse cx="60" cy="54" rx="18" ry="14" fill={pale} />
-        <ellipse cx="56" cy="52" rx="4" ry="3" fill={white} opacity="0.4" />
-        <text x="60" y="58" textAnchor="middle" fontSize="10" fontWeight="900" fill="#1565C0" fontFamily="sans-serif">P</text>
-        <path d="M74,38 L78,32 L82,38" fill="none" stroke={white} strokeWidth="2" strokeLinecap="round" />
+        {/* drumstick bone */}
+        <ellipse cx="68" cy="70" rx="5" ry="4" fill={white} opacity="0.9" />
+        <ellipse cx="74" cy="74" rx="5" ry="4" fill={white} opacity="0.9" />
+        <rect x="62" y="62" width="8" height="14" rx="3" fill={white} opacity="0.9" transform="rotate(20,66,68)" />
+        {/* drumstick meat */}
+        <ellipse cx="52" cy="50" rx="18" ry="15" fill={white} opacity="0.95" transform="rotate(-15,52,50)" />
+        <ellipse cx="52" cy="50" rx="14" ry="12" fill={pale} transform="rotate(-15,52,50)" />
+        <ellipse cx="48" cy="46" rx="5" ry="4" fill={white} opacity="0.3" />
+        {/* checkmark spark */}
+        <circle cx="76" cy="32" r="10" fill="#4CAF50" opacity="0.9" />
+        <path d="M71,32 L75,36 L82,28" fill="none" stroke={white} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       </g>
     ),
+    // 10 Protein Days: Protein shaker bottle
     protein10: (
       <g opacity={op}>
-        <ellipse cx="60" cy="52" rx="24" ry="18" fill={white} opacity="0.9" />
-        <ellipse cx="60" cy="52" rx="20" ry="14" fill={pale} />
-        <text x="60" y="57" textAnchor="middle" fontSize="16" fontWeight="900" fill="#0D47A1" fontFamily="sans-serif">10</text>
-        <text x="60" y="40" textAnchor="middle" fontSize="7" fontWeight="700" fill={white} opacity="0.8" fontFamily="sans-serif">PROTEIN</text>
+        {/* bottle body */}
+        <rect x="44" y="42" width="32" height="38" rx="6" fill={white} opacity="0.95" />
+        <rect x="47" y="50" width="26" height="26" rx="3" fill={pale} />
+        {/* cap */}
+        <rect x="46" y="34" width="28" height="10" rx="4" fill={white} />
+        <rect x="52" y="28" width="16" height="8" rx="3" fill={pale} opacity="0.8" />
+        {/* lid nozzle */}
+        <rect x="56" y="24" width="8" height="6" rx="2" fill={white} opacity="0.9" />
+        {/* shake lines */}
+        <path d="M36,38 Q32,44 36,50" fill="none" stroke={white} strokeWidth="2" strokeLinecap="round" opacity="0.6" />
+        <path d="M84,38 Q88,44 84,50" fill="none" stroke={white} strokeWidth="2" strokeLinecap="round" opacity="0.6" />
+        {/* liquid inside */}
+        <rect x="47" y="62" width="26" height="14" rx="3" fill={white} opacity="0.3" />
+        {/* number */}
+        <text x="60" y="61" textAnchor="middle" fontSize="14" fontWeight="900" fill="#0D47A1" fontFamily="sans-serif">10</text>
       </g>
     ),
+    // 20 Protein Days: Egg with flexing arms
     protein20: (
       <g opacity={op}>
-        <ellipse cx="60" cy="52" rx="24" ry="18" fill={white} opacity="0.9" />
-        <ellipse cx="60" cy="52" rx="20" ry="14" fill={pale} />
-        <text x="60" y="57" textAnchor="middle" fontSize="16" fontWeight="900" fill="#0D47A1" fontFamily="sans-serif">20</text>
-        <text x="60" y="40" textAnchor="middle" fontSize="7" fontWeight="700" fill={white} opacity="0.8" fontFamily="sans-serif">PROTEIN</text>
-        {[44, 52, 60, 68, 76].map((x, i) => <circle key={i} cx={x} cy={72} r="1.5" fill={white} opacity="0.5" />)}
+        {/* egg body */}
+        <ellipse cx="60" cy="56" rx="18" ry="22" fill={white} opacity="0.95" />
+        <ellipse cx="60" cy="54" rx="14" ry="18" fill={pale} opacity="0.4" />
+        <ellipse cx="56" cy="48" rx="6" ry="8" fill={white} opacity="0.25" />
+        {/* cute face */}
+        <circle cx="54" cy="54" r="2" fill="#0D47A1" opacity="0.7" />
+        <circle cx="66" cy="54" r="2" fill="#0D47A1" opacity="0.7" />
+        <path d="M56,60 Q60,63 64,60" fill="none" stroke="#0D47A1" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
+        {/* left flexing arm */}
+        <path d="M42,52 Q34,48 32,40 Q30,36 34,36 Q38,36 36,42 Q38,46 42,48" fill={white} opacity="0.9" />
+        <circle cx="33" cy="37" r="4" fill={pale} opacity="0.7" />
+        {/* right flexing arm */}
+        <path d="M78,52 Q86,48 88,40 Q90,36 86,36 Q82,36 84,42 Q82,46 78,48" fill={white} opacity="0.9" />
+        <circle cx="87" cy="37" r="4" fill={pale} opacity="0.7" />
+        {/* number */}
+        <text x="60" y="80" textAnchor="middle" fontSize="11" fontWeight="900" fill={white} fontFamily="sans-serif">×20</text>
       </g>
     ),
+    // 50 Protein Days: Steak with medal ribbon
     protein50: (
       <g opacity={op}>
-        <ellipse cx="60" cy="52" rx="26" ry="20" fill={white} opacity="0.9" />
-        <ellipse cx="60" cy="52" rx="22" ry="16" fill={pale} />
-        <text x="60" y="57" textAnchor="middle" fontSize="18" fontWeight="900" fill="#1A237E" fontFamily="sans-serif">50</text>
-        <text x="60" y="38" textAnchor="middle" fontSize="7" fontWeight="700" fill={white} opacity="0.9" fontFamily="sans-serif">PROTEIN</text>
-        <circle cx="38" cy="42" r="3" fill="#FFD600" opacity="0.7" />
-        <circle cx="82" cy="42" r="3" fill="#FFD600" opacity="0.7" />
+        {/* steak body */}
+        <ellipse cx="58" cy="54" rx="24" ry="18" fill={white} opacity="0.95" />
+        <ellipse cx="58" cy="54" rx="20" ry="14" fill="#E57373" opacity={locked ? 0.3 : 0.6} />
+        {/* fat marbling */}
+        <path d="M44,50 Q50,46 56,50 Q62,54 68,50" fill="none" stroke={white} strokeWidth="2" opacity="0.5" />
+        <path d="M48,58 Q54,54 60,58" fill="none" stroke={white} strokeWidth="1.5" opacity="0.4" />
+        {/* bone */}
+        <ellipse cx="78" cy="48" rx="6" ry="4" fill={white} opacity="0.9" />
+        <rect x="72" y="46" width="6" height="10" rx="3" fill={white} opacity="0.8" />
+        {/* medal ribbon */}
+        <path d="M34,28 L40,40 L46,28" fill="#FFD600" opacity="0.8" />
+        <circle cx="40" cy="40" r="8" fill="#FFD600" />
+        <text x="40" y="44" textAnchor="middle" fontSize="9" fontWeight="900" fill="#1A237E" fontFamily="sans-serif">50</text>
       </g>
     ),
+    // 100 Protein Days: Trophy cup overflowing with protein food
     protein100: (
       <g opacity={op}>
-        <ellipse cx="60" cy="52" rx="28" ry="22" fill={white} opacity="0.9" />
-        <ellipse cx="60" cy="52" rx="24" ry="18" fill={pale} />
-        <text x="60" y="58" textAnchor="middle" fontSize="18" fontWeight="900" fill="#0D1B5E" fontFamily="sans-serif">100</text>
-        <text x="60" y="38" textAnchor="middle" fontSize="7" fontWeight="700" fill={white} fontFamily="sans-serif">PROTEIN</text>
-        <path d="M34,36 L38,28 L42,36" fill="none" stroke="#FFD600" strokeWidth="2.5" strokeLinecap="round" />
-        <path d="M78,36 L82,28 L86,36" fill="none" stroke="#FFD600" strokeWidth="2.5" strokeLinecap="round" />
-        <circle cx="60" cy="28" r="4" fill="#FFD600" />
+        {/* trophy cup */}
+        <path d="M44,38 L46,68 Q46,76 60,76 Q74,76 74,68 L76,38 Z" fill={white} opacity="0.95" />
+        <path d="M48,42 L50,66 Q50,72 60,72 Q70,72 70,66 L72,42 Z" fill="#FFD600" opacity={locked ? 0.2 : 0.6} />
+        {/* handles */}
+        <path d="M44,42 Q32,42 32,52 Q32,60 44,58" fill="none" stroke={white} strokeWidth="3" strokeLinecap="round" opacity="0.8" />
+        <path d="M76,42 Q88,42 88,52 Q88,60 76,58" fill="none" stroke={white} strokeWidth="3" strokeLinecap="round" opacity="0.8" />
+        {/* base */}
+        <rect x="54" y="76" width="12" height="4" rx="1" fill={white} opacity="0.8" />
+        <rect x="48" y="80" width="24" height="4" rx="2" fill={white} opacity="0.9" />
+        {/* food items peeking out of trophy */}
+        <circle cx="54" cy="36" r="5" fill="#FF7043" opacity="0.8" /> {/* drumstick top */}
+        <ellipse cx="66" cy="34" rx="5" ry="4" fill={white} opacity="0.8" /> {/* egg */}
+        <circle cx="60" cy="30" r="4" fill="#EF5350" opacity="0.7" /> {/* meat */}
+        {/* 100 label */}
+        <text x="60" y="60" textAnchor="middle" fontSize="14" fontWeight="900" fill="#0D1B5E" fontFamily="sans-serif">100</text>
+        {/* sparkles */}
+        <path d="M34,30 L36,26 L38,30 L34,28 L38,28" fill="#FFD600" opacity="0.7" />
+        <path d="M82,30 L84,26 L86,30 L82,28 L86,28" fill="#FFD600" opacity="0.7" />
       </g>
     ),
 
@@ -356,39 +467,78 @@ const BadgeIcon = ({ icon, locked, accent }) => {
         <text x="60" y="51" textAnchor="middle" fontSize="6" fontWeight="900" fill={white} fontFamily="sans-serif">✓</text>
       </g>
     ),
+    // Hat Trick: Magician's top hat with 3 stars popping out
     hatTrick: (
       <g opacity={op}>
-        <polygon points="46,28 50,42 36,42" fill={white} opacity="0.8" />
-        <polygon points="60,20 66,38 54,38" fill={white} opacity="0.95" />
-        <polygon points="74,28 78,42 70,42" fill={white} opacity="0.8" />
-        <polygon points="60,22 64,36 56,36" fill="#FFD600" />
-        <polygon points="48,30 51,40 45,40" fill="#FFC107" />
-        <polygon points="72,30 75,40 69,40" fill="#FFC107" />
-        <text x="60" y="64" textAnchor="middle" fontSize="20" fontWeight="900" fill={white} fontFamily="sans-serif">3</text>
-        <text x="60" y="76" textAnchor="middle" fontSize="7" fontWeight="700" fill={pale} fontFamily="sans-serif">PERFECT</text>
+        {/* hat brim */}
+        <ellipse cx="60" cy="64" rx="28" ry="6" fill={white} opacity="0.95" />
+        {/* hat body */}
+        <rect x="42" y="40" width="36" height="26" rx="4" fill={white} opacity="0.9" />
+        <rect x="44" y="42" width="32" height="22" rx="3" fill={pale} opacity="0.3" />
+        {/* hat band */}
+        <rect x="42" y="58" width="36" height="5" rx="1" fill="#FFD600" opacity={locked ? 0.3 : 0.7} />
+        {/* 3 stars popping out */}
+        <polygon points="46,34 48,28 50,34 44,30 52,30" fill="#FFD600" opacity="0.9" />
+        <polygon points="60,26 63,18 66,26 58,22 68,22" fill="#FFD600" opacity="0.95" />
+        <polygon points="74,34 76,28 78,34 72,30 80,30" fill="#FFD600" opacity="0.9" />
+        {/* sparkle trails */}
+        <circle cx="42" cy="26" r="2" fill="#FFF176" opacity="0.6" />
+        <circle cx="60" cy="14" r="2.5" fill="#FFF176" opacity="0.7" />
+        <circle cx="80" cy="24" r="1.5" fill="#FFF176" opacity="0.5" />
+        {/* "×3" label */}
+        <text x="60" y="78" textAnchor="middle" fontSize="9" fontWeight="900" fill={white} fontFamily="sans-serif">×3 PERFECT</text>
       </g>
     ),
+    // Perfect Week: Bullseye target with arrow dead center
     perfectWeek: (
       <g opacity={op}>
-        <path d="M40,46 L48,32 L60,28 L72,32 L80,46 L76,48 L44,48 Z" fill={white} opacity="0.95" />
-        <path d="M43,46 L50,34 L60,30 L70,34 L77,46 Z" fill="#FFD600" />
-        <circle cx="52" cy="40" r="2" fill="#FF6F00" opacity="0.6" />
-        <circle cx="60" cy="38" r="2" fill="#FF6F00" opacity="0.6" />
-        <circle cx="68" cy="40" r="2" fill="#FF6F00" opacity="0.6" />
-        <text x="60" y="68" textAnchor="middle" fontSize="20" fontWeight="900" fill={white} fontFamily="sans-serif">7</text>
-        <text x="60" y="80" textAnchor="middle" fontSize="7" fontWeight="700" fill={pale} fontFamily="sans-serif">PERFECT</text>
+        {/* outer ring */}
+        <circle cx="58" cy="52" r="26" fill={white} opacity="0.9" />
+        <circle cx="58" cy="52" r="22" fill="#FF8A65" opacity={locked ? 0.2 : 0.5} />
+        <circle cx="58" cy="52" r="16" fill={white} opacity="0.85" />
+        <circle cx="58" cy="52" r="12" fill="#FF5252" opacity={locked ? 0.2 : 0.5} />
+        <circle cx="58" cy="52" r="6" fill={white} opacity="0.9" />
+        <circle cx="58" cy="52" r="3" fill="#FFD600" opacity="0.9" />
+        {/* arrow */}
+        <line x1="58" y1="52" x2="86" y2="28" stroke={white} strokeWidth="2.5" strokeLinecap="round" opacity="0.9" />
+        {/* arrow tip */}
+        <polygon points="86,28 80,30 84,34" fill={white} opacity="0.9" />
+        {/* arrow fletching */}
+        <path d="M58,52 L54,56 L56,52 L52,54" fill="none" stroke="#FFD600" strokeWidth="1.5" opacity="0.7" />
+        {/* "7" */}
+        <circle cx="86" cy="72" r="9" fill={white} opacity="0.85" />
+        <text x="86" y="76" textAnchor="middle" fontSize="12" fontWeight="900" fill="#E65100" fontFamily="sans-serif">7</text>
       </g>
     ),
+    // Perfect Month: Radiant gem / diamond
     perfectMonth: (
       <g opacity={op}>
-        <path d="M36,46 L46,28 L60,22 L74,28 L84,46 L80,48 L40,48 Z" fill={white} opacity="0.95" />
-        <path d="M39,46 L48,30 L60,24 L72,30 L81,46 Z" fill="#FFD600" />
-        <circle cx="50" cy="38" r="2.5" fill="#FF6F00" opacity="0.7" />
-        <circle cx="60" cy="34" r="3" fill="#FF6F00" opacity="0.7" />
-        <circle cx="70" cy="38" r="2.5" fill="#FF6F00" opacity="0.7" />
-        <text x="60" y="70" textAnchor="middle" fontSize="18" fontWeight="900" fill={white} fontFamily="sans-serif">30</text>
-        <text x="60" y="82" textAnchor="middle" fontSize="7" fontWeight="700" fill={pale} fontFamily="sans-serif">PERFECT</text>
-        {[0,1,2,3,4].map(i => <line key={i} x1={60} y1={14} x2={60 + Math.cos((i*72-90)*Math.PI/180)*10} y2={14 + Math.sin((i*72-90)*Math.PI/180)*10} stroke="#FFD600" strokeWidth="1.5" opacity="0.6" />)}
+        {/* gem facets — top */}
+        <polygon points="60,22 40,42 80,42" fill={white} opacity="0.95" />
+        <polygon points="60,22 40,42 50,42" fill="#FFF176" opacity={locked ? 0.15 : 0.4} />
+        <polygon points="60,22 70,42 80,42" fill="#FFE082" opacity={locked ? 0.1 : 0.3} />
+        {/* gem facets — bottom */}
+        <polygon points="40,42 80,42 60,78" fill={white} opacity="0.9" />
+        <polygon points="40,42 60,42 50,78" fill="#FFF9C4" opacity={locked ? 0.1 : 0.25} />
+        <polygon points="60,42 80,42 70,78" fill="#FFE082" opacity={locked ? 0.08 : 0.2} />
+        <polygon points="50,78 70,78 60,78" fill="none" />
+        {/* center line */}
+        <line x1="60" y1="22" x2="60" y2="42" stroke={white} strokeWidth="1" opacity="0.3" />
+        <line x1="60" y1="42" x2="50" y2="78" stroke={white} strokeWidth="1" opacity="0.2" />
+        <line x1="60" y1="42" x2="70" y2="78" stroke={white} strokeWidth="1" opacity="0.2" />
+        {/* facet edges */}
+        <line x1="40" y1="42" x2="80" y2="42" stroke={white} strokeWidth="1.5" opacity="0.4" />
+        {/* radiant lines */}
+        <line x1="60" y1="14" x2="60" y2="8" stroke="#FFD600" strokeWidth="2" strokeLinecap="round" opacity="0.7" />
+        <line x1="36" y1="28" x2="30" y2="24" stroke="#FFD600" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
+        <line x1="84" y1="28" x2="90" y2="24" stroke="#FFD600" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
+        <line x1="28" y1="48" x2="22" y2="48" stroke="#FFD600" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
+        <line x1="92" y1="48" x2="98" y2="48" stroke="#FFD600" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
+        {/* sparkles */}
+        <circle cx="34" cy="18" r="2" fill="#FFD600" opacity="0.5" />
+        <circle cx="88" cy="16" r="2.5" fill="#FFD600" opacity="0.6" />
+        {/* "30" inside gem */}
+        <text x="60" y="56" textAnchor="middle" fontSize="14" fontWeight="900" fill="#BF360C" fontFamily="sans-serif" opacity="0.7">30</text>
       </g>
     ),
 
@@ -409,58 +559,144 @@ const BadgeIcon = ({ icon, locked, accent }) => {
       </g>
     ),
 
-    // ---- FOOD DATABASE: Books ----
+    // ---- FOOD DATABASE: Basket → Fridge → Magnifier → Nerd → Encyclopaedia ----
+    // Food Collector (10): Shopping basket with food peeking out
     book10: (
       <g opacity={op}>
-        <rect x="40" y="34" width="36" height="44" rx="3" fill={white} opacity="0.9" />
-        <rect x="42" y="34" width="4" height="44" fill={pale} opacity="0.6" />
-        <rect x="44" y="38" width="28" height="2" rx="1" fill={pale} opacity="0.4" />
-        <rect x="44" y="44" width="20" height="2" rx="1" fill={pale} opacity="0.3" />
-        <text x="58" y="66" textAnchor="middle" fontSize="16" fontWeight="900" fill="#0288D1" fontFamily="sans-serif">10</text>
-        <circle cx="78" cy="36" r="6" fill="#FFD600" opacity="0.6" />
-        <text x="78" y="39" textAnchor="middle" fontSize="7" fontWeight="900" fill={white} fontFamily="sans-serif">✦</text>
+        {/* basket body */}
+        <path d="M34,52 L40,78 Q42,82 60,82 Q78,82 80,78 L86,52 Z" fill={white} opacity="0.95" />
+        <path d="M38,56 L42,76 Q44,78 60,78 Q76,78 78,76 L82,56 Z" fill={pale} opacity="0.5" />
+        {/* basket handle */}
+        <path d="M42,52 Q42,34 60,34 Q78,34 78,52" fill="none" stroke={white} strokeWidth="3.5" strokeLinecap="round" />
+        {/* grid pattern */}
+        <line x1="50" y1="52" x2="48" y2="78" stroke={white} strokeWidth="1.5" opacity="0.3" />
+        <line x1="70" y1="52" x2="72" y2="78" stroke={white} strokeWidth="1.5" opacity="0.3" />
+        <line x1="36" y1="64" x2="84" y2="64" stroke={white} strokeWidth="1.5" opacity="0.3" />
+        {/* apple peeking out */}
+        <circle cx="52" cy="48" r="7" fill="#FF5252" opacity="0.85" />
+        <path d="M52,42 Q54,38 56,40" fill="none" stroke="#4CAF50" strokeWidth="1.5" strokeLinecap="round" />
+        {/* carrot peeking out */}
+        <path d="M68,50 L72,38 L74,50" fill="#FF9800" opacity="0.85" />
+        <path d="M72,38 Q74,34 76,36" fill="#4CAF50" opacity="0.7" />
+        {/* number badge */}
+        <circle cx="82" cy="40" r="8" fill="#FFD600" opacity="0.85" />
+        <text x="82" y="44" textAnchor="middle" fontSize="9" fontWeight="900" fill="#0277BD" fontFamily="sans-serif">10</text>
       </g>
     ),
+    // Food Enthusiast (25): Open fridge with food visible
     book25: (
       <g opacity={op}>
-        <rect x="38" y="36" width="36" height="40" rx="3" fill={white} opacity="0.7" />
-        <rect x="42" y="32" width="36" height="44" rx="3" fill={white} opacity="0.9" />
-        <rect x="44" y="32" width="4" height="44" fill={pale} opacity="0.6" />
-        <text x="62" y="62" textAnchor="middle" fontSize="16" fontWeight="900" fill="#0277BD" fontFamily="sans-serif">25</text>
+        {/* fridge body */}
+        <rect x="38" y="26" width="44" height="60" rx="5" fill={white} opacity="0.95" />
+        <rect x="42" y="30" width="36" height="24" rx="3" fill={pale} opacity="0.5" />
+        <rect x="42" y="58" width="36" height="24" rx="3" fill={pale} opacity="0.4" />
+        {/* divider */}
+        <line x1="42" y1="56" x2="78" y2="56" stroke={white} strokeWidth="2" opacity="0.5" />
+        {/* handle */}
+        <rect x="74" y="40" width="3" height="10" rx="1.5" fill={white} opacity="0.6" />
+        <rect x="74" y="62" width="3" height="10" rx="1.5" fill={white} opacity="0.6" />
+        {/* food in top: milk carton */}
+        <rect x="46" y="34" width="8" height="14" rx="1" fill={white} opacity="0.8" />
+        <rect x="46" y="34" width="8" height="6" rx="1" fill="#42A5F5" opacity="0.5" />
+        {/* food in top: bottle */}
+        <rect x="58" y="38" width="6" height="12" rx="2" fill="#66BB6A" opacity="0.6" />
+        <rect x="59" y="34" width="4" height="5" rx="1" fill="#66BB6A" opacity="0.5" />
+        {/* food in top: fruit */}
+        <circle cx="70" cy="44" r="5" fill="#FF7043" opacity="0.7" />
+        {/* food in bottom */}
+        <ellipse cx="54" cy="68" rx="6" ry="4" fill="#FFCA28" opacity="0.5" />
+        <circle cx="66" cy="70" r="5" fill="#EF5350" opacity="0.5" />
+        {/* sparkle */}
+        <text x="86" y="30" textAnchor="middle" fontSize="10" fill="#FFD600" opacity="0.7" fontFamily="sans-serif">✦</text>
       </g>
     ),
+    // Food Expert (50): Magnifying glass over food items
     book50: (
       <g opacity={op}>
-        <rect x="34" y="38" width="36" height="40" rx="3" fill={white} opacity="0.5" />
-        <rect x="38" y="34" width="36" height="42" rx="3" fill={white} opacity="0.7" />
-        <rect x="42" y="30" width="36" height="44" rx="3" fill={white} opacity="0.9" />
-        <rect x="44" y="30" width="4" height="44" fill={pale} opacity="0.6" />
-        <text x="62" y="60" textAnchor="middle" fontSize="16" fontWeight="900" fill="#01579B" fontFamily="sans-serif">50</text>
+        {/* food items scattered */}
+        <circle cx="52" cy="48" r="6" fill="#FF7043" opacity="0.6" /> {/* tomato */}
+        <circle cx="66" cy="44" r="5" fill="#66BB6A" opacity="0.5" /> {/* pea */}
+        <ellipse cx="46" cy="58" rx="7" ry="4" fill="#FFCA28" opacity="0.5" /> {/* banana */}
+        <circle cx="70" cy="58" r="4" fill="#AB47BC" opacity="0.4" /> {/* berry */}
+        {/* magnifying glass */}
+        <circle cx="58" cy="50" r="18" fill="none" stroke={white} strokeWidth="4" opacity="0.95" />
+        <circle cx="58" cy="50" r="15" fill={white} opacity="0.15" />
+        <line x1="72" y1="62" x2="86" y2="78" stroke={white} strokeWidth="5" strokeLinecap="round" opacity="0.9" />
+        {/* shine on glass */}
+        <path d="M48,40 Q52,36 54,40" fill="none" stroke={white} strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+        {/* number */}
+        <circle cx="36" cy="74" r="9" fill="#FFD600" opacity="0.85" />
+        <text x="36" y="78" textAnchor="middle" fontSize="10" fontWeight="900" fill="#01579B" fontFamily="sans-serif">50</text>
       </g>
     ),
+    // Food Nerd (100): Nerdy character with glasses and food notebook
     book100: (
       <g opacity={op}>
-        <rect x="30" y="40" width="36" height="40" rx="3" fill={white} opacity="0.4" />
-        <rect x="34" y="36" width="36" height="42" rx="3" fill={white} opacity="0.55" />
-        <rect x="38" y="32" width="36" height="44" rx="3" fill={white} opacity="0.7" />
-        <rect x="42" y="28" width="36" height="46" rx="3" fill={white} opacity="0.9" />
-        <rect x="44" y="28" width="4" height="46" fill={pale} opacity="0.6" />
-        <text x="62" y="58" textAnchor="middle" fontSize="14" fontWeight="900" fill="#004C8C" fontFamily="sans-serif">100</text>
-        <circle cx="28" cy="36" r="5" fill="#FFD600" opacity="0.7" />
+        {/* face */}
+        <circle cx="56" cy="48" r="16" fill={white} opacity="0.95" />
+        {/* glasses */}
+        <circle cx="50" cy="46" r="6" fill="none" stroke={pale} strokeWidth="2" opacity="0.9" />
+        <circle cx="62" cy="46" r="6" fill="none" stroke={pale} strokeWidth="2" opacity="0.9" />
+        <line x1="56" y1="46" x2="56" y2="46" stroke={pale} strokeWidth="2" opacity="0.9" />
+        <line x1="44" y1="46" x2="40" y2="44" stroke={pale} strokeWidth="1.5" opacity="0.7" />
+        <line x1="68" y1="46" x2="72" y2="44" stroke={pale} strokeWidth="1.5" opacity="0.7" />
+        {/* eyes behind glasses */}
+        <circle cx="50" cy="46" r="2" fill="#004C8C" opacity={locked ? 0.3 : 0.7} />
+        <circle cx="62" cy="46" r="2" fill="#004C8C" opacity={locked ? 0.3 : 0.7} />
+        {/* smile */}
+        <path d="M50,54 Q56,58 62,54" fill="none" stroke="#004C8C" strokeWidth="1.5" strokeLinecap="round" opacity={locked ? 0.3 : 0.5} />
+        {/* hair tuft */}
+        <path d="M50,32 Q52,26 56,32 Q58,26 62,32" fill={white} opacity="0.8" />
+        {/* notebook */}
+        <rect x="72" y="50" width="18" height="24" rx="2" fill={white} opacity="0.9" />
+        <rect x="74" y="50" width="3" height="24" fill={pale} opacity="0.5" />
+        <line x1="79" y1="56" x2="88" y2="56" stroke={pale} strokeWidth="1" opacity="0.4" />
+        <line x1="79" y1="60" x2="86" y2="60" stroke={pale} strokeWidth="1" opacity="0.4" />
+        <line x1="79" y1="64" x2="87" y2="64" stroke={pale} strokeWidth="1" opacity="0.4" />
+        {/* food doodle on notebook */}
+        <circle cx="84" cy="69" r="3" fill="#FF7043" opacity="0.5" />
+        {/* number badge */}
+        <circle cx="36" cy="70" r="9" fill="#FFD600" opacity="0.85" />
+        <text x="36" y="74" textAnchor="middle" fontSize="9" fontWeight="900" fill="#004C8C" fontFamily="sans-serif">100</text>
       </g>
     ),
+    // Food Encyclopaedia (200): Open book with food illustrations bursting out
     book200: (
       <g opacity={op}>
-        <rect x="26" y="42" width="34" height="38" rx="3" fill={white} opacity="0.3" />
-        <rect x="30" y="38" width="34" height="40" rx="3" fill={white} opacity="0.45" />
-        <rect x="34" y="34" width="36" height="42" rx="3" fill={white} opacity="0.6" />
-        <rect x="38" y="30" width="36" height="44" rx="3" fill={white} opacity="0.75" />
-        <rect x="42" y="26" width="36" height="48" rx="3" fill={white} opacity="0.9" />
-        <rect x="44" y="26" width="4" height="48" fill={pale} opacity="0.6" />
-        <text x="62" y="58" textAnchor="middle" fontSize="13" fontWeight="900" fill="#002F6C" fontFamily="sans-serif">200</text>
-        <path d="M24,30 L28,22 L32,30" fill="none" stroke="#FFD600" strokeWidth="2" strokeLinecap="round" />
-        <circle cx="82" cy="24" r="5" fill="#FFD600" />
-        <text x="82" y="27" textAnchor="middle" fontSize="6" fontWeight="900" fill="#002F6C" fontFamily="sans-serif">★</text>
+        {/* open book pages */}
+        <path d="M60,42 Q40,38 28,42 L28,80 Q40,76 60,80 Z" fill={white} opacity="0.95" />
+        <path d="M60,42 Q80,38 92,42 L92,80 Q80,76 60,80 Z" fill={white} opacity="0.9" />
+        {/* spine */}
+        <line x1="60" y1="42" x2="60" y2="80" stroke={pale} strokeWidth="2" opacity="0.6" />
+        {/* text lines left page */}
+        <line x1="34" y1="52" x2="54" y2="52" stroke={pale} strokeWidth="1" opacity="0.3" />
+        <line x1="34" y1="56" x2="52" y2="56" stroke={pale} strokeWidth="1" opacity="0.3" />
+        <line x1="34" y1="60" x2="50" y2="60" stroke={pale} strokeWidth="1" opacity="0.3" />
+        {/* text lines right page */}
+        <line x1="66" y1="52" x2="86" y2="52" stroke={pale} strokeWidth="1" opacity="0.3" />
+        <line x1="66" y1="56" x2="84" y2="56" stroke={pale} strokeWidth="1" opacity="0.3" />
+        <line x1="66" y1="60" x2="82" y2="60" stroke={pale} strokeWidth="1" opacity="0.3" />
+        {/* food bursting out: apple */}
+        <circle cx="42" cy="34" r="7" fill="#FF5252" opacity="0.85" />
+        <path d="M42,28 Q44,24 46,26" fill="none" stroke="#4CAF50" strokeWidth="1.5" strokeLinecap="round" />
+        {/* food bursting out: broccoli */}
+        <circle cx="74" cy="30" r="4" fill="#66BB6A" opacity="0.8" />
+        <circle cx="70" cy="32" r="3.5" fill="#4CAF50" opacity="0.7" />
+        <circle cx="78" cy="32" r="3.5" fill="#4CAF50" opacity="0.7" />
+        <rect x="73" y="36" width="3" height="5" rx="1" fill="#8D6E63" opacity="0.5" />
+        {/* food bursting out: cheese */}
+        <path d="M56,28 L64,28 L60,20 Z" fill="#FFCA28" opacity="0.8" />
+        <circle cx="58" cy="26" r="1.5" fill="#FFA000" opacity="0.5" />
+        <circle cx="62" cy="27" r="1" fill="#FFA000" opacity="0.5" />
+        {/* carrot */}
+        <path d="M84,36 L88,26 L90,36" fill="#FF9800" opacity="0.7" />
+        <path d="M88,26 Q90,22 92,24" fill="#4CAF50" opacity="0.6" />
+        {/* sparkle stars */}
+        <path d="M30,28 L32,24 L34,28 L30,26 L34,26" fill="#FFD600" opacity="0.8" />
+        <path d="M90,18 L92,14 L94,18 L90,16 L94,16" fill="#FFD600" opacity="0.7" />
+        {/* 200 label */}
+        <circle cx="60" cy="70" r="9" fill="#FFD600" opacity="0.9" />
+        <text x="60" y="74" textAnchor="middle" fontSize="9" fontWeight="900" fill="#002F6C" fontFamily="sans-serif">200</text>
       </g>
     ),
 
