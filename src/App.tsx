@@ -12,6 +12,7 @@ import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState, use
 import { BrowserMultiFormatReader } from '@zxing/browser';
 import { DecodeHintType } from '@zxing/library';
 import Auth from "./components/Auth";
+import AchievementBadges, { BADGES, BadgeShape, BadgeIcon } from "./components/AchievementBadges";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -68,16 +69,8 @@ import {
   User,
   LogOut,
   Menu,
-  Flame,
-  Trophy,
-  Award,
-  Zap,
-  Crown,
   X,
-  Star,
   ChefHat,
-  Leaf,
-  Target,
   Barcode,
   Camera,
   CheckCircle2,
@@ -3647,43 +3640,6 @@ const PROFILE_MODE_OPTIONS = [
 
 const DUAL_PROFILE_OPTIONS = PROFILE_MODE_OPTIONS.slice(0, 2);
 
-// ========================
-// BADGES
-// ========================
-const BADGE_DEFINITIONS = [
-  // ── Streaks ──────────────────────────────────────────
-  { id: "log_streak_7",       category: "Streaks", label: "Week Logger",       description: "Log food 7 days in a row",               Icon: Flame,       color: "#f97316", shape: "shield",  stars: 1 },
-  { id: "log_streak_14",      category: "Streaks", label: "Fortnight Logger",  description: "Log food 14 days in a row",              Icon: Flame,       color: "#ef4444", shape: "shield",  stars: 2 },
-  { id: "log_streak_30",      category: "Streaks", label: "Monthly Logger",    description: "Log food 30 days in a row",              Icon: Trophy,      color: "#eab308", shape: "shield",  stars: 3 },
-  { id: "log_streak_90",      category: "Streaks", label: "Quarterly Logger",  description: "Log food 90 days in a row",              Icon: Crown,       color: "#a855f7", shape: "shield",  stars: 3 },
-  { id: "protein_streak_7",   category: "Streaks", label: "Protein Week",      description: "Hit protein goal 7 days in a row",       Icon: Dumbbell,    color: "#22c55e", shape: "hexagon", stars: 1 },
-  { id: "protein_streak_14",  category: "Streaks", label: "Protein Fortnight", description: "Hit protein goal 14 days in a row",      Icon: Dumbbell,    color: "#10b981", shape: "hexagon", stars: 2 },
-  { id: "protein_streak_30",  category: "Streaks", label: "Protein Month",     description: "Hit protein goal 30 days in a row",      Icon: Award,       color: "#0ea5e9", shape: "hexagon", stars: 3 },
-  { id: "protein_streak_90",  category: "Streaks", label: "Protein Quarter",   description: "Hit protein goal 90 days in a row",      Icon: Crown,       color: "#f59e0b", shape: "hexagon", stars: 3 },
-  { id: "veggie_streak_7",    category: "Streaks", label: "Green Week",        description: "Log a vegetable AND a fruit on the same day, 7 days in a row", Icon: Leaf, color: "#4ade80", shape: "hexagon", stars: 1 },
-  // ── Milestones ───────────────────────────────────────
-  { id: "log_first",          category: "Milestones", label: "First Step",       description: "Log your first food",                Icon: BookOpenText, color: "#6366f1", shape: "shield",  stars: 0 },
-  { id: "log_days_10",        category: "Milestones", label: "10 Days Logged",   description: "Log food on 10 different days",       Icon: CalendarIcon, color: "#818cf8", shape: "shield",  stars: 1 },
-  { id: "log_days_30",        category: "Milestones", label: "30 Days Logged",   description: "Log food on 30 different days",       Icon: CalendarIcon, color: "#a78bfa", shape: "shield",  stars: 2 },
-  { id: "log_days_100",       category: "Milestones", label: "100 Days Logged",  description: "Log food on 100 different days",      Icon: CalendarIcon, color: "#c084fc", shape: "shield",  stars: 3 },
-  { id: "protein_first",      category: "Milestones", label: "Protein Hit",      description: "Reach your protein goal for the first time", Icon: Zap,   color: "#22c55e", shape: "hexagon", stars: 0 },
-  { id: "protein_hits_10",    category: "Milestones", label: "10 Protein Days",  description: "Hit your protein goal on 10 days",    Icon: Target,      color: "#34d399", shape: "hexagon", stars: 1 },
-  { id: "protein_hits_20",    category: "Milestones", label: "20 Protein Days",  description: "Hit your protein goal on 20 days",    Icon: Target,      color: "#2dd4bf", shape: "hexagon", stars: 1 },
-  { id: "protein_hits_50",    category: "Milestones", label: "50 Protein Days",  description: "Hit your protein goal on 50 days",    Icon: Trophy,      color: "#38bdf8", shape: "hexagon", stars: 2 },
-  { id: "protein_hits_100",   category: "Milestones", label: "100 Protein Days", description: "Hit your protein goal on 100 days",   Icon: Crown,       color: "#818cf8", shape: "hexagon", stars: 3 },
-  { id: "perfect_day_1",      category: "Milestones", label: "Perfect Day",      description: "All macros in range on the same day", Icon: Star,        color: "#facc15", shape: "shield",  stars: 0 },
-  { id: "perfect_day_3",      category: "Milestones", label: "Hat Trick",        description: "3 perfect days",                      Icon: Star,        color: "#fb923c", shape: "shield",  stars: 1 },
-  { id: "perfect_day_7",      category: "Milestones", label: "Perfect Week",     description: "7 perfect days",                      Icon: Star,        color: "#f43f5e", shape: "shield",  stars: 2 },
-  { id: "perfect_day_30",     category: "Milestones", label: "Perfect Month",    description: "30 perfect days",                     Icon: Crown,       color: "#e879f9", shape: "shield",  stars: 3 },
-  { id: "veggie_day_1",       category: "Milestones", label: "Eat the Rainbow",  description: "Log a vegetable or fruit",            Icon: Leaf,        color: "#86efac", shape: "hexagon", stars: 0 },
-  { id: "foods_added_10",     category: "Milestones", label: "Food Collector",   description: "Add 10 foods to your database",       Icon: Database,    color: "#94a3b8", shape: "circle",  stars: 0 },
-  { id: "foods_added_25",     category: "Milestones", label: "Food Enthusiast",  description: "Add 25 foods to your database",       Icon: Database,    color: "#64748b", shape: "circle",  stars: 0 },
-  { id: "foods_added_50",     category: "Milestones", label: "Food Expert",      description: "Add 50 foods to your database",       Icon: Database,    color: "#f97316", shape: "circle",  stars: 1 },
-  { id: "foods_added_100",    category: "Milestones", label: "Food Nerd",        description: "Add 100 foods to your database",      Icon: Database,    color: "#eab308", shape: "circle",  stars: 2 },
-  { id: "foods_added_200",    category: "Milestones", label: "Food Encyclopaedia", description: "Add 200 foods to your database",   Icon: Database,    color: "#a855f7", shape: "circle",  stars: 3 },
-  { id: "recipe_first",       category: "Milestones", label: "Home Chef",        description: "Create your first home recipe",       Icon: ChefHat,     color: "#f472b6", shape: "circle",  stars: 1 },
-];
-
 function computeMaxStreak(sortedDates) {
   if (!sortedDates.length) return 0;
   let max = 1, cur = 1;
@@ -3946,144 +3902,10 @@ function TogglePill({ label, active, onClick, color }){
   );
 }
 
-// ── Badge 3D SVG helpers ───────────────────────────────────────────────────
-function _hexToRgb(hex: string): [number, number, number] {
-  const c = hex.replace('#', '');
-  return [parseInt(c.slice(0,2),16), parseInt(c.slice(2,4),16), parseInt(c.slice(4,6),16)];
-}
-function _lightenColor(hex: string, f: number): string {
-  try {
-    const [r,g,b] = _hexToRgb(hex);
-    return `rgb(${Math.min(255,Math.round(r+(255-r)*f))},${Math.min(255,Math.round(g+(255-g)*f))},${Math.min(255,Math.round(b+(255-b)*f))})`;
-  } catch { return hex; }
-}
-function _darkenColor(hex: string, f: number): string {
-  try {
-    const [r,g,b] = _hexToRgb(hex);
-    return `rgb(${Math.round(r*(1-f))},${Math.round(g*(1-f))},${Math.round(b*(1-f))})`;
-  } catch { return hex; }
-}
-function _svgStar(cx: number, cy: number, or: number, ir: number): string {
-  const pts: string[] = [];
-  for (let i = 0; i < 10; i++) {
-    const r = i%2===0 ? or : ir;
-    const a = (i * Math.PI)/5 - Math.PI/2;
-    pts.push(`${(cx+r*Math.cos(a)).toFixed(2)},${(cy+r*Math.sin(a)).toFixed(2)}`);
-  }
-  return `M ${pts.join(' L ')} Z`;
-}
-
-const _BADGE_PATHS = {
-  shield:  "M 32 3 L 57 14 L 57 37 Q 57 54 32 62 Q 7 54 7 37 L 7 14 Z",
-  hexagon: "M 32 4 L 55 18 L 55 46 L 32 60 L 9 46 L 9 18 Z",
-} as const;
-
-// Star positions (cx, cy) inside the 64×64 viewBox, grouped by count
-const _STAR_POS: Record<number, Array<[number,number]>> = {
-  1: [[32, 12]],
-  2: [[23, 13], [41, 13]],
-  3: [[19, 13], [32, 11], [45, 13]],
-};
-
-function BadgeSVG({ color, shape, Icon, earned, size = 64, stars = 0 }: {
-  color: string;
-  shape: 'shield'|'hexagon'|'circle';
-  Icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
-  earned: boolean;
-  size?: number;
-  stars?: number;
-}) {
-  const rawId = useId();
-  const uid = rawId.replace(/[^a-zA-Z0-9]/g, '');
-
-  const base  = earned ? color      : '#94a3b8';
-  const light = earned ? _lightenColor(color, 0.55) : '#d1d5db';
-  const dark  = earned ? _darkenColor(color, 0.42)  : '#4b5563';
-  const starC = earned ? _lightenColor(color, 0.65) : '#9ca3af';
-
-  const isCircle = shape === 'circle';
-  const path = isCircle ? '' : (_BADGE_PATHS[shape as keyof typeof _BADGE_PATHS] ?? _BADGE_PATHS.shield);
-  const starPos = (stars > 0 && !isCircle) ? (_STAR_POS[Math.min(stars, 3)] ?? []) : [];
-  const iconSize = Math.round(size * 0.37);
-  // For shield/hexagon push icon down slightly to leave room for stars
-  const iconTopPct = isCircle ? 0.50 : 0.57;
-
-  return (
-    <div style={{ position:'relative', width:size, height:size, display:'inline-flex', flexShrink:0 }}>
-      <svg
-        width={size} height={size} viewBox="0 0 64 64"
-        style={{ display:'block', filter:'drop-shadow(0 2px 6px rgba(0,0,0,0.45))' }}
-        aria-hidden="true"
-      >
-        <defs>
-          {/* Radial gradient: bright centre → base → dark edge */}
-          <radialGradient id={`${uid}rg`} cx="38%" cy="30%" r="68%">
-            <stop offset="0%"   stopColor={light} />
-            <stop offset="55%"  stopColor={base} />
-            <stop offset="100%" stopColor={dark} />
-          </radialGradient>
-          {/* Specular highlight: soft white gloss in upper-left */}
-          <radialGradient id={`${uid}sp`} cx="34%" cy="24%" r="46%">
-            <stop offset="0%"   stopColor="rgba(255,255,255,0.68)" />
-            <stop offset="55%"  stopColor="rgba(255,255,255,0.14)" />
-            <stop offset="100%" stopColor="rgba(255,255,255,0)" />
-          </radialGradient>
-        </defs>
-
-        {/* Soft shadow beneath badge */}
-        <ellipse cx="33" cy={isCircle ? 62 : 65} rx={isCircle ? 19 : 21} ry="2.5" fill="rgba(0,0,0,0.22)" />
-
-        {isCircle ? (
-          <>
-            {/* Outer dark rim ring */}
-            <circle cx="32" cy="32" r="29" fill={dark} />
-            {/* Main fill */}
-            <circle cx="32" cy="32" r="27" fill={`url(#${uid}rg)`} />
-            {/* Specular */}
-            <circle cx="32" cy="32" r="27" fill={`url(#${uid}sp)`} />
-            {/* Inner edge highlight */}
-            <circle cx="32" cy="32" r="27" fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth="1.2" />
-          </>
-        ) : (
-          <>
-            {/* Thick dark stroke acts as outer rim */}
-            <path d={path} stroke={dark} strokeWidth="5" strokeLinejoin="round" fill={`url(#${uid}rg)`} />
-            {/* Specular overlay */}
-            <path d={path} fill={`url(#${uid}sp)`} />
-            {/* Inner edge highlight */}
-            <path d={path} fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth="1.2" strokeLinejoin="round" />
-          </>
-        )}
-
-        {/* Stars at top of badge */}
-        {starPos.map(([cx, cy], i) => (
-          <path key={i} d={_svgStar(cx, cy, 4.5, 2.0)} fill={starC} />
-        ))}
-      </svg>
-
-      {/* Lucide icon — absolutely positioned over the SVG */}
-      <div style={{
-        position:'absolute',
-        top: `${size * iconTopPct}px`,
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        display:'flex', alignItems:'center', justifyContent:'center',
-        pointerEvents:'none',
-      }}>
-        <Icon
-          size={iconSize}
-          color={earned ? 'rgba(255,255,255,0.93)' : 'rgba(140,150,165,0.7)'}
-          strokeWidth={1.8}
-        />
-      </div>
-    </div>
-  );
-}
-
 function BadgeUnlockPopup({ badgeId, onClose }) {
-  const badge = BADGE_DEFINITIONS.find((b) => b.id === badgeId);
+  const badge = BADGES.find((b) => b.stringId === badgeId);
   if (!badge) return null;
-  const { Icon, color, label, description } = badge;
+  const accentColor = badge.colors[0];
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center px-6" onClick={onClose}>
@@ -4109,7 +3931,7 @@ function BadgeUnlockPopup({ badgeId, onClose }) {
               style={{
                 top: s.top, left: s.left,
                 width: s.size, height: s.size,
-                backgroundColor: color,
+                backgroundColor: accentColor,
                 opacity: s.opacity,
                 animationDuration: "2s",
                 animationDelay: s.delay,
@@ -4120,16 +3942,18 @@ function BadgeUnlockPopup({ badgeId, onClose }) {
 
         <div className="relative flex flex-col items-center gap-4 px-8 py-10 text-center">
           {/* Badge icon */}
-          <BadgeSVG color={color} shape={badge.shape} Icon={Icon} earned size={88} stars={badge.stars} />
+          <BadgeShape shape={badge.shape} colors={badge.colors} locked={false} size={88}>
+            <BadgeIcon icon={badge.icon} locked={false} accent={badge.accent} />
+          </BadgeShape>
 
           {/* Text */}
           <div className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
               Badge Unlocked
             </p>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{label}</h2>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{badge.name}</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 leading-snug">
-              {description}
+              {badge.desc}
             </p>
           </div>
 
@@ -4138,7 +3962,7 @@ function BadgeUnlockPopup({ badgeId, onClose }) {
             type="button"
             onClick={onClose}
             className="mt-2 w-full rounded-full py-3 text-sm font-semibold text-white shadow-md transition hover:opacity-90 active:scale-95"
-            style={{ backgroundColor: color }}
+            style={{ backgroundColor: accentColor }}
           >
             Keep going! 💪
           </button>
@@ -4150,32 +3974,33 @@ function BadgeUnlockPopup({ badgeId, onClose }) {
 
 function BadgesCard({ earnedBadgeIds }) {
   const [showAll, setShowAll] = useState(false);
-  const earnedCount = BADGE_DEFINITIONS.filter((b) => earnedBadgeIds.has(b.id)).length;
-  const previewBadges = BADGE_DEFINITIONS.filter((b) => earnedBadgeIds.has(b.id)).slice(0, 15);
-  const categories = [...new Set(BADGE_DEFINITIONS.map((b) => b.category))];
+  const earnedCount = BADGES.filter((b) => earnedBadgeIds.has(b.stringId)).length;
+  const previewBadges = BADGES.filter((b) => earnedBadgeIds.has(b.stringId)).slice(0, 12);
 
   return (
     <>
       <div className="rounded-xl border p-4 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div className="font-medium">My Badges</div>
-          <span className="text-xs text-slate-500">{earnedCount} / {BADGE_DEFINITIONS.length} earned</span>
+          <span className="text-xs text-slate-500">{earnedCount} / {BADGES.length} earned</span>
         </div>
 
-        {/* Preview: up to 15 earned badges, 5 per row */}
+        {/* Preview: up to 12 earned badges, 4 per row */}
         {previewBadges.length > 0 ? (
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             {previewBadges.map((b) => (
-              <span key={b.id} title={b.label} className="inline-flex">
-                <BadgeSVG color={b.color} shape={b.shape} Icon={b.Icon} earned size={44} stars={b.stars} />
+              <span key={b.stringId} className="inline-flex justify-center">
+                <BadgeShape shape={b.shape} colors={b.colors} locked={false} size={80} title={b.name}>
+                  <BadgeIcon icon={b.icon} locked={false} accent={b.accent} />
+                </BadgeShape>
               </span>
             ))}
           </div>
         ) : (
           <p className="text-xs text-slate-400 min-h-[2.5rem] flex items-center">Log food to start earning badges.</p>
         )}
-        {earnedCount > 15 && (
-          <span className="text-xs text-slate-500">+{earnedCount - 15} more</span>
+        {earnedCount > 12 && (
+          <span className="text-xs text-slate-500">+{earnedCount - 12} more</span>
         )}
 
         <button
@@ -4194,7 +4019,7 @@ function BadgesCard({ earnedBadgeIds }) {
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-4">
               <div>
                 <h2 className="font-semibold text-base">All Badges</h2>
-                <p className="text-xs text-slate-500">{earnedCount} of {BADGE_DEFINITIONS.length} earned</p>
+                <p className="text-xs text-slate-500">{earnedCount} of {BADGES.length} earned</p>
               </div>
               <button
                 type="button"
@@ -4205,41 +4030,7 @@ function BadgesCard({ earnedBadgeIds }) {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="px-5 py-4 space-y-6">
-              {categories.map((cat) => (
-                <div key={cat}>
-                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">{cat}</h3>
-                  <div className="space-y-2">
-                    {BADGE_DEFINITIONS.filter((b) => b.category === cat).map((b) => {
-                      const earned = earnedBadgeIds.has(b.id);
-                      return (
-                        <div
-                          key={b.id}
-                          className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition ${
-                            earned
-                              ? "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60"
-                              : "border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40 opacity-50"
-                          }`}
-                        >
-                          <BadgeSVG color={b.color} shape={b.shape} Icon={b.Icon} earned={earned} size={44} stars={b.stars} />
-                          <div className="min-w-0">
-                            <div className={`font-medium text-sm ${earned ? "" : "text-slate-400 dark:text-slate-500"}`}>
-                              {b.label}
-                            </div>
-                            <div className="text-xs text-slate-500">{b.description}</div>
-                          </div>
-                          {earned && (
-                            <span className="ml-auto shrink-0 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full" style={{ backgroundColor: b.color + "22", color: b.color }}>
-                              Earned
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <AchievementBadges earnedBadgeIds={earnedBadgeIds} />
           </div>
         </div>
       )}
