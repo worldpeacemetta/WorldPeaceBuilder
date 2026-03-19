@@ -3989,8 +3989,8 @@ function BadgesCard({ earnedBadgeIds }) {
         {previewBadges.length > 0 ? (
           <div className="grid grid-cols-4 gap-2">
             {previewBadges.map((b) => (
-              <span key={b.stringId} title={b.name} className="inline-flex justify-center">
-                <BadgeShape shape={b.shape} colors={b.colors} locked={false} size={80}>
+              <span key={b.stringId} className="inline-flex justify-center">
+                <BadgeShape shape={b.shape} colors={b.colors} locked={false} size={80} title={b.name}>
                   <BadgeIcon icon={b.icon} locked={false} accent={b.accent} />
                 </BadgeShape>
               </span>
