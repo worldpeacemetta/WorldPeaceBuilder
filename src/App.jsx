@@ -2396,7 +2396,7 @@ export default function MacroTrackerApp(){
             {/* Single shared date picker for Goal vs Actual, Macro Split, Top Foods, and Weekly Nutrition */}
             <div className="flex items-center justify-between">
               <p className="text-sm text-slate-500 dark:text-slate-400">Dashboard date</p>
-              <DatePickerButton value={dashboardDate} onChange={(v) => setDashboardDate(v || todayISO())} className="w-44" />
+              <DatePickerButton value={dashboardDate} onChange={(v) => { const d = v || todayISO(); setDashboardDate(d); setWeekNavDate(d); }} className="w-44" />
             </div>
             <div className="grid lg:grid-cols-2 gap-4">
               <Card className="h-full min-h-[360px] flex flex-col">
@@ -2754,7 +2754,7 @@ export default function MacroTrackerApp(){
                     <Label className="text-sm">Date</Label>
                     <div className="flex items-center gap-2">
                       <DatePickerButton value={logDate} onChange={(v) => setLogDate(v || todayISO())} className="flex-1" />
-                      <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={()=>{ const t=todayISO(); setLogDate(t); setDashboardDate(t); }}>Today</Button>
+                      <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={()=>{ const t=todayISO(); setLogDate(t); setDashboardDate(t); setWeekNavDate(t); }}>Today</Button>
                     </div>
                   </div>
                   <div className="md:col-span-2">
