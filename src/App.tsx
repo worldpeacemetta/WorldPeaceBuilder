@@ -3975,7 +3975,7 @@ function BadgeUnlockPopup({ badgeId, onClose }) {
 function BadgesCard({ earnedBadgeIds }) {
   const [showAll, setShowAll] = useState(false);
   const earnedCount = BADGES.filter((b) => earnedBadgeIds.has(b.stringId)).length;
-  const previewBadges = BADGES.filter((b) => earnedBadgeIds.has(b.stringId)).slice(0, 15);
+  const previewBadges = BADGES.filter((b) => earnedBadgeIds.has(b.stringId)).slice(0, 12);
 
   return (
     <>
@@ -3985,12 +3985,12 @@ function BadgesCard({ earnedBadgeIds }) {
           <span className="text-xs text-slate-500">{earnedCount} / {BADGES.length} earned</span>
         </div>
 
-        {/* Preview: up to 15 earned badges, 5 per row */}
+        {/* Preview: up to 12 earned badges, 4 per row */}
         {previewBadges.length > 0 ? (
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             {previewBadges.map((b) => (
-              <span key={b.stringId} title={b.name} className="inline-flex">
-                <BadgeShape shape={b.shape} colors={b.colors} locked={false} size={44}>
+              <span key={b.stringId} title={b.name} className="inline-flex justify-center">
+                <BadgeShape shape={b.shape} colors={b.colors} locked={false} size={80}>
                   <BadgeIcon icon={b.icon} locked={false} accent={b.accent} />
                 </BadgeShape>
               </span>
@@ -3999,8 +3999,8 @@ function BadgesCard({ earnedBadgeIds }) {
         ) : (
           <p className="text-xs text-slate-400 min-h-[2.5rem] flex items-center">Log food to start earning badges.</p>
         )}
-        {earnedCount > 15 && (
-          <span className="text-xs text-slate-500">+{earnedCount - 15} more</span>
+        {earnedCount > 12 && (
+          <span className="text-xs text-slate-500">+{earnedCount - 12} more</span>
         )}
 
         <button
