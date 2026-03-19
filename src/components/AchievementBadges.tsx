@@ -44,7 +44,7 @@ export const BADGES: BadgeDef[] = [
   { id: 30, stringId: "recipe_first", name: "Home Chef", desc: "Create your first home recipe", category: "Special", shape: "shield", colors: ["#D84315", "#FF5722"], icon: "chef", accent: "#FFCCBC" },
 ];
 
-export const BadgeShape = ({ shape, colors, children, locked, size = 120 }: any) => {
+export const BadgeShape = ({ shape, colors, children, locked, size = 120, title }: any) => {
   const grayColors = ["#5A5A6A", "#6E6E7E"];
   const c = locked ? grayColors : colors;
   const id = `grad-${Math.random().toString(36).substr(2, 9)}`;
@@ -126,7 +126,7 @@ export const BadgeShape = ({ shape, colors, children, locked, size = 120 }: any)
   };
 
   return (
-    <svg viewBox="0 0 120 115" width={size} height={svgHeight} style={{ overflow: "visible" }}>
+    <svg viewBox="0 0 120 115" width={size} height={svgHeight} style={{ overflow: "visible" }} title={title}>
       {shapes[shape]}
       {children}
       {locked && (
