@@ -88,6 +88,7 @@ import {
   Copy,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
 } from "lucide-react";
 import { format, formatDistanceToNow, startOfDay, addDays, subDays, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval, startOfWeek, endOfWeek, getDay } from "date-fns";
 
@@ -752,6 +753,7 @@ export default function MacroTrackerApp(){
   const [profileLastSavedAt, setProfileLastSavedAt] = useState(null);
   const [resetDataConfirmOpen, setResetDataConfirmOpen] = useState(false);
   const [resetDataInput, setResetDataInput] = useState("");
+  const [stickyModeSheetOpen, setStickyModeSheetOpen] = useState(false);
 
   const [earnedBadgeIds, setEarnedBadgeIds] = useState(new Set());
   const [badgeUnlockQueue, setBadgeUnlockQueue] = useState([]);
@@ -2393,23 +2395,35 @@ export default function MacroTrackerApp(){
                 );
               })()}
             </div>
-            <div className="flex items-center gap-2 text-xs">
+            <div className="flex items-center gap-2 text-xs shrink-0">
+              {/* Mobile: pill button → bottom sheet */}
+              <button
+                className="sm:hidden flex items-center gap-1 font-medium rounded-lg px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 active:scale-95 transition-transform"
+                onClick={() => setStickyModeSheetOpen(true)}
+                aria-label="Change totals date"
+              >
+                {effectiveStickyMode === 'today' ? 'Today' : 'Selected'}
+                <ChevronUp className="h-3 w-3" />
+              </button>
+              {/* Desktop: select dropdown */}
               <span className="text-slate-500 hidden sm:inline">Totals for</span>
-              <Select value={effectiveStickyMode} onValueChange={(v)=>setStickyMode(v)}>
-                <SelectTrigger className="h-7 w-28"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="today">Today</SelectItem>
-                  <SelectItem value="selected">Selected day</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="hidden sm:block">
+                <Select value={effectiveStickyMode} onValueChange={(v) => setStickyMode(v)}>
+                  <SelectTrigger className="h-7 w-28"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="selected">Selected day</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
+      <main className="max-w-6xl mx-auto px-3 sm:px-4 pt-4 sm:pt-6 pb-24 sm:pb-6">
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid w-full grid-cols-4 rounded-full border border-slate-200 bg-white/80 p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900/70 md:w-auto">
+          <TabsList className="hidden sm:grid w-full grid-cols-4 rounded-full border border-slate-200 bg-white/80 p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900/70 md:w-auto">
             <TabsTrigger value="dashboard" className="gap-1.5 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><BarChart3 className="h-4 w-4 shrink-0"/><span className="hidden sm:inline">Dashboard</span></TabsTrigger>
             <TabsTrigger value="daily" className="gap-1.5 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><BookOpenText className="h-4 w-4 shrink-0"/><span className="hidden sm:inline">Daily Log</span></TabsTrigger>
             <TabsTrigger value="foods" className="gap-1.5 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><Database className="h-4 w-4 shrink-0"/><span className="hidden sm:inline">Food DB</span></TabsTrigger>
@@ -3482,7 +3496,78 @@ export default function MacroTrackerApp(){
         </div>
       )}
 
-      <footer className="py-8 text-center text-xs text-slate-500">Trust your Power 💪🏻💪🏼💪🏽💪🏾💪🏿</footer>
+      <footer className="hidden sm:block py-8 text-center text-xs text-slate-500">Trust your Power 💪🏻💪🏼💪🏽💪🏾💪🏿</footer>
+
+      {/* ── Mobile bottom navigation bar ── */}
+      <nav className="sm:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-800">
+        <div className="grid grid-cols-4 h-16">
+          {[
+            { value: 'dashboard', Icon: BarChart3,    label: 'Dashboard' },
+            { value: 'daily',     Icon: BookOpenText,  label: 'Log'       },
+            { value: 'foods',     Icon: Database,      label: 'Foods'     },
+            { value: 'settings',  Icon: SettingsIcon,  label: 'Profile'   },
+          ].map(({ value, Icon, label }) => {
+            const active = tab === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setTab(value)}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-1 transition-colors",
+                  active
+                    ? "text-slate-900 dark:text-white"
+                    : "text-slate-400 dark:text-slate-500 active:text-slate-600"
+                )}
+              >
+                <Icon className="h-5 w-5" strokeWidth={active ? 2.5 : 1.75} />
+                <span className={cn("text-[10px] leading-none", active ? "font-semibold" : "font-normal")}>
+                  {label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      {/* ── "Totals for" bottom sheet — mobile only ── */}
+      {stickyModeSheetOpen && (
+        <div className="sm:hidden fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Totals for">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setStickyModeSheetOpen(false)}
+          />
+          {/* Sheet */}
+          <div className="absolute bottom-0 inset-x-0 rounded-t-2xl bg-white dark:bg-slate-900 px-6 pt-4 pb-10 shadow-2xl">
+            <div className="w-10 h-1 bg-slate-300 dark:bg-slate-600 rounded-full mx-auto mb-5" />
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-4">
+              Totals for
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { value: 'today',    label: 'Today'        },
+                { value: 'selected', label: 'Selected day' },
+              ].map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => { setStickyMode(value); setStickyModeSheetOpen(false); }}
+                  className={cn(
+                    "py-4 rounded-xl text-sm font-semibold border-2 transition-colors",
+                    effectiveStickyMode === value
+                      ? "border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900"
+                      : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
