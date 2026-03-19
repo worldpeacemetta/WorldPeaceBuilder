@@ -2330,84 +2330,106 @@ export default function MacroTrackerApp(){
           </div>
         </div>
 
-        {/* Sticky totals with remaining budgets (PATCHED for "X over" in red) */}
+        {/* Sticky totals */}
         <div className="border-t border-slate-200 dark:border-slate-800">
-          <div className="max-w-6xl mx-auto px-4 py-2 flex items-center justify-between gap-3">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm flex-1">
-              {(() => {
-                const rem = stickyGoals.kcal - stickyTotals.kcal;
-                const over = rem < 0;
-                const remaining = over ? `${Math.abs(rem).toFixed(0)} over` : `${rem.toFixed(0)} left`;
-                return (
-                  <StripKpi
-                    label="Calories"
-                    color={COLORS.kcal}
-                    actual={`${stickyTotals.kcal.toFixed(0)} kcal`}
-                    goal={`${stickyGoals.kcal.toFixed(0)} kcal`}
-                    remaining={remaining}
-                    over={over}
-                  />
-                );
-              })()}
-              {(() => {
-                const rem = stickyGoals.protein - stickyTotals.protein;
-                const over = rem < 0;
-                const remaining = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
-                return (
-                  <StripKpi
-                    label="Protein"
-                    color={COLORS.protein}
-                    actual={`${stickyTotals.protein.toFixed(0)} g`}
-                    goal={`${stickyGoals.protein.toFixed(0)} g`}
-                    remaining={remaining}
-                    over={over}
-                  />
-                );
-              })()}
-              {(() => {
-                const rem = stickyGoals.carbs - stickyTotals.carbs;
-                const over = rem < 0;
-                const remaining = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
-                return (
-                  <StripKpi
-                    label="Carbs"
-                    color={COLORS.carbs}
-                    actual={`${stickyTotals.carbs.toFixed(0)} g`}
-                    goal={`${stickyGoals.carbs.toFixed(0)} g`}
-                    remaining={remaining}
-                    over={over}
-                  />
-                );
-              })()}
-              {(() => {
-                const rem = stickyGoals.fat - stickyTotals.fat;
-                const over = rem < 0;
-                const remaining = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
-                return (
-                  <StripKpi
-                    label="Fat"
-                    color={COLORS.fat}
-                    actual={`${stickyTotals.fat.toFixed(0)} g`}
-                    goal={`${stickyGoals.fat.toFixed(0)} g`}
-                    remaining={remaining}
-                    over={over}
-                  />
-                );
-              })()}
-            </div>
-            <div className="flex items-center gap-2 text-xs shrink-0">
-              {/* Mobile: pill button → bottom sheet */}
+          <div className="max-w-6xl mx-auto px-4">
+
+            {/* ── Mobile: "Totals for [Today]" title row ── */}
+            <div className="sm:hidden flex items-center justify-between pt-2 pb-1.5 border-b border-slate-100 dark:border-slate-800/50">
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                Totals for
+              </span>
               <button
-                className="sm:hidden flex items-center gap-1 font-medium rounded-lg px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 active:scale-95 transition-transform"
                 onClick={() => setStickyModeSheetOpen(true)}
+                className="flex items-center gap-1"
                 aria-label="Change totals date"
               >
-                {effectiveStickyMode === 'today' ? 'Today' : 'Selected'}
-                <ChevronUp className="h-3 w-3" />
+                <span className={cn(
+                  "text-xs font-semibold px-2.5 py-0.5 rounded-full",
+                  effectiveStickyMode === 'selected'
+                    ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                    : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                )}>
+                  {effectiveStickyMode === 'today' ? 'Today' : 'Selected day'}
+                </span>
+                <ChevronUp className="h-3 w-3 text-slate-400 dark:text-slate-500" />
               </button>
-              {/* Desktop: select dropdown */}
-              <span className="text-slate-500 hidden sm:inline">Totals for</span>
-              <div className="hidden sm:block">
+            </div>
+
+            {/* ── Mobile: compact 4-column macro strip ── */}
+            <div className="sm:hidden grid grid-cols-4 gap-2 py-2">
+              <CompactMacroCell label="Cal"   color={COLORS.kcal}    actualNum={stickyTotals.kcal}     goalNum={stickyGoals.kcal}     unit="kcal" />
+              <CompactMacroCell label="Pro"   color={COLORS.protein} actualNum={stickyTotals.protein}  goalNum={stickyGoals.protein}  unit="g"    />
+              <CompactMacroCell label="Carbs" color={COLORS.carbs}   actualNum={stickyTotals.carbs}    goalNum={stickyGoals.carbs}    unit="g"    />
+              <CompactMacroCell label="Fat"   color={COLORS.fat}     actualNum={stickyTotals.fat}      goalNum={stickyGoals.fat}      unit="g"    />
+            </div>
+
+            {/* ── Desktop: original StripKpi cards + select toggle (unchanged) ── */}
+            <div className="hidden sm:flex items-center gap-3 py-2">
+              <div className="grid grid-cols-4 gap-2 text-sm flex-1">
+                {(() => {
+                  const rem = stickyGoals.kcal - stickyTotals.kcal;
+                  const over = rem < 0;
+                  const remaining = over ? `${Math.abs(rem).toFixed(0)} over` : `${rem.toFixed(0)} left`;
+                  return (
+                    <StripKpi
+                      label="Calories"
+                      color={COLORS.kcal}
+                      actual={`${stickyTotals.kcal.toFixed(0)} kcal`}
+                      goal={`${stickyGoals.kcal.toFixed(0)} kcal`}
+                      remaining={remaining}
+                      over={over}
+                    />
+                  );
+                })()}
+                {(() => {
+                  const rem = stickyGoals.protein - stickyTotals.protein;
+                  const over = rem < 0;
+                  const remaining = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
+                  return (
+                    <StripKpi
+                      label="Protein"
+                      color={COLORS.protein}
+                      actual={`${stickyTotals.protein.toFixed(0)} g`}
+                      goal={`${stickyGoals.protein.toFixed(0)} g`}
+                      remaining={remaining}
+                      over={over}
+                    />
+                  );
+                })()}
+                {(() => {
+                  const rem = stickyGoals.carbs - stickyTotals.carbs;
+                  const over = rem < 0;
+                  const remaining = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
+                  return (
+                    <StripKpi
+                      label="Carbs"
+                      color={COLORS.carbs}
+                      actual={`${stickyTotals.carbs.toFixed(0)} g`}
+                      goal={`${stickyGoals.carbs.toFixed(0)} g`}
+                      remaining={remaining}
+                      over={over}
+                    />
+                  );
+                })()}
+                {(() => {
+                  const rem = stickyGoals.fat - stickyTotals.fat;
+                  const over = rem < 0;
+                  const remaining = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
+                  return (
+                    <StripKpi
+                      label="Fat"
+                      color={COLORS.fat}
+                      actual={`${stickyTotals.fat.toFixed(0)} g`}
+                      goal={`${stickyGoals.fat.toFixed(0)} g`}
+                      remaining={remaining}
+                      over={over}
+                    />
+                  );
+                })()}
+              </div>
+              <div className="flex items-center gap-2 text-xs shrink-0">
+                <span className="text-slate-500">Totals for</span>
                 <Select value={effectiveStickyMode} onValueChange={(v) => setStickyMode(v)}>
                   <SelectTrigger className="h-7 w-28"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -2417,6 +2439,7 @@ export default function MacroTrackerApp(){
                 </Select>
               </div>
             </div>
+
           </div>
         </div>
       </header>
@@ -3830,6 +3853,30 @@ function GoalModeBadge({ value, className }) {
   );
 }
 // PATCH: accept optional subColor for "X over" red
+/** Compact single-column macro cell used in the mobile sticky strip. */
+function CompactMacroCell({ label, color, actualNum, goalNum, unit }) {
+  const over = actualNum > goalNum;
+  const pct = goalNum > 0 ? Math.min((actualNum / goalNum) * 100, 100) : 0;
+  const displayColor = over ? '#ef4444' : color;
+  return (
+    <div className="flex flex-col gap-0.5 min-w-0">
+      <span className="text-[9px] font-bold uppercase tracking-widest leading-none" style={{ color }}>
+        {label}
+      </span>
+      <span className="text-sm font-bold leading-tight" style={{ color: displayColor }}>
+        {actualNum.toFixed(0)}
+        <span className="text-[9px] font-normal ml-0.5">{unit}</span>
+      </span>
+      <div className="h-1 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden my-0.5">
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: displayColor }} />
+      </div>
+      <span className="text-[9px] text-slate-400 dark:text-slate-500 leading-none">
+        /{goalNum.toFixed(0)}{unit !== 'kcal' ? unit : ''}
+      </span>
+    </div>
+  );
+}
+
 function StripKpi({ label, color, actual, goal, remaining, over }) {
   return (
     <div className="flex min-h-[96px] flex-col justify-between rounded-xl border border-slate-200 bg-white/80 px-4 py-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/70">
