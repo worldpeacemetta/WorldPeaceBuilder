@@ -11,6 +11,7 @@ create table if not exists public.foods (
   carbs numeric,
   protein numeric,
   category text,
+  components jsonb,
   created_at timestamptz not null default now()
 );
 
