@@ -1146,9 +1146,8 @@ export default function MacroTrackerApp(){
     if (prevEntries.length === 0) { alert('No entries found for the previous day.'); return; }
     for (const e of prevEntries) {
       const payload = { user_id: session.user.id, date: logDate, food_id: e.foodId, qty: e.qty, meal: e.meal };
-      const { data, error } = await supabase.from('entries').insert(payload);
+      const { data: inserted, error } = await supabase.from('entries').insert(payload).select().single();
       if (error) { alert(error.message || 'Unable to copy entries.'); return; }
-      const inserted = Array.isArray(data) ? data[0] : null;
       if (!inserted) continue;
       setEntries(prev => [{ id: inserted.id, date: inserted.date, foodId: inserted.food_id, qty: Number(inserted.qty) || 0, meal: inserted.meal }, ...prev]);
     }
@@ -1585,12 +1584,11 @@ export default function MacroTrackerApp(){
       qty,
       meal,
     };
-    const { data, error } = await supabase.from("entries").insert(payload);
+    const { data: inserted, error } = await supabase.from("entries").insert(payload).select().single();
     if (error) {
       alert(error.message || "Unable to add entry.");
       return;
     }
-    const inserted = Array.isArray(data) ? data[0] : null;
     if (!inserted) return;
     const entry = {
       id: inserted.id,
@@ -1698,13 +1696,12 @@ export default function MacroTrackerApp(){
       components: sanitized.category === "homeRecipe" ? sanitized.components : null,
     };
 
-    const { data, error } = await supabase.from("foods").insert(payload);
+    const { data: inserted, error } = await supabase.from("foods").insert(payload).select().single();
     if (error) {
       alert(error.message || "Unable to add food.");
       return;
     }
 
-    const inserted = Array.isArray(data) ? data[0] : null;
     if (!inserted) return;
 
     const mapped = sanitizeFood({
