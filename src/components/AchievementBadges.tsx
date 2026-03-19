@@ -722,17 +722,17 @@ export default function AchievementBadges({ earnedBadgeIds }: { earnedBadgeIds: 
   const [showEarnedOnly, setShowEarnedOnly] = useState(false);
   const earnedCount = BADGES.filter(b => earnedBadgeIds.has(b.stringId)).length;
   const categories = [...new Set(BADGES.map(b => b.category))];
+  const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
 
   return (
-    <div style={{
-      background: "linear-gradient(135deg, #0F0C29 0%, #1A1640 40%, #24243E 100%)",
+    <div className="bg-white dark:bg-slate-900" style={{
       padding: "28px 20px",
       fontFamily: "'Nunito', 'Segoe UI', sans-serif",
     }}>
       <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet" />
 
       <div style={{ maxWidth: 960, margin: "0 auto" }}>
-        <p style={{ color: "#9E9EBE", fontSize: 13, textAlign: "center", marginBottom: 20 }}>
+        <p className="text-slate-500 dark:text-slate-400" style={{ fontSize: 13, textAlign: "center", marginBottom: 20 }}>
           {earnedCount} of {BADGES.length} earned
         </p>
 
@@ -744,7 +744,7 @@ export default function AchievementBadges({ earnedBadgeIds }: { earnedBadgeIds: 
               borderRadius: "24px 0 0 24px",
               border: "2px solid #6C63FF",
               background: !showEarnedOnly ? "linear-gradient(135deg, #6C63FF, #8B5CF6)" : "transparent",
-              color: !showEarnedOnly ? "#FFF" : "#9E9EBE",
+              color: !showEarnedOnly ? "#FFF" : isDark ? "#9E9EBE" : "#6B7280",
               fontWeight: 800,
               fontSize: 14,
               cursor: "pointer",
@@ -762,7 +762,7 @@ export default function AchievementBadges({ earnedBadgeIds }: { earnedBadgeIds: 
               border: "2px solid #6C63FF",
               borderLeft: "none",
               background: showEarnedOnly ? "linear-gradient(135deg, #6C63FF, #8B5CF6)" : "transparent",
-              color: showEarnedOnly ? "#FFF" : "#9E9EBE",
+              color: showEarnedOnly ? "#FFF" : isDark ? "#9E9EBE" : "#6B7280",
               fontWeight: 800,
               fontSize: 14,
               cursor: "pointer",
@@ -779,8 +779,7 @@ export default function AchievementBadges({ earnedBadgeIds }: { earnedBadgeIds: 
           if (catBadges.length === 0) return null;
           return (
             <div key={cat} style={{ marginBottom: 36 }}>
-              <h2 style={{
-                color: "#C5C3E8",
+              <h2 className="text-slate-500 dark:text-[#C5C3E8]" style={{
                 fontSize: 16,
                 fontWeight: 800,
                 marginBottom: 16,
@@ -800,23 +799,23 @@ export default function AchievementBadges({ earnedBadgeIds }: { earnedBadgeIds: 
                   return (
                     <div
                       key={badge.id}
+                      className="border border-slate-200 dark:border-white/[0.06]"
                       style={{
                         display: "flex",
                         flexDirection: "column",
                         alignItems: "center",
                         padding: "16px 8px 12px",
                         borderRadius: 16,
-                        background: "rgba(255,255,255,0.04)",
-                        border: "1px solid rgba(255,255,255,0.06)",
+                        background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)",
                         transition: "all 0.3s",
                         cursor: "default",
                       }}
                       onMouseEnter={e => {
-                        (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.08)";
+                        (e.currentTarget as HTMLDivElement).style.background = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)";
                         (e.currentTarget as HTMLDivElement).style.transform = "translateY(-4px)";
                       }}
                       onMouseLeave={e => {
-                        (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)";
+                        (e.currentTarget as HTMLDivElement).style.background = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)";
                         (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)";
                       }}
                     >
@@ -825,8 +824,7 @@ export default function AchievementBadges({ earnedBadgeIds }: { earnedBadgeIds: 
                           <BadgeIcon icon={badge.icon} locked={!earned} accent={badge.accent} />
                         </BadgeShape>
                       </div>
-                      <span style={{
-                        color: earned ? "#EEEEFF" : "#7A7A8E",
+                      <span className={earned ? "text-slate-900 dark:text-[#EEEEFF]" : "text-slate-400 dark:text-[#7A7A8E]"} style={{
                         fontSize: 11,
                         fontWeight: 800,
                         marginTop: 8,
@@ -835,8 +833,7 @@ export default function AchievementBadges({ earnedBadgeIds }: { earnedBadgeIds: 
                       }}>
                         {badge.name}
                       </span>
-                      <span style={{
-                        color: earned ? "#9E9EBE" : "#55556A",
+                      <span className={earned ? "text-slate-500 dark:text-[#9E9EBE]" : "text-slate-300 dark:text-[#55556A]"} style={{
                         fontSize: 9,
                         fontWeight: 600,
                         marginTop: 2,
