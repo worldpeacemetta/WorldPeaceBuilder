@@ -2754,7 +2754,7 @@ export default function MacroTrackerApp(){
                     <Label className="text-sm">Date</Label>
                     <div className="flex items-center gap-2">
                       <DatePickerButton value={logDate} onChange={(v) => setLogDate(v || todayISO())} className="flex-1" />
-                      <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={()=>setLogDate(todayISO())}>Today</Button>
+                      <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={()=>{ const t=todayISO(); setLogDate(t); setDashboardDate(t); }}>Today</Button>
                     </div>
                   </div>
                   <div className="md:col-span-2">
