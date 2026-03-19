@@ -3,6 +3,10 @@
 // 1) Goal vs Actual donuts now show % > 100 when over budget.
 // 2) Sticky header KPIs show "X over" in dark red when exceeding goals.
 //    (Everything else left untouched.)
+//
+// TypeScript migration status: file renamed to .tsx; types are suppressed below
+// while full annotation is done incrementally. Remove @ts-nocheck as types are added.
+// @ts-nocheck
 
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState, useId } from "react";
 import { BrowserMultiFormatReader } from '@zxing/browser';
@@ -19,6 +23,7 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { supabase } from "./lib/supabase";
 import usePrefersDark from "./hooks/usePrefersDark";
+import { useDateSync } from "./hooks/useDateSync";
 import {
   CartesianGrid,
   AreaChart,
@@ -87,12 +92,37 @@ import {
 import { format, formatDistanceToNow, startOfDay, addDays, subDays, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval, startOfWeek, endOfWeek, getDay } from "date-fns";
 
 /*******************
- * Types (for readability only)
+ * Types
  *******************/
-/** @typedef {'breakfast'|'lunch'|'dinner'|'snack'|'other'} MealKey */
-/** @typedef {{id:string,name:string,brand?:string,unit:'per100g'|'perServing',servingSize?:number,kcal:number,fat:number,carbs:number,protein:number,category:string,components?:Ingredient[]}} Food */
-/** @typedef {{foodId:string,quantity:number}} Ingredient */
-/** @typedef {{id:string,date:string,foodId?:string,label?:string,qty:number,meal:MealKey}} Entry */
+export type MealKey = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'other';
+
+export interface Ingredient {
+  foodId: string;
+  quantity: number;
+}
+
+export interface Food {
+  id: string;
+  name: string;
+  brand?: string;
+  unit: 'per100g' | 'perServing';
+  servingSize?: number;
+  kcal: number;
+  fat: number;
+  carbs: number;
+  protein: number;
+  category: string;
+  components?: Ingredient[];
+}
+
+export interface Entry {
+  id: string;
+  date: string;
+  foodId?: string;
+  label?: string;
+  qty: number;
+  meal: MealKey;
+}
 
 /*******************
  * Constants & Utils
@@ -700,7 +730,15 @@ export default function MacroTrackerApp(){
   const [entries, setEntries] = useState([]);
   const [entriesLoading, setEntriesLoading] = useState(true);
   const [settings, setSettings] = useState(()=> ensureSettings(stripProfileSettingsForStorage(load(K_SETTINGS, DEFAULT_SETTINGS))));
-  const [tab, setTab] = useState('dashboard');
+  const [tab, setTab] = useState(() => {
+    const validTabs = new Set(['dashboard', 'daily', 'foods', 'settings']);
+    const hash = typeof window !== 'undefined' ? window.location.hash.slice(1) : '';
+    return validTabs.has(hash) ? hash : 'dashboard';
+  });
+  // Persist active tab in URL hash so refresh / sharing lands on the right tab.
+  useEffect(() => {
+    if (typeof window !== 'undefined') window.location.hash = tab;
+  }, [tab]);
   const [foodPendingDelete, setFoodPendingDelete] = useState(null);
   const [foodCategoryFilter, setFoodCategoryFilter] = useState(new Set());
   const [foodSelectedIds, setFoodSelectedIds] = useState(new Set());
@@ -948,25 +986,25 @@ export default function MacroTrackerApp(){
         if (!active) return;
         if (!error && data) {
           setSettings((prev) => {
-            const merged = ensureSettings(prev);
-            return {
-              ...merged,
+            // Supabase is authoritative. Local (localStorage) values are used only
+            // as a fallback when the Supabase field has never been set (null/absent).
+            const local = ensureSettings(prev);
+            return ensureSettings({
               profile: {
-                ...merged.profile,
-                age: Number(data.age ?? merged.profile.age ?? 0),
-                sex: data.sex ?? merged.profile.sex,
-                heightCm: Number(data.height ?? merged.profile.heightCm ?? 0),
-                weightKg: Number(data.weight ?? merged.profile.weightKg ?? 0),
-                bodyFatPct: data.body_fat == null ? merged.profile.bodyFatPct : Number(data.body_fat),
-                activity: data.activity_level ?? merged.profile.activity,
+                age: data.age != null ? Number(data.age) : local.profile.age,
+                sex: data.sex ?? local.profile.sex,
+                heightCm: data.height != null ? Number(data.height) : local.profile.heightCm,
+                weightKg: data.weight != null ? Number(data.weight) : local.profile.weightKg,
+                bodyFatPct: data.body_fat != null ? Number(data.body_fat) : local.profile.bodyFatPct,
+                activity: data.activity_level ?? local.profile.activity,
               },
-              dailyGoals: ensureDailyGoals(data.daily_macro_goals ?? merged.dailyGoals),
-              profileHistory: ensureBodyHistory(
-                Array.isArray(data.profile_history) && data.profile_history.length > 0
-                  ? data.profile_history
-                  : merged.profileHistory
-              ),
-            };
+              dailyGoals: data.daily_macro_goals != null
+                ? ensureDailyGoals(data.daily_macro_goals)
+                : local.dailyGoals,
+              profileHistory: Array.isArray(data.profile_history) && data.profile_history.length > 0
+                ? data.profile_history
+                : local.profileHistory,
+            });
           });
 
           const updatedAt = data.updated_at ? new Date(data.updated_at) : null;
@@ -1059,7 +1097,13 @@ export default function MacroTrackerApp(){
   }, [settings.dailyGoals?.byDate, session?.user?.id, profileLoading]);
 
   // Daily log state
-  const [logDate, setLogDate] = useState(todayISO());
+  const {
+    logDate, setLogDate,
+    dashboardDate, setDashboardDate,
+    weekNavDate, setWeekNavDate,
+    stickyMode, setStickyMode,
+    effectiveStickyMode, stickyDate, today,
+  } = useDateSync();
   const [selectedFoodId, setSelectedFoodId] = useState(null);
   const [qty, setQty] = useState(0);
   const [meal, setMeal] = useState(/** @type {MealKey} */(suggestMealByNow()));
@@ -1074,25 +1118,6 @@ export default function MacroTrackerApp(){
 
   const totalsForDate = (iso)=>{ const dayEntries = entries.filter(e=>e.date===iso); const rows = dayEntries.map(e=>{ const f=foods.find(x=>x.id===e.foodId); return f? scaleMacros(f,e.qty) : {kcal:0,fat:0,carbs:0,protein:0};}); return sumMacros(rows); };
 
-  const [stickyMode, setStickyMode] = useState('today');
-  const [dashboardDate, setDashboardDate] = useState(todayISO());
-  const [weekNavDate, setWeekNavDate] = useState(todayISO());
-
-  // Sync dashboard date and week nav to the Daily Log date when it changes
-  useEffect(() => {
-    const target = ISO_DATE_RE.test(logDate) ? logDate : todayISO();
-    setDashboardDate(target);
-    setWeekNavDate(target);
-  }, [logDate]);
-
-  // Derive effective sticky mode without state mutation to avoid re-renders
-  // that would close the browser's native date picker mid-interaction.
-  // Auto-switches to 'selected' whenever either date differs from today;
-  // falls back to the user's manual choice when both dates are today.
-  const today = todayISO();
-  const effectiveStickyMode =
-    logDate !== today || dashboardDate !== today ? 'selected' : stickyMode;
-  const stickyDate = effectiveStickyMode === 'today' ? today : dashboardDate;
   const stickyTotals = useMemo(()=> totalsForDate(stickyDate), [entries,foods,stickyDate]);
   const totalsForCard = useMemo(()=> totalsForDate(logDate), [rowsForDay]);
 
