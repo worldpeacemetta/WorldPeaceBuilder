@@ -932,9 +932,13 @@ export default function MacroTrackerApp(){
         setProfileAvatarUrl("");
       } else {
         const usernameLower = data?.username ?? "";
-        const displayUsername = data?.display_username ?? usernameLower;
+        // "_new_" prefix marks a temporary username set at registration time.
+        // These users haven't gone through onboarding yet — treat as no name set.
+        const isTempUsername = usernameLower.startsWith("_new_");
+        const displayUsername = isTempUsername ? "" : (data?.display_username ?? usernameLower);
 
-        if (!data?.display_username && usernameLower) {
+        // Auto-migrate legacy users: if they have a real username but no display_username yet.
+        if (!isTempUsername && !data?.display_username && usernameLower) {
           await supabase
             .from("profiles")
             .update({ display_username: usernameLower })
@@ -2090,12 +2094,22 @@ export default function MacroTrackerApp(){
   const handleOnboardingComplete = useCallback(async ({ displayName, profile, dailyGoals }) => {
     if (!session?.user?.id) return;
 
-    // 1. Save username to profiles table
-    const username = displayName.toLowerCase().replace(/\s+/g, "_");
-    await supabase
+    // 1. Save display name to profiles table.
+    // Try to set a clean username derived from the display name; if it collides
+    // with an existing account, fall back to only updating display_username.
+    const username = displayName.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 30) || displayName.toLowerCase();
+    const { error: usernameError } = await supabase
       .from("profiles")
       .update({ username, display_username: displayName })
       .eq("id", session.user.id);
+
+    if (usernameError) {
+      // Likely a unique constraint on username — just save the display name
+      await supabase
+        .from("profiles")
+        .update({ display_username: displayName })
+        .eq("id", session.user.id);
+    }
 
     setProfileUsername(displayName);
     setAccountUsername(displayName);
