@@ -743,6 +743,7 @@ export default function MacroTrackerApp(){
   const [barcodeScanOpen, setBarcodeScanOpen] = useState(false);
   const [scannedBasicForm, setScannedBasicForm] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [profileNameReady, setProfileNameReady] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaveError, setProfileSaveError] = useState("");
   const [profileSaveSuccess, setProfileSaveSuccess] = useState("");
@@ -792,6 +793,7 @@ export default function MacroTrackerApp(){
       }
 
       if (event === "SIGNED_OUT") {
+        setProfileNameReady(false);
         setProfileUsername("");
         setProfileAvatarUrl("");
         setAccountUsername("");
@@ -950,6 +952,8 @@ export default function MacroTrackerApp(){
         setAccountUsername(displayUsername);
       }
       setAccountEmail(session.user?.email ?? "");
+      // Signal that the username check is done — used to gate the onboarding questionnaire.
+      setProfileNameReady(true);
     }
 
     loadProfile();
@@ -2307,7 +2311,7 @@ export default function MacroTrackerApp(){
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 text-slate-900 dark:from-slate-900 dark:to-slate-950 dark:text-slate-100">
-      {!profileLoading && !profileUsername && (
+      {profileNameReady && !profileUsername && (
         <OnboardingQuestionnaire
           userEmail={session?.user?.email ?? ""}
           onComplete={handleOnboardingComplete}
