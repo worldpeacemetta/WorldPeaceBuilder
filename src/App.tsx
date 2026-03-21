@@ -743,7 +743,6 @@ export default function MacroTrackerApp(){
   const [barcodeScanOpen, setBarcodeScanOpen] = useState(false);
   const [scannedBasicForm, setScannedBasicForm] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
-  const [showOnboarding, setShowOnboarding] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaveError, setProfileSaveError] = useState("");
   const [profileSaveSuccess, setProfileSaveSuccess] = useState("");
@@ -793,7 +792,6 @@ export default function MacroTrackerApp(){
       }
 
       if (event === "SIGNED_OUT") {
-        setShowOnboarding(false);
         setProfileUsername("");
         setProfileAvatarUrl("");
         setAccountUsername("");
@@ -946,11 +944,6 @@ export default function MacroTrackerApp(){
         setProfileUsername(displayUsername);
         setProfileAvatarUrl(data?.avatar_url ?? "");
         setAccountUsername(displayUsername);
-
-        // Show onboarding for new users who have no display name yet
-        if (!displayUsername) {
-          setShowOnboarding(true);
-        }
       }
       setAccountEmail(session.user?.email ?? "");
     }
@@ -2115,8 +2108,6 @@ export default function MacroTrackerApp(){
     });
     setSettings(nextSettings);
     await saveUserProfile(nextSettings);
-
-    setShowOnboarding(false);
   }, [session?.user?.id, settings, saveUserProfile]);
 
   const handleUpdateUsername = useCallback(async () => {
@@ -2302,7 +2293,7 @@ export default function MacroTrackerApp(){
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 text-slate-900 dark:from-slate-900 dark:to-slate-950 dark:text-slate-100">
-      {showOnboarding && !profileLoading && (
+      {!profileLoading && !profileUsername && (
         <OnboardingQuestionnaire
           userEmail={session?.user?.email ?? ""}
           onComplete={handleOnboardingComplete}
