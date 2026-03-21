@@ -178,9 +178,17 @@ export default function Auth() {
     setRegisterLoading(true);
 
     try {
+      // Generate a temporary username prefixed with "_new_" so the DB trigger
+      // (username NOT NULL) doesn't fail. The "_new_" prefix lets loadProfile
+      // detect this is a fresh account and trigger the onboarding questionnaire.
+      // The onboarding will replace it with the user's real chosen name.
+      const emailPrefix = email.split("@")[0].replace(/[^a-z0-9_]/gi, "").toLowerCase() || "user";
+      const tempUsername = `_new_${emailPrefix}_${Math.random().toString(36).slice(2, 7)}`;
+
       const { error: registerErrorResult } = await supabase.auth.signUp({
         email,
         password: registerPassword,
+        options: { data: { username: tempUsername } },
       });
 
       if (registerErrorResult) {
