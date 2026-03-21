@@ -36,7 +36,6 @@ export default function Auth() {
   const [signInLoading, setSignInLoading] = useState(false);
 
   const [registerEmail, setRegisterEmail] = useState("");
-  const [registerUsername, setRegisterUsername] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [registerError, setRegisterError] = useState("");
@@ -51,7 +50,7 @@ export default function Auth() {
   );
 
   const canSubmitRegister =
-    !!registerEmail.trim() && !!registerUsername.trim() && !!registerPassword && !!confirmPassword && !passwordsDoNotMatch && !registerLoading;
+    !!registerEmail.trim() && !!registerPassword && !!confirmPassword && !passwordsDoNotMatch && !registerLoading;
 
   const resetSignInMessages = () => {
     setSignInError("");
@@ -165,16 +164,9 @@ export default function Auth() {
     resetRegisterMessages();
 
     const email = registerEmail.trim().toLowerCase();
-    const displayUsername = registerUsername.trim();
-    const username = displayUsername.toLowerCase();
 
     if (!email.includes("@")) {
       setRegisterError("Please enter a valid email");
-      return;
-    }
-
-    if (!displayUsername) {
-      setRegisterError("Username is required");
       return;
     }
 
@@ -186,22 +178,17 @@ export default function Auth() {
     setRegisterLoading(true);
 
     try {
-      const { data: existingEmail, error: usernameLookupError } = await supabase.rpc("get_email_by_username", {
-        p_username: username,
-      });
-      if (usernameLookupError) {
-        setRegisterError(getErrorMessage(usernameLookupError, "Unable to validate username"));
-        return;
-      }
-      if (existingEmail) {
-        setRegisterError("Username already taken");
-        return;
-      }
+      // Generate a temporary username prefixed with "_new_" so the DB trigger
+      // (username NOT NULL) doesn't fail. The "_new_" prefix lets loadProfile
+      // detect this is a fresh account and trigger the onboarding questionnaire.
+      // The onboarding will replace it with the user's real chosen name.
+      const emailPrefix = email.split("@")[0].replace(/[^a-z0-9_]/gi, "").toLowerCase() || "user";
+      const tempUsername = `_new_${emailPrefix}_${Math.random().toString(36).slice(2, 7)}`;
 
       const { error: registerErrorResult } = await supabase.auth.signUp({
         email,
         password: registerPassword,
-        options: { data: { username, display_username: displayUsername } },
+        options: { data: { username: tempUsername } },
       });
 
       if (registerErrorResult) {
@@ -324,17 +311,6 @@ export default function Auth() {
                   value={registerEmail}
                   onChange={(event) => setRegisterEmail(event.target.value)}
                   placeholder="you@example.com"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="register-username">Username</Label>
-                <Input
-                  id="register-username"
-                  type="text"
-                  value={registerUsername}
-                  onChange={(event) => setRegisterUsername(event.target.value)}
-                  placeholder="yourusername"
                 />
               </div>
 

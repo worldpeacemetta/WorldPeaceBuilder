@@ -13,6 +13,7 @@ import { BrowserMultiFormatReader } from '@zxing/browser';
 import { DecodeHintType } from '@zxing/library';
 import Auth from "./components/Auth";
 import AchievementBadges, { BADGES, BadgeShape, BadgeIcon } from "./components/AchievementBadges";
+import OnboardingQuestionnaire from "./components/OnboardingQuestionnaire";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -742,6 +743,7 @@ export default function MacroTrackerApp(){
   const [barcodeScanOpen, setBarcodeScanOpen] = useState(false);
   const [scannedBasicForm, setScannedBasicForm] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [profileNameReady, setProfileNameReady] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaveError, setProfileSaveError] = useState("");
   const [profileSaveSuccess, setProfileSaveSuccess] = useState("");
@@ -791,6 +793,7 @@ export default function MacroTrackerApp(){
       }
 
       if (event === "SIGNED_OUT") {
+        setProfileNameReady(false);
         setProfileUsername("");
         setProfileAvatarUrl("");
         setAccountUsername("");
@@ -931,9 +934,13 @@ export default function MacroTrackerApp(){
         setProfileAvatarUrl("");
       } else {
         const usernameLower = data?.username ?? "";
-        const displayUsername = data?.display_username ?? usernameLower;
+        // "_new_" prefix marks a temporary username set at registration time.
+        // These users haven't gone through onboarding yet — treat as no name set.
+        const isTempUsername = usernameLower.startsWith("_new_");
+        const displayUsername = isTempUsername ? "" : (data?.display_username ?? usernameLower);
 
-        if (!data?.display_username && usernameLower) {
+        // Auto-migrate legacy users: if they have a real username but no display_username yet.
+        if (!isTempUsername && !data?.display_username && usernameLower) {
           await supabase
             .from("profiles")
             .update({ display_username: usernameLower })
@@ -945,6 +952,8 @@ export default function MacroTrackerApp(){
         setAccountUsername(displayUsername);
       }
       setAccountEmail(session.user?.email ?? "");
+      // Signal that the username check is done — used to gate the onboarding questionnaire.
+      setProfileNameReady(true);
     }
 
     loadProfile();
@@ -2086,6 +2095,39 @@ export default function MacroTrackerApp(){
     await supabase.auth.signOut();
   }, []);
 
+  const handleOnboardingComplete = useCallback(async ({ displayName, profile, dailyGoals }) => {
+    if (!session?.user?.id) return;
+
+    // 1. Save display name to profiles table.
+    // Try to set a clean username derived from the display name; if it collides
+    // with an existing account, fall back to only updating display_username.
+    const username = displayName.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 30) || displayName.toLowerCase();
+    const { error: usernameError } = await supabase
+      .from("profiles")
+      .update({ username, display_username: displayName })
+      .eq("id", session.user.id);
+
+    if (usernameError) {
+      // Likely a unique constraint on username — just save the display name
+      await supabase
+        .from("profiles")
+        .update({ display_username: displayName })
+        .eq("id", session.user.id);
+    }
+
+    setProfileUsername(displayName);
+    setAccountUsername(displayName);
+
+    // 2. Merge profile + dailyGoals into settings and persist to Supabase
+    const nextSettings = ensureSettings({
+      ...settings,
+      profile: { ...settings.profile, ...profile },
+      dailyGoals: ensureDailyGoals({ ...settings.dailyGoals, ...dailyGoals }),
+    });
+    setSettings(nextSettings);
+    await saveUserProfile(nextSettings);
+  }, [session?.user?.id, settings, saveUserProfile]);
+
   const handleUpdateUsername = useCallback(async () => {
     const displayUsername = accountUsername.trim();
     const username = displayUsername.toLowerCase();
@@ -2269,6 +2311,12 @@ export default function MacroTrackerApp(){
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 text-slate-900 dark:from-slate-900 dark:to-slate-950 dark:text-slate-100">
+      {profileNameReady && !profileUsername && (
+        <OnboardingQuestionnaire
+          userEmail={session?.user?.email ?? ""}
+          onComplete={handleOnboardingComplete}
+        />
+      )}
       <header className="sticky top-0 z-40 backdrop-blur border-b border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-900/60">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
