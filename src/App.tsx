@@ -85,6 +85,8 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { format, formatDistanceToNow, startOfDay, addDays, subDays, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval, startOfWeek, endOfWeek, getDay } from "date-fns";
+import { useTranslation } from "react-i18next";
+import i18n, { setLanguage } from "./i18n";
 
 /*******************
  * Types
@@ -741,6 +743,7 @@ const MEAL_ORDER = ['breakfast','lunch','dinner','snack','other'];
  * Main App
  *******************/
 export default function MacroTrackerApp(){
+  const { t, i18n: i18nHook } = useTranslation();
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authRefreshKey, setAuthRefreshKey] = useState(0);
@@ -1183,11 +1186,11 @@ export default function MacroTrackerApp(){
     if (!session?.user?.id) return;
     const prevDate = format(subDays(new Date(logDate), 1), 'yyyy-MM-dd');
     const prevEntries = entries.filter(e => e.date === prevDate);
-    if (prevEntries.length === 0) { alert('No entries found for the previous day.'); return; }
+    if (prevEntries.length === 0) { alert(t('error.noEntriesPrevDay')); return; }
     for (const e of prevEntries) {
       const payload = { user_id: session.user.id, date: logDate, food_id: e.foodId, qty: e.qty, meal: e.meal };
       const { data: inserted, error } = await supabase.from('entries').insert(payload).select().single();
-      if (error) { alert(error.message || 'Unable to copy entries.'); return; }
+      if (error) { alert(error.message || t('error.unableCopyEntries')); return; }
       if (!inserted) continue;
       setEntries(prev => [{ id: inserted.id, date: inserted.date, foodId: inserted.food_id, qty: Number(inserted.qty) || 0, meal: inserted.meal }, ...prev]);
     }
@@ -1296,10 +1299,10 @@ export default function MacroTrackerApp(){
     };
 
     const summaries = [
-      { key: "7d", label: "Average (7d)", averages: computeForDates(recentDates(7)) },
-      { key: "mtd", label: "Average (MTD)", averages: computeForDates(rangeDates(startOfMonth(today))) },
-      { key: "qtd", label: "Average (QTD)", averages: computeForDates(rangeDates(startOfQuarter(today))) },
-      { key: "ytd", label: "Average (YTD)", averages: computeForDates(rangeDates(startOfYear(today))) },
+      { key: "7d", label: t('dashboard.avgAll'), averages: computeForDates(recentDates(7)) },
+      { key: "mtd", label: t('dashboard.avgMTD'), averages: computeForDates(rangeDates(startOfMonth(today))) },
+      { key: "qtd", label: t('dashboard.avgQTD'), averages: computeForDates(rangeDates(startOfQuarter(today))) },
+      { key: "ytd", label: t('dashboard.avgYTD'), averages: computeForDates(rangeDates(startOfYear(today))) },
     ];
 
     return summaries;
@@ -1613,7 +1616,7 @@ export default function MacroTrackerApp(){
   const mealSplit = useMemo(()=>{
     const byMeal = { breakfast:{kcal:0,protein:0,carbs:0,fat:0}, lunch:{kcal:0,protein:0,carbs:0,fat:0}, dinner:{kcal:0,protein:0,carbs:0,fat:0}, snack:{kcal:0,protein:0,carbs:0,fat:0}, other:{kcal:0,protein:0,carbs:0,fat:0} };
     entriesForSplitDate.forEach(e=>{ const f=foods.find(x=>x.id===e.foodId); if(!f) return; const m=scaleMacros(f,e.qty); const key = e.meal||'other'; byMeal[key].kcal+=m.kcal; byMeal[key].protein+=m.protein; byMeal[key].carbs+=m.carbs; byMeal[key].fat+=m.fat; });
-    return MEAL_ORDER.map(k=>({ meal: MEAL_LABELS[k], ...byMeal[k] }));
+    return MEAL_ORDER.map(k=>({ meal: t('meal.'+k), ...byMeal[k] }));
   },[entriesForSplitDate,foods]);
 
   // Mutators
@@ -1628,7 +1631,7 @@ export default function MacroTrackerApp(){
     };
     const { data: inserted, error } = await supabase.from("entries").insert(payload).select().single();
     if (error) {
-      alert(error.message || "Unable to add entry.");
+      alert(error.message || t('error.unableAddEntry'));
       return;
     }
     if (!inserted) return;
@@ -1656,7 +1659,7 @@ export default function MacroTrackerApp(){
       .match({ id, user_id: session.user.id });
     if (error) {
       console.error("Entry delete failed", { id, userId: session.user.id, error });
-      alert(error.message || "Unable to delete entry.");
+      alert(error.message || t('error.unableDeleteEntry'));
       return;
     }
     setEntries(prev=>prev.filter(e=>e.id!==id));
@@ -1674,7 +1677,7 @@ export default function MacroTrackerApp(){
       .match({ id, user_id: session.user.id });
     if (error) {
       console.error("Entry quantity update failed", { id, userId: session.user.id, error });
-      alert(error.message || "Unable to update quantity.");
+      alert(error.message || t('error.unableUpdateQuantity'));
       return;
     }
     setEntries(prev=>prev.map(e=>e.id===id?{...e,qty:newQty}:e));
@@ -1698,7 +1701,7 @@ export default function MacroTrackerApp(){
       .match({ id, user_id: session.user.id });
     if (error) {
       console.error("Entry food update failed", { id, userId: session.user.id, newFoodId, error });
-      alert(error.message || "Unable to update entry food.");
+      alert(error.message || t('error.unableUpdateFood'));
       return;
     }
 
@@ -1716,7 +1719,7 @@ export default function MacroTrackerApp(){
       .match({ id, user_id: session.user.id });
     if (error) {
       console.error("Entry meal update failed", { id, userId: session.user.id, newMeal, error });
-      alert(error.message || "Unable to update meal.");
+      alert(error.message || t('error.unableUpdateMeal'));
       return;
     }
     setEntries(prev=>prev.map(e=>e.id===id?{...e,meal:newMeal}:e));
@@ -1740,7 +1743,7 @@ export default function MacroTrackerApp(){
 
     const { data: inserted, error } = await supabase.from("foods").insert(payload).select().single();
     if (error) {
-      alert(error.message || "Unable to add food.");
+      alert(error.message || t('error.unableAddFood'));
       return;
     }
 
@@ -1771,7 +1774,7 @@ export default function MacroTrackerApp(){
     const { error } = await supabase.from("foods").delete().match({ id, user_id: session.user.id });
     if (error) {
       console.error("Food delete failed", { id, userId: session.user.id, error });
-      alert(error.message || "Unable to delete food.");
+      alert(error.message || t('error.unableDeleteFood'));
       return;
     }
     setFoods(prev=>prev.filter(f=>f.id!==id));
@@ -1785,7 +1788,7 @@ export default function MacroTrackerApp(){
     if (!session?.user?.id) return;
     const idArray = [...ids];
     const { error } = await supabase.from("foods").delete().in("id", idArray).eq("user_id", session.user.id);
-    if (error) { alert(error.message || "Unable to delete foods."); return; }
+    if (error) { alert(error.message || t('error.unableDeleteFoods')); return; }
     setFoods(prev => prev.filter(f => !ids.has(f.id)));
     setFoodSelectedIds(new Set());
     setBulkDeleteConfirmOpen(false);
@@ -1855,7 +1858,7 @@ export default function MacroTrackerApp(){
         if (Array.isArray(data.foods)) {
           if (!session?.user?.id) {
             console.error("Cannot import foods: missing authenticated user session.");
-            alert("Please sign in before importing foods.");
+            alert(t('error.pleaseSignInImport'));
             return;
           }
 
@@ -1878,7 +1881,7 @@ export default function MacroTrackerApp(){
             const { error: insertError } = await supabase.from("foods").insert(mappedFoods);
             if (insertError) {
               console.error("Food import insert failed", { error: insertError });
-              alert(insertError.message || "Unable to import foods.");
+              alert(insertError.message || t('error.unableImportFoods'));
               return;
             }
 
@@ -1890,7 +1893,7 @@ export default function MacroTrackerApp(){
 
             if (foodsError) {
               console.error("Food import refetch failed", { error: foodsError });
-              alert(foodsError.message || "Foods imported, but refresh failed.");
+              alert(foodsError.message || t('error.importRefreshFailed'));
             } else {
               const refreshedFoods = (foodsData || []).map((row) => sanitizeFood({
                 id: row.id,
@@ -1908,13 +1911,13 @@ export default function MacroTrackerApp(){
               setFoods(refreshedFoods);
             }
 
-            alert(`${mappedFoods.length} foods imported successfully.`);
+            alert(t('success.foodsImported', {count: mappedFoods.length}));
           }
         }
 
         if(data.settings) setSettings(ensureSettings(data.settings));
       } catch {
-        alert('Invalid JSON file');
+        alert(t('error.invalidJsonFile'));
       }
     };
     reader.readAsText(file);
@@ -2123,7 +2126,7 @@ export default function MacroTrackerApp(){
           setProfileSaveSuccess(result.message);
           setProfileLastSavedAt(new Date());
         } else {
-          setProfileSaveError(result?.message || "Unable to save profile.");
+          setProfileSaveError(result?.message || t('error.unableSaveProfile'));
         }
       } finally {
         setProfileSaving(false);
@@ -2170,7 +2173,7 @@ export default function MacroTrackerApp(){
     // 3. Seed default foods for new users
     const seedPayload = DEFAULT_FOODS.map((f) => ({
       user_id: session.user.id,
-      name: f.name,
+      name: i18n.t('defaultFoods.'+f.name, f.name),
       brand: f.brand ?? null,
       unit: f.unit,
       serving_size: f.servingSize ?? null,
@@ -2214,7 +2217,7 @@ export default function MacroTrackerApp(){
     setAccountSuccess("");
 
     if (!displayUsername) {
-      setAccountError("Username is required");
+      setAccountError(t('error.usernameRequired'));
       return;
     }
 
@@ -2225,12 +2228,12 @@ export default function MacroTrackerApp(){
 
     if (error) {
       const message = (error.message || "").toLowerCase();
-      setAccountError(message.includes("duplicate") || message.includes("unique") ? "Username already taken" : (error.message || "Unable to update username"));
+      setAccountError(message.includes("duplicate") || message.includes("unique") ? t('error.usernameTaken') : (error.message || t('error.unableUpdateUsername')));
       return;
     }
 
     setProfileUsername(displayUsername);
-    setAccountSuccess("Username updated.");
+    setAccountSuccess(t('success.usernameUpdated'));
   }, [accountUsername, session?.user?.id]);
 
   const handleUpdateEmail = useCallback(async () => {
@@ -2239,17 +2242,17 @@ export default function MacroTrackerApp(){
     setAccountSuccess("");
 
     if (!email.includes("@")) {
-      setAccountError("Please enter a valid email.");
+      setAccountError(t('error.invalidEmail'));
       return;
     }
 
     const { error } = await supabase.auth.updateUser({ email });
     if (error) {
-      setAccountError(error.message || "Unable to update email");
+      setAccountError(error.message || t('error.unableUpdateEmail'));
       return;
     }
 
-    setAccountSuccess("Check your inbox to confirm the new email address.");
+    setAccountSuccess(t('success.checkEmailConfirm'));
   }, [accountEmail]);
 
 
@@ -2268,7 +2271,7 @@ export default function MacroTrackerApp(){
     setAccountSuccess("");
 
     if (!AVATAR_ALLOWED_TYPES.has(file.type) || file.size > AVATAR_MAX_BYTES) {
-      setAccountError("Max 2MB. JPG/PNG/WebP only.");
+      setAccountError(t('error.avatarSizeLimit'));
       return;
     }
 
@@ -2288,7 +2291,7 @@ export default function MacroTrackerApp(){
 
           if (!ctx) {
             URL.revokeObjectURL(objectUrl);
-            reject(new Error("Unable to process image."));
+            reject(new Error(t('error.unableProcessImage')));
             return;
           }
 
@@ -2303,7 +2306,7 @@ export default function MacroTrackerApp(){
             (blob) => {
               URL.revokeObjectURL(objectUrl);
               if (!blob) {
-                reject(new Error("Unable to process image."));
+                reject(new Error(t('error.unableProcessImage')));
                 return;
               }
               resolve(blob);
@@ -2324,7 +2327,7 @@ export default function MacroTrackerApp(){
       const filePath = `${session.user.id}/${Date.now()}-avatar.webp`;
       const { error: uploadError } = await supabase.storage.from("avatars").upload(filePath, resizedBlob, { upsert: true });
       if (uploadError) {
-        setAccountError(uploadError.message || "Unable to upload avatar");
+        setAccountError(uploadError.message || t('error.unableUploadAvatar'));
         return;
       }
 
@@ -2335,14 +2338,14 @@ export default function MacroTrackerApp(){
         .eq("id", session.user.id);
 
       if (updateError) {
-        setAccountError(updateError.message || "Unable to save avatar");
+        setAccountError(updateError.message || t('error.unableSaveAvatar'));
         return;
       }
 
       setProfileAvatarUrl(publicUrl);
-      setAccountSuccess("Profile photo updated.");
+      setAccountSuccess(t('success.profilePhotoUpdated'));
     } catch (error) {
-      setAccountError(error?.message || "Unable to process image.");
+      setAccountError(error?.message || t('error.unableProcessImage'));
     } finally {
       setAvatarUploading(false);
     }
@@ -2357,7 +2360,7 @@ export default function MacroTrackerApp(){
     if (existingPath) {
       const { error: removeError } = await supabase.storage.from("avatars").remove([existingPath]);
       if (removeError) {
-        setAccountError(removeError.message || "Unable to remove avatar file");
+        setAccountError(removeError.message || t('error.unableRemoveAvatarFile'));
         return;
       }
     }
@@ -2368,12 +2371,12 @@ export default function MacroTrackerApp(){
       .eq("id", session.user.id);
 
     if (updateError) {
-      setAccountError(updateError.message || "Unable to clear avatar");
+      setAccountError(updateError.message || t('error.unableClearAvatar'));
       return;
     }
 
     setProfileAvatarUrl("");
-    setAccountSuccess("Profile photo removed.");
+    setAccountSuccess(t('success.profilePhotoRemoved'));
   }, [profileAvatarUrl, session?.user?.id]);
 
   if (authLoading) {
@@ -2423,16 +2426,16 @@ export default function MacroTrackerApp(){
             <div className="hidden sm:block text-xs text-slate-600 dark:text-slate-300 max-w-[180px] truncate" title={profileUsername || session.user?.email || ""}>
               {profileUsername || session.user?.email}
             </div>
-            <Button variant="ghost" className={headerPillClass} onClick={handleSignOut} title="Sign out">
+            <Button variant="ghost" className={headerPillClass} onClick={handleSignOut} title={t('header.signOut')}>
               <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">Sign out</span>
+              <span className="hidden sm:inline">{t('header.signOut')}</span>
             </Button>
             <button
               type="button"
               onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
               className="h-9 w-9 sm:h-10 sm:w-10 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500 transition hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
               aria-label="Toggle light/dark mode"
-              title={resolvedTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={resolvedTheme === 'dark' ? t('header.switchToLight') : t('header.switchToDark')}
             >
               {resolvedTheme === 'dark'
                 ? <Sun className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
@@ -2442,7 +2445,7 @@ export default function MacroTrackerApp(){
               type="button"
               onClick={() => setTab('settings')}
               className="h-9 w-9 sm:h-10 sm:w-10 overflow-hidden rounded-full border border-slate-300 bg-slate-200 dark:border-slate-700 dark:bg-slate-800 flex items-center justify-center text-xs font-semibold transition hover:scale-[1.03] hover:bg-slate-300/60 dark:hover:bg-slate-700"
-              aria-label="Go to Profile"
+              aria-label={t('header.goToProfile')}
             >
               {profileAvatarUrl ? (
                 <img src={profileAvatarUrl} alt="Profile avatar" className="h-full w-full object-cover" />
@@ -2460,7 +2463,7 @@ export default function MacroTrackerApp(){
             {/* ── Mobile: "Totals for [Today]" title row ── */}
             <div className="sm:hidden flex items-center justify-between pt-2 pb-1.5 border-b border-slate-100 dark:border-slate-800/50">
               <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                Totals for
+                {t('sticky.totalsFor')}
               </span>
               <button
                 onClick={() => setStickyModeSheetOpen(true)}
@@ -2473,7 +2476,7 @@ export default function MacroTrackerApp(){
                     ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
                     : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
                 )}>
-                  {effectiveStickyMode === 'today' ? 'Today' : 'Selected day'}
+                  {effectiveStickyMode === 'today' ? t('sticky.today') : t('sticky.selectedDay')}
                 </span>
                 <ChevronUp className="h-3 w-3 text-slate-400 dark:text-slate-500" />
               </button>
@@ -2493,7 +2496,7 @@ export default function MacroTrackerApp(){
                 {(() => {
                   const rem = stickyGoals.kcal - stickyTotals.kcal;
                   const over = rem < 0;
-                  const remaining = over ? `${Math.abs(rem).toFixed(0)} over` : `${rem.toFixed(0)} left`;
+                  const remaining = over ? `${Math.abs(rem).toFixed(0)} ${t('sticky.over')}` : `${rem.toFixed(0)} ${t('sticky.left')}`;
                   return (
                     <StripKpi
                       label="Calories"
@@ -2508,7 +2511,7 @@ export default function MacroTrackerApp(){
                 {(() => {
                   const rem = stickyGoals.protein - stickyTotals.protein;
                   const over = rem < 0;
-                  const remaining = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
+                  const remaining = over ? `${Math.abs(rem).toFixed(1)} g ${t('sticky.over')}` : `${rem.toFixed(1)} g ${t('sticky.left')}`;
                   return (
                     <StripKpi
                       label="Protein"
@@ -2523,7 +2526,7 @@ export default function MacroTrackerApp(){
                 {(() => {
                   const rem = stickyGoals.carbs - stickyTotals.carbs;
                   const over = rem < 0;
-                  const remaining = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
+                  const remaining = over ? `${Math.abs(rem).toFixed(1)} g ${t('sticky.over')}` : `${rem.toFixed(1)} g ${t('sticky.left')}`;
                   return (
                     <StripKpi
                       label="Carbs"
@@ -2538,7 +2541,7 @@ export default function MacroTrackerApp(){
                 {(() => {
                   const rem = stickyGoals.fat - stickyTotals.fat;
                   const over = rem < 0;
-                  const remaining = over ? `${Math.abs(rem).toFixed(1)} g over` : `${rem.toFixed(1)} g left`;
+                  const remaining = over ? `${Math.abs(rem).toFixed(1)} g ${t('sticky.over')}` : `${rem.toFixed(1)} g ${t('sticky.left')}`;
                   return (
                     <StripKpi
                       label="Fat"
@@ -2552,12 +2555,12 @@ export default function MacroTrackerApp(){
                 })()}
               </div>
               <div className="flex items-center gap-2 text-xs shrink-0">
-                <span className="text-slate-500">Totals for</span>
+                <span className="text-slate-500">{t('sticky.totalsFor')}</span>
                 <Select value={effectiveStickyMode} onValueChange={(v) => setStickyMode(v)}>
                   <SelectTrigger className="h-7 w-28"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="selected">Selected day</SelectItem>
+                    <SelectItem value="today">{t('sticky.today')}</SelectItem>
+                    <SelectItem value="selected">{t('sticky.selectedDay')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -2570,24 +2573,24 @@ export default function MacroTrackerApp(){
       <main className="max-w-6xl mx-auto px-3 sm:px-4 pt-4 sm:pt-6 pb-24 sm:pb-6">
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="hidden sm:grid w-full grid-cols-4 rounded-full border border-slate-200 bg-white/80 p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900/70 md:w-auto">
-            <TabsTrigger value="dashboard" className="gap-1.5 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><BarChart3 className="h-4 w-4 shrink-0"/><span className="hidden sm:inline">Dashboard</span></TabsTrigger>
-            <TabsTrigger value="daily" className="gap-1.5 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><BookOpenText className="h-4 w-4 shrink-0"/><span className="hidden sm:inline">Daily Log</span></TabsTrigger>
-            <TabsTrigger value="foods" className="gap-1.5 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><Database className="h-4 w-4 shrink-0"/><span className="hidden sm:inline">Food DB</span></TabsTrigger>
-            <TabsTrigger value="settings" className="gap-1.5 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><SettingsIcon className="h-4 w-4 shrink-0"/><span className="hidden sm:inline">Profile</span></TabsTrigger>
+            <TabsTrigger value="dashboard" className="gap-1.5 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><BarChart3 className="h-4 w-4 shrink-0"/><span className="hidden sm:inline">{t('nav.dashboard')}</span></TabsTrigger>
+            <TabsTrigger value="daily" className="gap-1.5 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><BookOpenText className="h-4 w-4 shrink-0"/><span className="hidden sm:inline">{t('nav.daily')}</span></TabsTrigger>
+            <TabsTrigger value="foods" className="gap-1.5 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><Database className="h-4 w-4 shrink-0"/><span className="hidden sm:inline">{t('nav.foods')}</span></TabsTrigger>
+            <TabsTrigger value="settings" className="gap-1.5 rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900"><SettingsIcon className="h-4 w-4 shrink-0"/><span className="hidden sm:inline">{t('nav.settings')}</span></TabsTrigger>
           </TabsList>
 
           {/* DASHBOARD */}
           <TabsContent value="dashboard" className="mt-6 space-y-6">
             {/* Single shared date picker for Goal vs Actual, Macro Split, Top Foods, and Weekly Nutrition */}
             <div className="flex items-center justify-between">
-              <p className="text-sm text-slate-500 dark:text-slate-400">Dashboard date</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{t('dashboard.dateLabel')}</p>
               <DatePickerButton value={dashboardDate} onChange={(v) => { const d = v || todayISO(); setDashboardDate(d); setWeekNavDate(d); }} className="w-44" />
             </div>
             <div className="grid lg:grid-cols-2 gap-4">
               <Card className="h-full min-h-[360px] flex flex-col">
                 <CardHeader>
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <CardTitle>Goal vs Actual</CardTitle>
+                    <CardTitle>{t('dashboard.goalVsActual')}</CardTitle>
                     <div className="flex items-center gap-2">
                       <GoalModeBadge value={goalDateEntry} />
                     </div>
@@ -2617,16 +2620,16 @@ export default function MacroTrackerApp(){
             <Card>
               <CardHeader className="pb-0">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <CardTitle>Macros Trend</CardTitle>
+                  <CardTitle>{t('dashboard.macrosTrend')}</CardTitle>
                   <div className="flex flex-wrap items-center gap-2">
                     <Select value={trendRange} onValueChange={(v)=>setTrendRange(v)}>
                       <SelectTrigger className="h-8 w-full sm:w-36"><SelectValue placeholder="Range" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="7">Last 7 days</SelectItem>
-                        <SelectItem value="14">Last 14 days</SelectItem>
-                        <SelectItem value="30">Last 30 days</SelectItem>
-                        <SelectItem value="90">Last 3 months</SelectItem>
-                        <SelectItem value="365">Last 12 months</SelectItem>
+                        <SelectItem value="7">{t('trendRanges.7')}</SelectItem>
+                        <SelectItem value="14">{t('trendRanges.14')}</SelectItem>
+                        <SelectItem value="30">{t('trendRanges.30')}</SelectItem>
+                        <SelectItem value="90">{t('trendRanges.90')}</SelectItem>
+                        <SelectItem value="365">{t('trendRanges.365')}</SelectItem>
                       </SelectContent>
                     </Select>
                     <TogglePill label="kcal" active={show.kcal} color={COLORS.kcal} onClick={()=>setShow({...show,kcal:!show.kcal})} />
@@ -2700,7 +2703,7 @@ export default function MacroTrackerApp(){
                               const key = item.dataKey ?? item.name ?? "value";
                               const isCalories = key === "kcal";
                               const unit = isCalories ? "kcal" : "g";
-                              const macroLabel = item.name ?? MACRO_LABELS[key] ?? key;
+                              const macroLabel = item.name ?? t('macro.'+key, MACRO_LABELS[key] ?? key);
                               const swatchColor =
                                 MACRO_THEME[key]?.dark
                                 ?? MACRO_THEME[key]?.gradientTo
@@ -2790,7 +2793,7 @@ export default function MacroTrackerApp(){
             <Card>
               <CardHeader className="pb-0">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <CardTitle className="flex items-center gap-2"><UtensilsCrossed className="h-5 w-5"/>Macro Split per Meal</CardTitle>
+                  <CardTitle className="flex items-center gap-2"><UtensilsCrossed className="h-5 w-5"/>{t('dashboard.macroSplitPerMeal')}</CardTitle>
                   <div className="flex items-center gap-2">
                     <GoalModeBadge value={splitEntry} />
                   </div>
@@ -2929,38 +2932,38 @@ export default function MacroTrackerApp(){
             <Card className="overflow-hidden">
               <CardHeader>
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <CardTitle className="flex items-center gap-2"><History className="h-5 w-5"/>Log your intake</CardTitle>
+                  <CardTitle className="flex items-center gap-2"><History className="h-5 w-5"/>{t('daily.logIntake')}</CardTitle>
                   <GoalModeSelect value={logDateEntry} onChange={(entry)=>setModeEntryForDate(logDate || todayISO(), entry)} />
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid md:grid-cols-6 gap-3 items-end">
                   <div className="md:col-span-2">
-                    <Label className="text-sm">Date</Label>
+                    <Label className="text-sm">{t('daily.dateLabel')}</Label>
                     <div className="flex items-center gap-2">
                       <DatePickerButton value={logDate} onChange={(v) => setLogDate(v || todayISO())} className="flex-1" />
-                      <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={()=>{ const t=todayISO(); setLogDate(t); setDashboardDate(t); setWeekNavDate(t); }}>Today</Button>
+                      <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={()=>{ const today=todayISO(); setLogDate(today); setDashboardDate(today); setWeekNavDate(today); }}>{t('daily.todayButton')}</Button>
                     </div>
                   </div>
                   <div className="md:col-span-2">
-                    <Label className="text-sm">Food</Label>
+                    <Label className="text-sm">{t('daily.foodLabel')}</Label>
                     <FoodInput foods={foods} selectedFoodId={selectedFoodId} onSelect={(id)=>{ setSelectedFoodId(id); }} />
                   </div>
                   <div>
-                    <Label className="text-sm">Meal</Label>
+                    <Label className="text-sm">{t('daily.mealLabel')}</Label>
                     <Select value={meal} onValueChange={(v)=>setMeal(/** @type {MealKey} */(v))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="breakfast">Breakfast</SelectItem>
-                        <SelectItem value="lunch">Lunch</SelectItem>
-                        <SelectItem value="dinner">Dinner</SelectItem>
-                        <SelectItem value="snack">Snack</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
+                        <SelectItem value="breakfast">{t('meal.breakfast')}</SelectItem>
+                        <SelectItem value="lunch">{t('meal.lunch')}</SelectItem>
+                        <SelectItem value="dinner">{t('meal.dinner')}</SelectItem>
+                        <SelectItem value="snack">{t('meal.snack')}</SelectItem>
+                        <SelectItem value="other">{t('meal.other')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-sm">Quantity {quantityLabelSuffix}</Label>
+                    <Label className="text-sm">{t('daily.quantityLabel')} {quantityLabelSuffix}</Label>
                     <div className="relative mt-1">
                       <QuantityIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" aria-hidden="true" />
                       <Input
@@ -2974,13 +2977,13 @@ export default function MacroTrackerApp(){
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button className="w-full" onClick={addEntry} disabled={!selectedFood || !qty || qty <= 0}><Plus className="h-4 w-4"/> Add</Button>
+                    <Button className="w-full" onClick={addEntry} disabled={!selectedFood || !qty || qty <= 0}><Plus className="h-4 w-4"/> {t('daily.addButton')}</Button>
                   </div>
                 </div>
                 {/* Recent foods chips */}
                 {recentFoods.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
-                    <span className="text-xs text-slate-400 dark:text-slate-500 mr-0.5">Recent:</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500 mr-0.5">{t('daily.recentLabel')}</span>
                     {recentFoods.map(f => (
                       <button
                         key={f.id}
@@ -3009,15 +3012,15 @@ export default function MacroTrackerApp(){
                     <span>Entries</span>
                     <span className="text-sm font-normal text-slate-400 dark:text-slate-500">{format(new Date(logDate), "PPPP")}</span>
                   </CardTitle>
-                  <Button variant="outline" size="sm" onClick={copyPreviousDay} title="Copy all entries from the previous day" className="gap-1.5 text-xs">
+                  <Button variant="outline" size="sm" onClick={copyPreviousDay} title={t('daily.copyPrevDayTitle')} className="gap-1.5 text-xs">
                     <Copy className="h-3.5 w-3.5" />
-                    <span>Copy prev. day</span>
+                    <span>{t('daily.copyPrevDay')}</span>
                   </Button>
                 </div>
               </CardHeader>
               <CardContent className="p-0">
                 {entriesLoading ? (
-                  <div className="text-center text-slate-500 py-8">Loading entries...</div>
+                  <div className="text-center text-slate-500 py-8">{t('daily.loadingEntries')}</div>
                 ) : (
                   <>
                     {/* Mobile layout */}
@@ -3029,13 +3032,13 @@ export default function MacroTrackerApp(){
                         return (
                           <div key={mk} className="px-4 py-3">
                             <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm font-semibold">{MEAL_EMOJIS[mk]} {MEAL_LABELS[mk]}</span>
+                              <span className="text-sm font-semibold">{MEAL_EMOJIS[mk]} {t('meal.'+mk)}</span>
                               {group.length > 0 && mealPct > 0 && (
-                                <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">{mealPct}% of day</span>
+                                <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">{mealPct}{t('daily.ofDay')}</span>
                               )}
                             </div>
                             {group.length === 0 ? (
-                              <p className="text-xs text-slate-400 dark:text-slate-500 italic">No entries</p>
+                              <p className="text-xs text-slate-400 dark:text-slate-500 italic">{t('daily.noEntries')}</p>
                             ) : (
                               <>
                                 <div className="space-y-2">
@@ -3064,7 +3067,7 @@ export default function MacroTrackerApp(){
                                   ))}
                                 </div>
                                 <div className="text-xs text-right text-slate-400 dark:text-slate-500 font-medium pt-2">
-                                  Subtotal: {totals.kcal.toFixed(0)} kcal · P {totals.protein.toFixed(1)}g · C {totals.carbs.toFixed(1)}g · F {totals.fat.toFixed(1)}g
+                                  {t('daily.subtotal')}: {totals.kcal.toFixed(0)} kcal · P {totals.protein.toFixed(1)}g · C {totals.carbs.toFixed(1)}g · F {totals.fat.toFixed(1)}g
                                 </div>
                               </>
                             )}
@@ -3078,13 +3081,13 @@ export default function MacroTrackerApp(){
                       <Table>
                         <TableHeader className="bg-slate-50/70 dark:bg-slate-800/25">
                           <TableRow>
-                            <TableHead>Food</TableHead>
-                            <TableHead className="w-24 text-right">Qty</TableHead>
-                            <TableHead className="text-right">kcal</TableHead>
-                            <TableHead className="text-right">Protein (g)</TableHead>
-                            <TableHead className="text-right">Carbs (g)</TableHead>
-                            <TableHead className="text-right">Fat (g)</TableHead>
-                            <TableHead className="w-36">Meal</TableHead>
+                            <TableHead>{t('daily.food')}</TableHead>
+                            <TableHead className="w-24 text-right">{t('daily.qty')}</TableHead>
+                            <TableHead className="text-right">{t('daily.kcal')}</TableHead>
+                            <TableHead className="text-right">{t('daily.proteinG')}</TableHead>
+                            <TableHead className="text-right">{t('daily.carbsG')}</TableHead>
+                            <TableHead className="text-right">{t('daily.fatG')}</TableHead>
+                            <TableHead className="w-36">{t('daily.mealCol')}</TableHead>
                             <TableHead className="w-10"></TableHead>
                           </TableRow>
                         </TableHeader>
@@ -3099,12 +3102,12 @@ export default function MacroTrackerApp(){
                                 <TableRow className="bg-slate-50/70 dark:bg-slate-800/20 hover:bg-slate-50/70 dark:hover:bg-slate-800/20 border-t border-slate-200/80 dark:border-slate-700/50">
                                   <TableCell colSpan={8} className="py-2 px-3">
                                     <div className="flex items-center gap-2">
-                                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{MEAL_EMOJIS[mk]} {MEAL_LABELS[mk]}</span>
+                                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{MEAL_EMOJIS[mk]} {t('meal.'+mk)}</span>
                                       {group.length > 0 && mealPct > 0 && (
                                         <span className="text-[11px] text-slate-400 dark:text-slate-500">{mealPct}% of day</span>
                                       )}
                                       {group.length === 0 && (
-                                        <span className="text-[11px] italic text-slate-400 dark:text-slate-500">No entries</span>
+                                        <span className="text-[11px] italic text-slate-400 dark:text-slate-500">{t('daily.noEntries')}</span>
                                       )}
                                     </div>
                                   </TableCell>
@@ -3131,7 +3134,7 @@ export default function MacroTrackerApp(){
                                 {/* Subtotal row */}
                                 {group.length > 0 && (
                                   <TableRow className="border-t border-slate-200 dark:border-slate-700 bg-slate-100/50 dark:bg-slate-800/30 hover:bg-slate-100/50 dark:hover:bg-slate-800/30">
-                                    <TableCell className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 pl-4">Subtotal</TableCell>
+                                    <TableCell className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 pl-4">{t('daily.subtotal')}</TableCell>
                                     <TableCell />
                                     <TableCell className="text-right text-sm font-semibold text-slate-800 dark:text-slate-100">{totals.kcal.toFixed(0)}</TableCell>
                                     <TableCell className="text-right text-sm font-semibold text-slate-800 dark:text-slate-100">{totals.protein.toFixed(1)}</TableCell>
@@ -3190,8 +3193,8 @@ export default function MacroTrackerApp(){
                   <div>
                     <CardTitle className="text-base">
                       {foodSearch || foodCategoryFilter.size > 0
-                        ? `${filteredFoods.length} of ${foods.length} items`
-                        : `Database — ${foods.length} items`}
+                        ? `${filteredFoods.length} ${t('foods.of')} ${foods.length} ${t('foods.items')}`
+                        : `${t('foods.title')} — ${foods.length} ${t('foods.items')}`}
                     </CardTitle>
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -3202,41 +3205,41 @@ export default function MacroTrackerApp(){
                         onClick={() => setBulkDeleteConfirmOpen(true)}
                       >
                         <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                        Delete {foodSelectedIds.size} selected
+                        {t('foods.deleteSelected', {count: foodSelectedIds.size})}
                       </Button>
                     )}
                     <Button
                       size="sm"
                       onClick={() => setBarcodeScanOpen(true)}
                     >
-                      <Barcode className="h-3.5 w-3.5 mr-1" />Scan
+                      <Barcode className="h-3.5 w-3.5 mr-1" />{t('foods.scanButton')}
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => { setFoodAddTab("single"); setFoodAddOpen(true); }}
                     >
-                      <Plus className="h-3.5 w-3.5 mr-1" />Add Food
+                      <Plus className="h-3.5 w-3.5 mr-1" />{t('foods.addFoodButton')}
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => { setFoodAddTab("recipe"); setFoodAddOpen(true); }}
                     >
-                      <ChefHat className="h-3.5 w-3.5 mr-1" />Add Recipe
+                      <ChefHat className="h-3.5 w-3.5 mr-1" />{t('foods.addRecipeButton')}
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={exportJSON} title="Export backup">
-                      <Download className="h-3.5 w-3.5 mr-1" />Export
+                    <Button size="sm" variant="ghost" onClick={exportJSON} title={t('foods.exportTitle')}>
+                      <Download className="h-3.5 w-3.5 mr-1" />{t('foods.exportButton')}
                     </Button>
-                    <label className="inline-flex items-center gap-1 cursor-pointer rounded-md px-2.5 py-1.5 text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8" title="Import backup">
-                      <Upload className="h-3.5 w-3.5" />Import
+                    <label className="inline-flex items-center gap-1 cursor-pointer rounded-md px-2.5 py-1.5 text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8" title={t('foods.importTitle')}>
+                      <Upload className="h-3.5 w-3.5" />{t('foods.importButton')}
                       <input type="file" accept="application/json" className="hidden" onChange={(e)=>e.target.files&&importJSON(e.target.files[0])} />
                     </label>
                   </div>
                 </div>
                 {/* Mobile sort */}
                 <div className="flex items-center gap-2 text-xs text-slate-500 sm:hidden mt-1">
-                  <span>Sort:</span>
+                  <span>{t('foods.sort')}</span>
                   {["name","kcal","fat"].map(col=>(
                     <button key={col} type="button" onClick={()=>toggleFoodSort(col)} className="flex items-center gap-0.5 capitalize font-medium text-slate-600 dark:text-slate-300">
                       {col}{renderSortIcon(col)}
@@ -3248,7 +3251,7 @@ export default function MacroTrackerApp(){
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                   <Input
                     className="pl-8 h-8 text-sm"
-                    placeholder="Search by name, brand or category…"
+                    placeholder={t('foods.searchPlaceholder')}
                     value={foodSearch}
                     onChange={(e) => setFoodSearch(e.target.value)}
                   />
@@ -3277,7 +3280,7 @@ export default function MacroTrackerApp(){
                             : "border-slate-200 hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-500"
                         )}
                       >
-                        {cat.emoji} {cat.label}
+                        {cat.emoji} {t('foodCategories.'+cat.value, cat.label)}
                       </button>
                     ))}
                     {(foodCategoryFilter.size > 0 || foodSearch) && (
@@ -3286,7 +3289,7 @@ export default function MacroTrackerApp(){
                         onClick={() => { setFoodCategoryFilter(new Set()); setFoodSearch(""); }}
                         className="text-xs px-2 py-0.5 rounded-full border border-slate-300 text-slate-500 hover:border-slate-500 hover:text-slate-700 dark:border-slate-600 dark:text-slate-400 dark:hover:border-slate-400 transition flex items-center gap-1"
                       >
-                        <X className="h-3 w-3" />Clear filters
+                        <X className="h-3 w-3" />{t('foods.clearFilters')}
                       </button>
                     )}
                   </div>
@@ -3294,13 +3297,13 @@ export default function MacroTrackerApp(){
               </CardHeader>
               <CardContent className="p-0 sm:p-6 sm:pt-0">
                 {foodsLoading ? (
-                  <p className="p-4 text-center text-sm text-slate-500">Loading foods...</p>
+                  <p className="p-4 text-center text-sm text-slate-500">{t('foods.loadingFoods')}</p>
                 ) : (
                   <>
                     {/* Mobile card list */}
                     <div className="sm:hidden divide-y divide-slate-100 dark:divide-slate-800">
                       {filteredFoods.length === 0 && (
-                        <p className="p-4 text-center text-sm text-slate-500">{foodSearch || foodCategoryFilter.size > 0 ? "No foods match your filter." : "Your database is empty. Add foods above or import a backup."}</p>
+                        <p className="p-4 text-center text-sm text-slate-500">{foodSearch || foodCategoryFilter.size > 0 ? t('foods.noFoodsMatch') : t('foods.emptyDatabase')}</p>
                       )}
                       {filteredFoods.map((f)=>(
                         <MobileFoodCard key={f.id} food={f} onEdit={setFoodEditTarget} onDelete={requestDeleteFood} />
@@ -3326,25 +3329,25 @@ export default function MacroTrackerApp(){
                               />
                             </TableHead>
                             <TableHead className="w-[230px]">
-                              <button type="button" onClick={()=>toggleFoodSort("name")} className="flex w-full items-center gap-0.5 text-left font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>Name</span>{renderSortIcon("name")}</button>
+                              <button type="button" onClick={()=>toggleFoodSort("name")} className="flex w-full items-center gap-0.5 text-left font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>{t('foods.name')}</span>{renderSortIcon("name")}</button>
                             </TableHead>
                             <TableHead className="w-[160px] max-w-[160px]">
-                              <button type="button" onClick={()=>toggleFoodSort("category")} className="flex w-full items-center gap-0.5 text-left font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>Category</span>{renderSortIcon("category")}</button>
+                              <button type="button" onClick={()=>toggleFoodSort("category")} className="flex w-full items-center gap-0.5 text-left font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>{t('foods.category')}</span>{renderSortIcon("category")}</button>
                             </TableHead>
                             <TableHead className="w-[120px] max-w-[120px]">
-                              <button type="button" onClick={()=>toggleFoodSort("unit")} className="flex w-full items-center gap-0.5 text-left font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>Unit</span>{renderSortIcon("unit")}</button>
+                              <button type="button" onClick={()=>toggleFoodSort("unit")} className="flex w-full items-center gap-0.5 text-left font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>{t('foods.unit')}</span>{renderSortIcon("unit")}</button>
                             </TableHead>
                             <TableHead className="text-right">
-                              <button type="button" onClick={()=>toggleFoodSort("kcal")} className="ml-auto flex items-center gap-0.5 font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>kcal</span>{renderSortIcon("kcal")}</button>
+                              <button type="button" onClick={()=>toggleFoodSort("kcal")} className="ml-auto flex items-center gap-0.5 font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>{t('foods.kcal')}</span>{renderSortIcon("kcal")}</button>
                             </TableHead>
                             <TableHead className="text-right">
-                              <button type="button" onClick={()=>toggleFoodSort("fat")} className="ml-auto flex items-center gap-0.5 font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>Fat (g)</span>{renderSortIcon("fat")}</button>
+                              <button type="button" onClick={()=>toggleFoodSort("fat")} className="ml-auto flex items-center gap-0.5 font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>{t('foods.fatG')}</span>{renderSortIcon("fat")}</button>
                             </TableHead>
                             <TableHead className="text-right">
-                              <button type="button" onClick={()=>toggleFoodSort("carbs")} className="ml-auto flex items-center gap-0.5 font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>Carbs (g)</span>{renderSortIcon("carbs")}</button>
+                              <button type="button" onClick={()=>toggleFoodSort("carbs")} className="ml-auto flex items-center gap-0.5 font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>{t('foods.carbsG')}</span>{renderSortIcon("carbs")}</button>
                             </TableHead>
                             <TableHead className="text-right">
-                              <button type="button" onClick={()=>toggleFoodSort("protein")} className="ml-auto flex items-center gap-0.5 font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>Protein (g)</span>{renderSortIcon("protein")}</button>
+                              <button type="button" onClick={()=>toggleFoodSort("protein")} className="ml-auto flex items-center gap-0.5 font-medium text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"><span>{t('foods.proteinG')}</span>{renderSortIcon("protein")}</button>
                             </TableHead>
                             <TableHead className="text-right sticky right-0 bg-slate-50/70 dark:bg-slate-800/25 border-l border-slate-100/80 dark:border-slate-800/40"></TableHead>
                           </TableRow>
@@ -3365,7 +3368,7 @@ export default function MacroTrackerApp(){
                             />
                           ))}
                           {filteredFoods.length===0 && (
-                            <TableRow><TableCell colSpan={9} className="text-center text-slate-500">{foodSearch || foodCategoryFilter.size > 0 ? "No foods match your filter." : "Your database is empty. Add foods above or import a backup."}</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={9} className="text-center text-slate-500">{foodSearch || foodCategoryFilter.size > 0 ? t('foods.noFoodsMatch') : t('foods.emptyDatabase')}</TableCell></TableRow>
                           )}
                         </TableBody>
                       </Table>
@@ -3389,15 +3392,15 @@ export default function MacroTrackerApp(){
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4">
                 <Card className="w-full max-w-md border-slate-200 dark:border-slate-700">
                   <CardHeader>
-                    <CardTitle className="text-lg">Delete {foodSelectedIds.size} foods</CardTitle>
+                    <CardTitle className="text-lg">{t('modal.bulkDeleteTitle', {count: foodSelectedIds.size})}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <p className="text-sm text-slate-600 dark:text-slate-300">
-                      This will permanently delete {foodSelectedIds.size} food {foodSelectedIds.size === 1 ? "entry" : "entries"} from your database. This action cannot be undone.
+                      {t('modal.bulkDeleteConfirm', {count: foodSelectedIds.size, itemLabel: foodSelectedIds.size === 1 ? t('modal.bulkDeleteEntry') : t('modal.bulkDeleteEntries')})}
                     </p>
                     <div className="flex justify-end gap-2">
-                      <Button variant="ghost" onClick={() => setBulkDeleteConfirmOpen(false)}>Cancel</Button>
-                      <Button variant="destructive" onClick={() => bulkDeleteFoods(foodSelectedIds)}>Delete {foodSelectedIds.size} foods</Button>
+                      <Button variant="ghost" onClick={() => setBulkDeleteConfirmOpen(false)}>{t('modal.cancelButton')}</Button>
+                      <Button variant="destructive" onClick={() => bulkDeleteFoods(foodSelectedIds)}>{t('modal.bulkDeleteTitle', {count: foodSelectedIds.size})}</Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -3410,21 +3413,21 @@ export default function MacroTrackerApp(){
             <div className="space-y-6">
               {/* Page header */}
               <div>
-                <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">Profile</h2>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Manage your account, macro goals, and body stats.</p>
+                <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">{t('settings.pageTitle')}</h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('settings.pageSubtitle')}</p>
               </div>
 
               {/* Row 1: Account + Daily macro goals */}
               <div className="grid md:grid-cols-2 gap-6">
                 {/* Account */}
                 <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-5 space-y-5">
-                  <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">Account</h3>
+                  <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">{t('settings.accountTitle')}</h3>
                   <div className="flex items-center gap-4">
                     <button
                       type="button"
                       onClick={() => avatarInputRef.current?.click()}
                       className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-full border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 flex items-center justify-center group"
-                      aria-label="Upload profile photo"
+                      aria-label={t('settings.uploadPhotoTitle')}
                     >
                       {profileAvatarUrl ? (
                         <img src={profileAvatarUrl} alt="Profile avatar" className="h-full w-full object-cover" />
@@ -3438,14 +3441,14 @@ export default function MacroTrackerApp(){
                     <div className="min-w-0">
                       <div className="flex flex-wrap gap-2">
                         <Button type="button" size="sm" variant="outline" onClick={() => avatarInputRef.current?.click()}>
-                          Change photo
+                          {t('settings.changePhoto')}
                         </Button>
                         <Button type="button" size="sm" variant="ghost" onClick={handleRemoveAvatar} disabled={!profileAvatarUrl || avatarUploading}>
-                          Remove
+                          {t('settings.removePhoto')}
                         </Button>
                       </div>
-                      <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">JPG/PNG/WebP • max 2MB • square works best</p>
-                      {avatarUploading && <p className="mt-1 text-xs text-slate-500">Uploading…</p>}
+                      <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">{t('settings.photoHint')}</p>
+                      {avatarUploading && <p className="mt-1 text-xs text-slate-500">{t('settings.uploading')}</p>}
                     </div>
                     <input
                       ref={avatarInputRef}
@@ -3460,17 +3463,17 @@ export default function MacroTrackerApp(){
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-sm">Username</Label>
+                    <Label className="text-sm">{t('settings.usernameLabel')}</Label>
                     <div className="flex gap-2">
                       <Input value={accountUsername} onChange={(e)=>setAccountUsername(e.target.value)} placeholder="username" />
-                      <Button size="sm" onClick={handleUpdateUsername}>Save</Button>
+                      <Button size="sm" onClick={handleUpdateUsername}>{t('settings.save')}</Button>
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-sm">Email</Label>
+                    <Label className="text-sm">{t('settings.emailLabel')}</Label>
                     <div className="flex gap-2">
                       <Input type="email" value={accountEmail} onChange={(e)=>setAccountEmail(e.target.value)} placeholder="you@example.com" />
-                      <Button size="sm" onClick={handleUpdateEmail}>Save</Button>
+                      <Button size="sm" onClick={handleUpdateEmail}>{t('settings.save')}</Button>
                     </div>
                   </div>
                   {accountError && <p className="text-sm text-red-600 dark:text-red-400">{accountError}</p>}
@@ -3480,61 +3483,61 @@ export default function MacroTrackerApp(){
                 {/* Daily macro goals */}
                 <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-5 space-y-4">
                   <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">Daily macro goals</h3>
+                    <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">{t('settings.macroGoalsTitle')}</h3>
                     <Select value={activeSetup} onValueChange={handleSetupChange}>
-                      <SelectTrigger className="h-8 w-44"><SelectValue placeholder="Setup" /></SelectTrigger>
+                      <SelectTrigger className="h-8 w-44"><SelectValue placeholder={t('settings.setupPlaceholder')} /></SelectTrigger>
                       <SelectContent>
                         {SETUP_MODES.map((mode) => (
-                          <SelectItem key={mode} value={mode}>{SETUP_LABELS[mode]}</SelectItem>
+                          <SelectItem key={mode} value={mode}>{t('setup.'+mode)}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Choose your approach and tune the macros. Days remember their assigned setup so history stays intact.
+                    {t('settings.macroGoalsHint')}
                   </p>
                   {activeSetup === "dual" ? (
                     <>
                       <Tabs value={activeDualProfile} onValueChange={handleDualProfileChange}>
                         <TabsList className="mb-3 grid w-full max-w-xs grid-cols-2 rounded-full border border-slate-200 bg-white/80 p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
-                          <TabsTrigger value="train" className="rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900">Train Day</TabsTrigger>
-                          <TabsTrigger value="rest" className="rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900">Rest Day</TabsTrigger>
+                          <TabsTrigger value="train" className="rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900">{t('settings.trainDayTab')}</TabsTrigger>
+                          <TabsTrigger value="rest" className="rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900">{t('settings.restDayTab')}</TabsTrigger>
                         </TabsList>
                         <TabsContent value="train" className="mt-0">
                           <div className="grid grid-cols-2 gap-3">
                             <div className="col-span-2">
-                              <LabeledNumber label="Calories (kcal)" value={dailyGoals.dual.train.kcal} onChange={updateMacroGoal('dual.train','kcal')} />
+                              <LabeledNumber label={t('settings.caloriesLabel')} value={dailyGoals.dual.train.kcal} onChange={updateMacroGoal('dual.train','kcal')} />
                             </div>
-                            <LabeledNumber label="Protein (g)" value={dailyGoals.dual.train.protein} onChange={updateMacroGoal('dual.train','protein')} />
-                            <LabeledNumber label="Carbs (g)" value={dailyGoals.dual.train.carbs} onChange={updateMacroGoal('dual.train','carbs')} />
-                            <LabeledNumber label="Fat (g)" value={dailyGoals.dual.train.fat} onChange={updateMacroGoal('dual.train','fat')} />
+                            <LabeledNumber label={t('settings.proteinLabel')} value={dailyGoals.dual.train.protein} onChange={updateMacroGoal('dual.train','protein')} />
+                            <LabeledNumber label={t('settings.carbsLabel')} value={dailyGoals.dual.train.carbs} onChange={updateMacroGoal('dual.train','carbs')} />
+                            <LabeledNumber label={t('settings.fatLabel')} value={dailyGoals.dual.train.fat} onChange={updateMacroGoal('dual.train','fat')} />
                           </div>
                         </TabsContent>
                         <TabsContent value="rest" className="mt-0">
                           <div className="grid grid-cols-2 gap-3">
                             <div className="col-span-2">
-                              <LabeledNumber label="Calories (kcal)" value={dailyGoals.dual.rest.kcal} onChange={updateMacroGoal('dual.rest','kcal')} />
+                              <LabeledNumber label={t('settings.caloriesLabel')} value={dailyGoals.dual.rest.kcal} onChange={updateMacroGoal('dual.rest','kcal')} />
                             </div>
-                            <LabeledNumber label="Protein (g)" value={dailyGoals.dual.rest.protein} onChange={updateMacroGoal('dual.rest','protein')} />
-                            <LabeledNumber label="Carbs (g)" value={dailyGoals.dual.rest.carbs} onChange={updateMacroGoal('dual.rest','carbs')} />
-                            <LabeledNumber label="Fat (g)" value={dailyGoals.dual.rest.fat} onChange={updateMacroGoal('dual.rest','fat')} />
+                            <LabeledNumber label={t('settings.proteinLabel')} value={dailyGoals.dual.rest.protein} onChange={updateMacroGoal('dual.rest','protein')} />
+                            <LabeledNumber label={t('settings.carbsLabel')} value={dailyGoals.dual.rest.carbs} onChange={updateMacroGoal('dual.rest','carbs')} />
+                            <LabeledNumber label={t('settings.fatLabel')} value={dailyGoals.dual.rest.fat} onChange={updateMacroGoal('dual.rest','fat')} />
                           </div>
                         </TabsContent>
                       </Tabs>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">The active profile powers the sticky macros, dashboard KPIs, and Goal vs Actual chart.</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{t('settings.dualProfileHint')}</p>
                     </>
                   ) : (
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-3">
                         <div className="col-span-2">
-                          <LabeledNumber label="Calories (kcal)" value={dailyGoals[activeSetup]?.kcal ?? 0} onChange={updateMacroGoal(activeSetup,'kcal')} />
+                          <LabeledNumber label={t('settings.caloriesLabel')} value={dailyGoals[activeSetup]?.kcal ?? 0} onChange={updateMacroGoal(activeSetup,'kcal')} />
                         </div>
-                        <LabeledNumber label="Protein (g)" value={dailyGoals[activeSetup]?.protein ?? 0} onChange={updateMacroGoal(activeSetup,'protein')} />
-                        <LabeledNumber label="Carbs (g)" value={dailyGoals[activeSetup]?.carbs ?? 0} onChange={updateMacroGoal(activeSetup,'carbs')} />
-                        <LabeledNumber label="Fat (g)" value={dailyGoals[activeSetup]?.fat ?? 0} onChange={updateMacroGoal(activeSetup,'fat')} />
+                        <LabeledNumber label={t('settings.proteinLabel')} value={dailyGoals[activeSetup]?.protein ?? 0} onChange={updateMacroGoal(activeSetup,'protein')} />
+                        <LabeledNumber label={t('settings.carbsLabel')} value={dailyGoals[activeSetup]?.carbs ?? 0} onChange={updateMacroGoal(activeSetup,'carbs')} />
+                        <LabeledNumber label={t('settings.fatLabel')} value={dailyGoals[activeSetup]?.fat ?? 0} onChange={updateMacroGoal(activeSetup,'fat')} />
                       </div>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {SETUP_LABELS[activeSetup]} powers the dashboard whenever this setup is active.
+                        {t('settings.setupPowersHint', { setup: t('setup.'+activeSetup) })}
                       </p>
                     </div>
                   )}
@@ -3545,34 +3548,34 @@ export default function MacroTrackerApp(){
               <div className="grid md:grid-cols-2 gap-6">
                 {/* Body stats */}
                 <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-5 space-y-4">
-                  <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">Body stats</h3>
-                  {profileLoading && <p className="text-xs text-slate-500">Loading your stats…</p>}
+                  <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">{t('settings.bodyStatsTitle')}</h3>
+                  {profileLoading && <p className="text-xs text-slate-500">{t('settings.loadingStats')}</p>}
                   <div className="grid grid-cols-2 gap-3">
-                    <LabeledNumber label="Age (years)" value={settings.profile?.age ?? 0} onChange={(v)=>setSettings({...settings, profile:{...settings.profile, age:v}})} />
+                    <LabeledNumber label={t('settings.ageLabel')} value={settings.profile?.age ?? 0} onChange={(v)=>setSettings({...settings, profile:{...settings.profile, age:v}})} />
                     <div>
-                      <Label className="text-sm">Sex</Label>
+                      <Label className="text-sm">{t('settings.sexLabel')}</Label>
                       <Select value={settings.profile?.sex ?? 'other'} onValueChange={(v)=>setSettings({...settings, profile:{...settings.profile, sex:v}})}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="male">Male</SelectItem>
-                          <SelectItem value="female">Female</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
+                          <SelectItem value="male">{t('settings.sexMale')}</SelectItem>
+                          <SelectItem value="female">{t('settings.sexFemale')}</SelectItem>
+                          <SelectItem value="other">{t('settings.sexOther')}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                    <LabeledNumber label="Height (cm)" value={settings.profile?.heightCm ?? 0} onChange={(v)=>setSettings({...settings, profile:{...settings.profile, heightCm:v}})} />
-                    <LabeledNumber label="Weight (kg)" value={settings.profile?.weightKg ?? 0} onChange={(v)=>setSettings({...settings, profile:{...settings.profile, weightKg:v}})} />
-                    <LabeledNumber label="Body fat (%)" value={settings.profile?.bodyFatPct ?? 0} onChange={(v)=>setSettings({...settings, profile:{...settings.profile, bodyFatPct:v}})} />
+                    <LabeledNumber label={t('settings.heightLabel')} value={settings.profile?.heightCm ?? 0} onChange={(v)=>setSettings({...settings, profile:{...settings.profile, heightCm:v}})} />
+                    <LabeledNumber label={t('settings.weightLabel')} value={settings.profile?.weightKg ?? 0} onChange={(v)=>setSettings({...settings, profile:{...settings.profile, weightKg:v}})} />
+                    <LabeledNumber label={t('settings.bodyFatLabel')} value={settings.profile?.bodyFatPct ?? 0} onChange={(v)=>setSettings({...settings, profile:{...settings.profile, bodyFatPct:v}})} />
                     <div>
-                      <Label className="text-sm">Activity</Label>
+                      <Label className="text-sm">{t('settings.activityLabel')}</Label>
                       <Select value={settings.profile?.activity ?? 'moderate'} onValueChange={(v)=>setSettings({...settings, profile:{...settings.profile, activity:v}})}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="sedentary">Sedentary</SelectItem>
-                          <SelectItem value="light">Light</SelectItem>
-                          <SelectItem value="moderate">Moderate</SelectItem>
-                          <SelectItem value="active">Active</SelectItem>
-                          <SelectItem value="athlete">Athlete</SelectItem>
+                          <SelectItem value="sedentary">{t('settings.activitySedentary')}</SelectItem>
+                          <SelectItem value="light">{t('settings.activityLight')}</SelectItem>
+                          <SelectItem value="moderate">{t('settings.activityModerate')}</SelectItem>
+                          <SelectItem value="active">{t('settings.activityActive')}</SelectItem>
+                          <SelectItem value="athlete">{t('settings.activityAthlete')}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -3580,8 +3583,8 @@ export default function MacroTrackerApp(){
                   <div className="flex items-center justify-between gap-3 pt-1">
                     <span className="text-xs text-slate-400 dark:text-slate-500">
                       {profileLastSavedAt instanceof Date
-                        ? `Saved ${formatDistanceToNow(profileLastSavedAt, { addSuffix: true })}`
-                        : "Not saved yet."}
+                        ? t('settings.lastSaved', { time: formatDistanceToNow(profileLastSavedAt, { addSuffix: true }) })
+                        : t('settings.notSavedYet')}
                     </span>
                     <Button
                       size="sm"
@@ -3589,7 +3592,7 @@ export default function MacroTrackerApp(){
                       disabled={profileSaving}
                       className="bg-slate-900 text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
                     >
-                      {profileSaving ? "Saving…" : "Save stats"}
+                      {profileSaving ? t('settings.savingStats') : t('settings.saveStats')}
                     </Button>
                   </div>
                   {profileSaveError && <p className="text-sm text-red-600 dark:text-red-400">{profileSaveError}</p>}
@@ -3598,11 +3601,32 @@ export default function MacroTrackerApp(){
                 <BadgesCard earnedBadgeIds={earnedBadgeIds} />
               </div>
 
+              {/* Language */}
+              <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-5 space-y-3">
+                <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">{t('settings.languageTitle')}</h3>
+                <div className="flex gap-2">
+                  {([['en', 'English'], ['fr', 'Français']] as const).map(([code, label]) => (
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() => setLanguage(code)}
+                      className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+                        i18nHook.language === code
+                          ? 'border-violet-500 bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300'
+                          : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Danger zone */}
               <div className="rounded-xl border border-red-100 dark:border-red-900/40 p-5">
-                <h3 className="text-xs font-semibold uppercase tracking-widest text-red-500 dark:text-red-400 mb-1">Danger zone</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Permanently deletes all your logs, foods, and settings. This cannot be undone.</p>
-                <Button size="sm" variant="destructive" onClick={() => setResetDataConfirmOpen(true)}>Reset all data</Button>
+                <h3 className="text-xs font-semibold uppercase tracking-widest text-red-500 dark:text-red-400 mb-1">{t('settings.dangerZoneTitle')}</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">{t('settings.dangerZoneHint')}</p>
+                <Button size="sm" variant="destructive" onClick={() => setResetDataConfirmOpen(true)}>{t('settings.resetAllData')}</Button>
               </div>
             </div>
           </TabsContent>
@@ -3617,18 +3641,18 @@ export default function MacroTrackerApp(){
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4">
           <Card className="w-full max-w-md border-slate-200 dark:border-slate-700">
             <CardHeader>
-              <CardTitle className="text-lg">Delete food</CardTitle>
+              <CardTitle className="text-lg">{t('modal.deleteFoodTitle')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-slate-600 dark:text-slate-300">
                 <span className="font-semibold text-slate-900 dark:text-slate-100">{foodPendingDelete.name}</span>
               </p>
               <p className="text-sm text-slate-600 dark:text-slate-300">
-                Are you sure you want to delete this food? This action cannot be undone.
+                {t('modal.deleteFoodConfirm')}
               </p>
               <div className="flex justify-end gap-2">
-                <Button variant="ghost" onClick={() => setFoodPendingDelete(null)}>Cancel</Button>
-                <Button variant="destructive" onClick={confirmDeleteFood}>Delete</Button>
+                <Button variant="ghost" onClick={() => setFoodPendingDelete(null)}>{t('modal.cancelButton')}</Button>
+                <Button variant="destructive" onClick={confirmDeleteFood}>{t('modal.deleteButton')}</Button>
               </div>
             </CardContent>
           </Card>
@@ -3639,29 +3663,29 @@ export default function MacroTrackerApp(){
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4">
           <Card className="w-full max-w-md border-slate-200 dark:border-slate-700">
             <CardHeader>
-              <CardTitle className="text-lg">Reset all data?</CardTitle>
+              <CardTitle className="text-lg">{t('modal.resetDataTitle')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-slate-600 dark:text-slate-300">
-                This will permanently delete all your logs, foods, and settings. This action cannot be undone.
+                {t('modal.resetDataConfirm')}
               </p>
               <div className="space-y-1.5">
-                <Label className="text-sm">Type <span className="font-mono font-bold tracking-widest">RESET</span> to confirm</Label>
+                <Label className="text-sm">{t('modal.resetDataLabel')}</Label>
                 <Input
                   value={resetDataInput}
                   onChange={(e) => setResetDataInput(e.target.value)}
-                  placeholder="RESET"
+                  placeholder={t('modal.resetDataPlaceholder')}
                   autoComplete="off"
                 />
               </div>
               <div className="flex justify-end gap-2">
-                <Button variant="ghost" onClick={() => { setResetDataConfirmOpen(false); setResetDataInput(""); }}>Cancel</Button>
+                <Button variant="ghost" onClick={() => { setResetDataConfirmOpen(false); setResetDataInput(""); }}>{t('modal.cancelButton')}</Button>
                 <Button
                   variant="destructive"
                   disabled={resetDataInput !== "RESET"}
                   onClick={() => { setResetDataConfirmOpen(false); setResetDataInput(""); resetData(); }}
                 >
-                  Reset everything
+                  {t('modal.resetDataButton')}
                 </Button>
               </div>
             </CardContent>
@@ -3675,10 +3699,10 @@ export default function MacroTrackerApp(){
       <nav className="sm:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-800">
         <div className="grid grid-cols-4 h-16">
           {[
-            { value: 'dashboard', Icon: BarChart3,    label: 'Dashboard' },
-            { value: 'daily',     Icon: BookOpenText,  label: 'Log'       },
-            { value: 'foods',     Icon: Database,      label: 'Foods'     },
-            { value: 'settings',  Icon: SettingsIcon,  label: 'Profile'   },
+            { value: 'dashboard', Icon: BarChart3,    label: t('nav.dashboard') },
+            { value: 'daily',     Icon: BookOpenText,  label: t('nav.daily')      },
+            { value: 'foods',     Icon: Database,      label: t('nav.foods')      },
+            { value: 'settings',  Icon: SettingsIcon,  label: t('nav.settings')   },
           ].map(({ value, Icon, label }) => {
             const active = tab === value;
             return (
@@ -3715,12 +3739,12 @@ export default function MacroTrackerApp(){
           <div className="absolute bottom-0 inset-x-0 rounded-t-2xl bg-white dark:bg-slate-900 px-6 pt-4 pb-10 shadow-2xl">
             <div className="w-10 h-1 bg-slate-300 dark:bg-slate-600 rounded-full mx-auto mb-5" />
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-4">
-              Totals for
+              {t('sticky.totalsFor')}
             </p>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { value: 'today',    label: 'Today'        },
-                { value: 'selected', label: 'Selected day' },
+                { value: 'today',    label: t('sticky.today')       },
+                { value: 'selected', label: t('sticky.selectedDay') },
               ].map(({ value, label }) => (
                 <button
                   key={value}
@@ -3867,6 +3891,7 @@ function computeEarnedBadgeIds(entries, foods, goalValuesForDate) {
 }
 
 function GoalModeToggle({ active, onChange }){
+  const { t } = useTranslation();
   return (
     <div
       className="flex h-9 flex-shrink-0 items-center gap-1 rounded-full border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60 px-1 shadow-sm"
@@ -3874,6 +3899,7 @@ function GoalModeToggle({ active, onChange }){
       aria-label="Select active goal profile"
     >
       {DUAL_PROFILE_OPTIONS.map(({ value, label, Icon, accent })=>{
+        const translatedLabel = value === 'train' ? t('profile.train') : value === 'rest' ? t('profile.rest') : t('setup.'+value, label);
         const isActive = active===value;
         return (
           <button
@@ -3886,7 +3912,7 @@ function GoalModeToggle({ active, onChange }){
             <span className="inline-flex items-center justify-center">
               <Icon className={`h-3 w-3 ${isActive? '' : 'opacity-80'}`} />
             </span>
-            <span className="hidden sm:inline">{label}</span>
+            <span className="hidden sm:inline">{translatedLabel}</span>
             <span className="ml-1 inline-flex h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} aria-hidden="true" />
           </button>
         );
@@ -3896,9 +3922,12 @@ function GoalModeToggle({ active, onChange }){
 }
 
 function GoalModeSelect({ value, onChange, className }) {
+  const { t } = useTranslation();
   const entry = coerceModeEntry(value);
   const optionKey = entry.setup === "dual" ? (entry.profile === "rest" ? "rest" : "train") : entry.setup;
   const activeOption = PROFILE_MODE_OPTIONS.find((option) => option.value === optionKey) || PROFILE_MODE_OPTIONS[0];
+  const getOptionLabel = (opt) => opt.value === 'train' ? t('profile.train') : opt.value === 'rest' ? t('profile.rest') : t('setup.'+opt.value, opt.label);
+  const activeLabel = getOptionLabel(activeOption);
   return (
     <Select
       value={activeOption.value}
@@ -3915,24 +3944,24 @@ function GoalModeSelect({ value, onChange, className }) {
           "h-8 w-44 rounded-full border-slate-300 bg-white/80 pl-3 pr-3 text-xs dark:border-slate-700 dark:bg-slate-900/60",
           className,
         )}
-        aria-label={`Goal profile: ${activeOption.label}`}
+        aria-label={`Goal profile: ${activeLabel}`}
       >
-        <span className="sr-only">{activeOption.label}</span>
+        <span className="sr-only">{activeLabel}</span>
         <div className="flex w-full items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <activeOption.Icon className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>{activeOption.label}</span>
+            <span>{activeLabel}</span>
           </div>
           <span className="inline-flex h-1.5 w-1.5 rounded-full" style={{ backgroundColor: activeOption.accent }} aria-hidden="true" />
         </div>
       </SelectTrigger>
       <SelectContent align="end">
-        {PROFILE_MODE_OPTIONS.map(({ value: option, label, Icon: OptionIcon, accent: optionAccent }) => (
-          <SelectItem key={option} value={option}>
+        {PROFILE_MODE_OPTIONS.map((opt) => (
+          <SelectItem key={opt.value} value={opt.value}>
             <div className="flex items-center gap-2">
-              <OptionIcon className="h-4 w-4" />
-              <span>{label}</span>
-              <span className="ml-auto inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: optionAccent }} aria-hidden="true" />
+              <opt.Icon className="h-4 w-4" />
+              <span>{getOptionLabel(opt)}</span>
+              <span className="ml-auto inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: opt.accent }} aria-hidden="true" />
             </div>
           </SelectItem>
         ))}
@@ -3942,9 +3971,11 @@ function GoalModeSelect({ value, onChange, className }) {
 }
 
 function GoalModeBadge({ value, className }) {
+  const { t } = useTranslation();
   const entry = coerceModeEntry(value);
   const optionKey = entry.setup === "dual" ? (entry.profile === "rest" ? "rest" : "train") : entry.setup;
   const activeOption = PROFILE_MODE_OPTIONS.find((option) => option.value === optionKey) || PROFILE_MODE_OPTIONS[0];
+  const activeLabel = activeOption.value === 'train' ? t('profile.train') : activeOption.value === 'rest' ? t('profile.rest') : t('setup.'+activeOption.value, activeOption.label);
   return (
     <div
       className={cn(
@@ -3952,11 +3983,11 @@ function GoalModeBadge({ value, className }) {
         "pointer-events-none select-none",
         className,
       )}
-      title={activeOption.label}
+      title={activeLabel}
     >
-      <span className="sr-only">{activeOption.label}</span>
+      <span className="sr-only">{activeLabel}</span>
       <activeOption.Icon className="h-3.5 w-3.5" aria-hidden="true" />
-      <span className="font-medium">{activeOption.label}</span>
+      <span className="font-medium">{activeLabel}</span>
       <span
         className="inline-flex h-1.5 w-1.5 rounded-full"
         style={{ backgroundColor: activeOption.accent }}
@@ -4030,6 +4061,7 @@ function TogglePill({ label, active, onClick, color }){
 }
 
 function BadgeUnlockPopup({ badgeId, onClose }) {
+  const { t } = useTranslation();
   const badge = BADGES.find((b) => b.stringId === badgeId);
   if (!badge) return null;
   const accentColor = badge.colors[0];
@@ -4076,11 +4108,11 @@ function BadgeUnlockPopup({ badgeId, onClose }) {
           {/* Text */}
           <div className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
-              Badge Unlocked
+              {t('settings.badgesTitle')}
             </p>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{badge.name}</h2>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{t('badges.'+badge.stringId+'.name', badge.name)}</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 leading-snug">
-              {badge.desc}
+              {t('badges.'+badge.stringId+'.desc', badge.desc)}
             </p>
           </div>
 
@@ -4100,6 +4132,7 @@ function BadgeUnlockPopup({ badgeId, onClose }) {
 }
 
 function BadgesCard({ earnedBadgeIds }) {
+  const { t } = useTranslation();
   const [showAll, setShowAll] = useState(false);
   const earnedCount = BADGES.filter((b) => earnedBadgeIds.has(b.stringId)).length;
   const previewBadges = BADGES.filter((b) => earnedBadgeIds.has(b.stringId)).slice(0, 12);
@@ -4108,8 +4141,8 @@ function BadgesCard({ earnedBadgeIds }) {
     <>
       <div className="rounded-xl border p-4 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <div className="font-medium">My Badges</div>
-          <span className="text-xs text-slate-500">{earnedCount} / {BADGES.length} earned</span>
+          <div className="font-medium">{t('cards.myBadges')}</div>
+          <span className="text-xs text-slate-500">{t('cards.earnedOf', { earned: earnedCount, total: BADGES.length })}</span>
         </div>
 
         {/* Preview: up to 12 earned badges, 4 per row */}
@@ -4124,7 +4157,7 @@ function BadgesCard({ earnedBadgeIds }) {
             ))}
           </div>
         ) : (
-          <p className="text-xs text-slate-400 min-h-[2.5rem] flex items-center">Log food to start earning badges.</p>
+          <p className="text-xs text-slate-400 min-h-[2.5rem] flex items-center">{t('cards.logFoodBadges')}</p>
         )}
         {earnedCount > 12 && (
           <span className="text-xs text-slate-500">+{earnedCount - 12} more</span>
@@ -4135,7 +4168,7 @@ function BadgesCard({ earnedBadgeIds }) {
           onClick={() => setShowAll(true)}
           className="text-xs text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 underline self-start"
         >
-          See all badges
+          {t('cards.seeAllBadges')}
         </button>
       </div>
 
@@ -4145,8 +4178,8 @@ function BadgesCard({ earnedBadgeIds }) {
           <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl overflow-y-auto max-h-[85vh]">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-4">
               <div>
-                <h2 className="font-semibold text-base">All Badges</h2>
-                <p className="text-xs text-slate-500">{earnedCount} of {BADGES.length} earned</p>
+                <h2 className="font-semibold text-base">{t('cards.allBadges')}</h2>
+                <p className="text-xs text-slate-500">{t('cards.earnedOfBadges', { earned: earnedCount, total: BADGES.length })}</p>
               </div>
               <button
                 type="button"
@@ -4166,6 +4199,7 @@ function BadgesCard({ earnedBadgeIds }) {
 }
 
 function WeeklyNutritionCard({ data, onPrevWeek, onNextWeek, canGoForward }) {
+  const { t } = useTranslation();
   const days = data?.days ?? [];
   const rows = data?.rows ?? [];
   const hasData = days.length > 0 && rows.length > 0;
@@ -4193,13 +4227,13 @@ function WeeklyNutritionCard({ data, onPrevWeek, onNextWeek, canGoForward }) {
     <Card className="h-full min-h-[360px] flex flex-col">
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
-          <CardTitle>Weekly Nutrition</CardTitle>
+          <CardTitle>{t('dashboard.weeklyNutrition')}</CardTitle>
           <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={onPrevWeek}
               className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
-              aria-label="Previous week"
+              aria-label={t('week.previousWeek')}
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -4209,7 +4243,7 @@ function WeeklyNutritionCard({ data, onPrevWeek, onNextWeek, canGoForward }) {
               onClick={onNextWeek}
               disabled={!canGoForward}
               className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 transition-colors disabled:opacity-30 disabled:pointer-events-none"
-              aria-label="Next week"
+              aria-label={t('week.nextWeek')}
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -4238,7 +4272,7 @@ function WeeklyNutritionCard({ data, onPrevWeek, onNextWeek, canGoForward }) {
                     </div>
                   </div>
                 ))}
-                <div className="pr-1 text-right text-[11px] font-medium uppercase tracking-wide text-slate-500">Selected day</div>
+                <div className="pr-1 text-right text-[11px] font-medium uppercase tracking-wide text-slate-500">{t('sticky.selectedDay')}</div>
                 {rows.map((row) => (
                   <Fragment key={row.key}>
                     <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
@@ -4359,10 +4393,11 @@ function WeeklyNutritionCell({ theme, unit, actual, goal, isToday, isSelected, o
 }
 
 function AverageSummaryCard({ label, averages, scaleMax }) {
+  const { t } = useTranslation();
   const data = [
     {
       key: "kcal",
-      label: "Calories",
+      label: t('macro.kcal'),
       unit: "kcal",
       value: averages?.kcal ?? 0,
       gradientFrom: MACRO_THEME.kcal.gradientFrom,
@@ -4370,7 +4405,7 @@ function AverageSummaryCard({ label, averages, scaleMax }) {
     },
     {
       key: "protein",
-      label: "Protein",
+      label: t('macro.protein'),
       unit: "g",
       value: averages?.protein ?? 0,
       gradientFrom: MACRO_THEME.protein.gradientFrom,
@@ -4378,7 +4413,7 @@ function AverageSummaryCard({ label, averages, scaleMax }) {
     },
     {
       key: "carbs",
-      label: "Carbs",
+      label: t('macro.carbs'),
       unit: "g",
       value: averages?.carbs ?? 0,
       gradientFrom: MACRO_THEME.carbs.gradientFrom,
@@ -4386,7 +4421,7 @@ function AverageSummaryCard({ label, averages, scaleMax }) {
     },
     {
       key: "fat",
-      label: "Fat",
+      label: t('macro.fat'),
       unit: "g",
       value: averages?.fat ?? 0,
       gradientFrom: MACRO_THEME.fat.gradientFrom,
@@ -4452,6 +4487,7 @@ function computeChartDomain(values, padFallback = 0.5) {
 }
 
 function WeightTrendCard({ history, latestWeight, latestDate }) {
+  const { t } = useTranslation();
   const [range, setRange] = useState("90");
   const gradientId = useId();
 
@@ -4480,14 +4516,14 @@ function WeightTrendCard({ history, latestWeight, latestDate }) {
     <Card>
       <CardHeader className="pb-1.5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <CardTitle>Weight Trend</CardTitle>
+          <CardTitle>{t('cards.weightTrendTitle')}</CardTitle>
           <Select value={range} onValueChange={setRange}>
             <SelectTrigger className="h-8 w-full sm:w-40 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {WEIGHT_RANGE_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                <SelectItem key={o.value} value={o.value}>{t('cards.weightRange_'+o.value, o.label)}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -4497,12 +4533,12 @@ function WeightTrendCard({ history, latestWeight, latestDate }) {
         <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-1.5">
             <span className="inline-block h-0.5 w-5 rounded" style={{ backgroundColor: '#a855f7' }} />
-            <span>Weight</span>
+            <span>{t('cards.weightLegendWeight')}</span>
           </div>
           {hasBodyFat && (
             <div className="flex items-center gap-1.5">
               <svg width="20" height="4" className="shrink-0"><line x1="0" y1="2" x2="20" y2="2" stroke="#22d3ee" strokeWidth="2" strokeDasharray="4 2" /></svg>
-              <span>Body Fat</span>
+              <span>{t('cards.weightLegendBodyFat')}</span>
             </div>
           )}
         </div>
@@ -4561,13 +4597,13 @@ function WeightTrendCard({ history, latestWeight, latestDate }) {
                       <ChartTooltipContainer title={title}>
                         {hasWeight && (
                           <div className="flex items-center justify-between gap-6">
-                            <span className="text-slate-200">Weight</span>
+                            <span className="text-slate-200">{t('cards.weightLegendWeight')}</span>
                             <span className="font-semibold text-slate-100">{`${formatNumber(point.weight ?? weightEntry?.value ?? 0)} kg`}</span>
                           </div>
                         )}
                         {hasBodyFat && (
                           <div className="flex items-center justify-between gap-6">
-                            <span className="text-slate-200">Body Fat</span>
+                            <span className="text-slate-200">{t('cards.weightLegendBodyFat')}</span>
                             <span className="font-semibold text-slate-100">{`${formatNumber(point.bodyFat ?? bodyFatEntry?.value ?? 0)}%`}</span>
                           </div>
                         )}
@@ -4601,7 +4637,7 @@ function WeightTrendCard({ history, latestWeight, latestDate }) {
             </ResponsiveContainer>
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-slate-500 dark:text-slate-400">
-              Log a weight to see trends.
+              {t('cards.logWeightHint')}
             </div>
           )}
         </div>
@@ -4610,7 +4646,7 @@ function WeightTrendCard({ history, latestWeight, latestDate }) {
           <span className="text-sm font-medium text-slate-500 dark:text-slate-400">kg</span>
         </div>
         <div className="text-xs text-slate-500 dark:text-slate-400">
-          {latestDate ? `Latest entry on ${latestDate}` : "No entries recorded yet."}
+          {latestDate ? t('cards.latestEntryOn', { date: latestDate }) : t('cards.noWeightEntries')}
         </div>
       </CardContent>
     </Card>
@@ -4618,6 +4654,7 @@ function WeightTrendCard({ history, latestWeight, latestDate }) {
 }
 
 function FoodLoggingCard({ summary }) {
+  const { t } = useTranslation();
   const { grid = [], totalLogged = 0, totalDays = 0, thisWeekLogged = 0 } = summary ?? {};
   const containerRef = useRef(null);
   const [hoveredDay, setHoveredDay] = useState(null);
@@ -4655,8 +4692,8 @@ function FoodLoggingCard({ summary }) {
   return (
     <Card>
       <CardHeader className="pb-1.5">
-        <CardTitle>Food Logging</CardTitle>
-        <p className="text-sm text-slate-500 dark:text-slate-400">Last 30 Days</p>
+        <CardTitle>{t('cards.foodLoggingTitle')}</CardTitle>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{t('cards.foodLoggingLast30')}</p>
       </CardHeader>
       <CardContent className="space-y-3 pt-0 pb-3">
         <div ref={containerRef} className="relative" onMouseLeave={clearHover}>
@@ -4670,7 +4707,7 @@ function FoodLoggingCard({ summary }) {
             {grid.map((day) => {
               const isoDate = `${day.iso}T00:00:00`;
               const fullLabel = format(new Date(isoDate), "PP");
-              const statusLabel = day.logged ? "Logged" : "No log";
+              const statusLabel = day.logged ? t('cards.loggedLabel') : t('cards.noLogLabel');
               return (
                 <button
                   key={day.iso}
@@ -4699,7 +4736,7 @@ function FoodLoggingCard({ summary }) {
             >
               <div className="-translate-x-1/2 -translate-y-full pb-2">
                 <ChartTooltipContainer title={format(new Date(`${hoveredDay.day.iso}T00:00:00`), "PP")}>
-                  <div className="font-semibold text-slate-100">{hoveredDay.day.logged ? "Logged" : "No log"}</div>
+                  <div className="font-semibold text-slate-100">{hoveredDay.day.logged ? t('cards.loggedLabel') : t('cards.noLogLabel')}</div>
                 </ChartTooltipContainer>
               </div>
             </div>
@@ -4707,9 +4744,9 @@ function FoodLoggingCard({ summary }) {
         </div>
         <div className="flex items-baseline justify-between text-sm">
           <span className="font-semibold text-slate-900 dark:text-slate-100">
-            {totalLogged}/{totalDays} days
+            {t('cards.loggedDays', { logged: totalLogged, total: totalDays })}
           </span>
-          <span className="text-xs text-slate-500 dark:text-slate-400">{thisWeekLogged}/7 this week</span>
+          <span className="text-xs text-slate-500 dark:text-slate-400">{t('cards.loggedThisWeek', { count: thisWeekLogged })}</span>
         </div>
       </CardContent>
     </Card>
@@ -4836,7 +4873,7 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, goal
     return { slices: mapped, total };
   }, [topFoods, gradientPrefix]);
 
-  const macroLabel = MACRO_LABELS[topMacroKey] ?? "Macro";
+  const macroLabel = t('macro.'+topMacroKey, MACRO_LABELS[topMacroKey] ?? "Macro");
   const leftItems = slices.slice(0, Math.min(2, slices.length));
   const rightItems = slices.slice(leftItems.length, leftItems.length + Math.min(2, Math.max(0, slices.length - leftItems.length)));
   const bottomItems = slices.slice(leftItems.length + rightItems.length);
@@ -5087,11 +5124,11 @@ function EditableFoodRow({ food, onEdit, onDelete, selected, onSelect }) {
         </div>
       </TableCell>
       <TableCell className="align-middle w-[160px] max-w-[160px]">
-        <span className="block truncate text-sm" title={getCategoryLabel(food.category)}>{getCategoryLabel(food.category)}</span>
+        <span className="block truncate text-sm" title={t('foodCategories.'+food.category, getCategoryLabel(food.category))}>{t('foodCategories.'+food.category, getCategoryLabel(food.category))}</span>
       </TableCell>
       <TableCell className="align-middle w-[120px] max-w-[120px]">
-        <span className="block truncate text-sm" title={food.unit === 'per100g' ? 'per 100 g' : `per ${formatNumber(food.servingSize ?? 1)} g serving`}>
-          {food.unit === 'per100g' ? 'per 100 g' : `per ${formatNumber(food.servingSize ?? 1)} g serving`}
+        <span className="block truncate text-sm" title={food.unit === 'per100g' ? t('foods.per100g') : `per ${formatNumber(food.servingSize ?? 1)} g serving`}>
+          {food.unit === 'per100g' ? t('foods.per100g') : `per ${formatNumber(food.servingSize ?? 1)} g serving`}
         </span>
       </TableCell>
       <TableCell className="text-right tabular-nums align-middle">{formatNumber(food.kcal)}</TableCell>
@@ -5108,6 +5145,7 @@ function EditableFoodRow({ food, onEdit, onDelete, selected, onSelect }) {
   );
 }
 function FoodEditDrawer({ food, foods, onUpdate, onDelete, onAdd, onClose }) {
+  const { t } = useTranslation();
   const [form, setForm] = useState(() => ({
     name: food.name,
     category: food.category ?? DEFAULT_CATEGORY,
@@ -5222,7 +5260,7 @@ function FoodEditDrawer({ food, foods, onUpdate, onDelete, onAdd, onClose }) {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
           <div>
-            <h2 className="font-semibold text-base">Edit food</h2>
+            <h2 className="font-semibold text-base">{t('foods.editFoodTitle')}</h2>
             <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[320px]">{food.name}</p>
           </div>
           <Button variant="ghost" size="icon" onClick={handleClose}><X className="h-4 w-4" /></Button>
@@ -5232,29 +5270,29 @@ function FoodEditDrawer({ food, foods, onUpdate, onDelete, onAdd, onClose }) {
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
           {/* Name */}
           <div className="space-y-1.5">
-            <Label>Name</Label>
+            <Label>{t('foods.foodNameLabel')}</Label>
             <div className="flex items-center gap-2">
               <span className="text-lg">{getCategoryEmoji(form.category)}</span>
-              <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="Food name" />
+              <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder={t('foods.foodNamePlaceholder')} />
             </div>
           </div>
 
           {/* Category + Unit */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Category</Label>
+              <Label>{t('foods.categoryLabel')}</Label>
               <Select value={form.category} onValueChange={(v) => setForm((p) => ({ ...p, category: v }))}>
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                <SelectContent side="bottom" avoidCollisions={false}>{FOOD_CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                <SelectContent side="bottom" avoidCollisions={false}>{FOOD_CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{t('foodCategories.'+c.value, c.label)}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Unit</Label>
+              <Label>{t('foods.unitLabel')}</Label>
               <Select value={form.unit} onValueChange={(v) => setForm((p) => ({ ...p, unit: v, servingSize: v === "perServing" ? (p.servingSize || "1") : "" }))}>
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="per100g">per 100g</SelectItem>
-                  <SelectItem value="perServing">per serving</SelectItem>
+                  <SelectItem value="per100g">{t('foods.per100g')}</SelectItem>
+                  <SelectItem value="perServing">{t('foods.perServing')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -5263,7 +5301,7 @@ function FoodEditDrawer({ food, foods, onUpdate, onDelete, onAdd, onClose }) {
           {/* Serving size */}
           {isPerServing && (
             <div className="space-y-1.5">
-              <Label>Serving size (g)</Label>
+              <Label>{t('foods.servingSizeLabel')}</Label>
               <Input type="number" step="0.1" value={form.servingSize} onChange={(e) => setForm((p) => ({ ...p, servingSize: e.target.value }))} placeholder="g" />
             </div>
           )}
@@ -5272,7 +5310,7 @@ function FoodEditDrawer({ food, foods, onUpdate, onDelete, onAdd, onClose }) {
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Macros</Label>
             <div className="grid grid-cols-2 gap-3">
-              {[["kcal", "kcal"], ["fat", "Fat (g)"], ["carbs", "Carbs (g)"], ["protein", "Protein (g)"]].map(([key, label]) => (
+              {[["kcal", t('foods.kcalLabel')], ["fat", t('foods.fatLabel')], ["carbs", t('foods.carbsLabel')], ["protein", t('foods.proteinLabel')]].map(([key, label]) => (
                 <div key={key} className="space-y-1">
                   <Label className="text-xs text-slate-500">{label}</Label>
                   <Input
@@ -5295,7 +5333,7 @@ function FoodEditDrawer({ food, foods, onUpdate, onDelete, onAdd, onClose }) {
           {form.category === "homeRecipe" && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Ingredients</Label>
+                <Label className="text-sm font-medium">{t('foods.ingredientsLabel')}</Label>
               </div>
               <RecipeIngredientsEditor
                 ingredients={form.components}
@@ -5309,8 +5347,8 @@ function FoodEditDrawer({ food, foods, onUpdate, onDelete, onAdd, onClose }) {
 
         {/* Footer */}
         <div className="flex items-center gap-2 border-t border-slate-200 px-5 py-4 dark:border-slate-800">
-          <Button onClick={handleSave}>Save changes</Button>
-          <Button variant="ghost" onClick={handleClose}>Cancel</Button>
+          <Button onClick={handleSave}>{t('foods.saveButton')}</Button>
+          <Button variant="ghost" onClick={handleClose}>{t('foods.cancelButton')}</Button>
           <Button variant="outline" onClick={handleDuplicate} title="Duplicate this food">
             Duplicate
           </Button>
@@ -5319,7 +5357,7 @@ function FoodEditDrawer({ food, foods, onUpdate, onDelete, onAdd, onClose }) {
             className="ml-auto text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
             onClick={() => { onDelete(food); onClose(); }}
           >
-            <Trash2 className="h-4 w-4 mr-1.5" />Delete
+            <Trash2 className="h-4 w-4 mr-1.5" />{t('foods.deleteButton')}
           </Button>
         </div>
       </div>
@@ -5370,6 +5408,7 @@ async function lookupBarcode(barcode) {
 }
 
 function BarcodeScannerModal({ onResult, onClose }) {
+  const { t } = useTranslation();
   const videoRef = useRef(null);
   const readerRef = useRef(null);
   const [phase, setPhase] = useState('scanning'); // scanning | fetching | found | error
@@ -5399,7 +5438,7 @@ function BarcodeScannerModal({ onResult, onClose }) {
           },
         });
       } catch {
-        setErrorMsg('Camera access denied or not available.');
+        setErrorMsg(t('foods.scanCameraAccess'));
         setPhase('error');
         return;
       }
@@ -5426,8 +5465,8 @@ function BarcodeScannerModal({ onResult, onClose }) {
               .then(food => { setResult(food); setPhase('found'); })
               .catch(e => {
                 setErrorMsg(e.message === 'Product not found'
-                  ? 'Product not found in Open Food Facts database.'
-                  : 'Could not reach the food database. Check your connection.');
+                  ? t('foods.scanProductNotFound')
+                  : t('foods.scanConnectionError'));
                 setPhase('error');
               });
             return;
@@ -5453,7 +5492,7 @@ function BarcodeScannerModal({ onResult, onClose }) {
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
           <div className="flex items-center gap-2">
             <Barcode className="h-5 w-5 text-slate-700 dark:text-slate-300" />
-            <span className="font-semibold text-slate-900 dark:text-slate-100">Scan Barcode</span>
+            <span className="font-semibold text-slate-900 dark:text-slate-100">{t('foods.scanTitle')}</span>
           </div>
           <button onClick={onClose} className="rounded-full p-1 hover:bg-slate-100 dark:hover:bg-slate-800">
             <X className="h-5 w-5 text-slate-500" />
@@ -5478,13 +5517,13 @@ function BarcodeScannerModal({ onResult, onClose }) {
           {phase === 'fetching' && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
               <Loader2 className="h-10 w-10 text-white animate-spin" />
-              <p className="mt-2 text-white text-sm">Looking up product…</p>
+              <p className="mt-2 text-white text-sm">{t('foods.scanSearching')}</p>
             </div>
           )}
           {phase === 'found' && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
               <CheckCircle2 className="h-10 w-10 text-green-400" />
-              <p className="mt-2 text-white text-sm font-medium">{result?.name || 'Product found!'}</p>
+              <p className="mt-2 text-white text-sm font-medium">{result?.name || t('foods.scanProductFound')}</p>
             </div>
           )}
           {phase === 'error' && (
@@ -5498,19 +5537,19 @@ function BarcodeScannerModal({ onResult, onClose }) {
         {/* Footer */}
         <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700">
           {phase === 'scanning' && (
-            <p className="text-xs text-center text-slate-500">Point the camera at a barcode</p>
+            <p className="text-xs text-center text-slate-500">{t('foods.scanPointCamera')}</p>
           )}
           {phase === 'found' && result && (
             <div className="space-y-2">
               <div className="text-xs text-slate-500 text-center">
-                {result.kcal} kcal · P {result.protein}g · C {result.carbs}g · F {result.fat}g (per 100g)
+                {result.kcal} kcal · P {result.protein}g · C {result.carbs}g · F {result.fat}g ({t('foods.per100g')})
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1" onClick={() => { scannedRef.current = false; setPhase('scanning'); setResult(null); }}>
-                  Scan again
+                  {t('foods.scanAgain')}
                 </Button>
                 <Button className="flex-1" onClick={() => onResult(result)}>
-                  Use this food
+                  {t('foods.useFood')}
                 </Button>
               </div>
             </div>
@@ -5518,10 +5557,10 @@ function BarcodeScannerModal({ onResult, onClose }) {
           {phase === 'error' && (
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => { setPhase('scanning'); setErrorMsg(''); setRetryCount(c => c + 1); }}>
-                Try again
+                {t('foods.scanTryAgain')}
               </Button>
               <Button variant="ghost" className="flex-1" onClick={onClose}>
-                Cancel
+                {t('foods.cancelButton')}
               </Button>
             </div>
           )}
@@ -5535,6 +5574,7 @@ function BarcodeScannerModal({ onResult, onClose }) {
 }
 
 function AddFoodCard({ foods, onAdd, tab, onClose, initialBasicForm }){
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState(tab ?? "single");
   useEffect(() => { if (tab) setActiveTab(tab); }, [tab]);
   const [basicForm, setBasicForm] = useState(() => initialBasicForm || createBasicFoodForm());
@@ -5628,74 +5668,74 @@ function AddFoodCard({ foods, onAdd, tab, onClose, initialBasicForm }){
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>{activeTab === "recipe" ? "Add Home Recipe" : "Add Food"}</CardTitle>
+          <CardTitle>{activeTab === "recipe" ? t('foods.addRecipeTitle') : t('foods.addFoodTitle')}</CardTitle>
           {onClose && <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full max-w-xs grid-cols-2 rounded-full border border-slate-200 bg-white/80 p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
-            <TabsTrigger value="single" className="rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900">Add Food</TabsTrigger>
-            <TabsTrigger value="recipe" className="rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900">Add Home Recipe</TabsTrigger>
+            <TabsTrigger value="single" className="rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900">{t('foods.addFoodTitle')}</TabsTrigger>
+            <TabsTrigger value="recipe" className="rounded-full data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-900">{t('foods.addRecipeTitle')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="single" className="mt-4">
             <div className="grid gap-3 md:grid-cols-6">
               <div className="md:col-span-2">
-                <Label>Name</Label>
-                <Input value={basicForm.name} onChange={(e)=>setBasicForm((prev)=>({...prev, name:e.target.value }))} placeholder="e.g. Banana" />
+                <Label>{t('foods.foodNameLabel')}</Label>
+                <Input value={basicForm.name} onChange={(e)=>setBasicForm((prev)=>({...prev, name:e.target.value }))} placeholder={t('foods.foodNamePlaceholder')} />
               </div>
               <div>
-                <Label>Category</Label>
+                <Label>{t('foods.categoryLabel')}</Label>
                 <Select value={basicForm.category} onValueChange={(v)=>setBasicForm((prev)=>({...prev, category:v }))}>
                   <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                   <SelectContent side="bottom" avoidCollisions={false}>
                     {FOOD_CATEGORIES.map(cat=>(
-                      <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                      <SelectItem key={cat.value} value={cat.value}>{t('foodCategories.'+cat.value, cat.label)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Unit</Label>
+                <Label>{t('foods.unitLabel')}</Label>
                 <Select value={basicForm.unit} onValueChange={(v)=>setBasicForm((prev)=>({...prev, unit:v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="per100g">per 100g</SelectItem>
-                    <SelectItem value="perServing">per serving</SelectItem>
+                    <SelectItem value="per100g">{t('foods.per100g')}</SelectItem>
+                    <SelectItem value="perServing">{t('foods.perServing')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               {basicForm.unit==='perServing' && (
                 <div>
-                  <Label>Serving size (g)</Label>
+                  <Label>{t('foods.servingSizeLabel')}</Label>
                   <Input type="number" inputMode="decimal" value={basicForm.servingSize} onChange={(e)=>setBasicForm((prev)=>({...prev, servingSize:e.target.value }))} />
                 </div>
               )}
               <div className="md:col-span-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
-                  <Label>kcal</Label>
+                  <Label>{t('foods.kcalLabel')}</Label>
                   <Input type="number" inputMode="decimal" value={basicForm.kcal} onChange={(e)=>setBasicForm((prev)=>({...prev, kcal:e.target.value }))} />
                 </div>
                 <div>
-                  <Label>Fat (g)</Label>
+                  <Label>{t('foods.fatLabel')}</Label>
                   <Input type="number" inputMode="decimal" value={basicForm.fat} onChange={(e)=>setBasicForm((prev)=>({...prev, fat:e.target.value }))} />
                 </div>
                 <div>
-                  <Label>Carbs (g)</Label>
+                  <Label>{t('foods.carbsLabel')}</Label>
                   <Input type="number" inputMode="decimal" value={basicForm.carbs} onChange={(e)=>setBasicForm((prev)=>({...prev, carbs:e.target.value }))} />
                 </div>
                 <div>
-                  <Label>Protein (g)</Label>
+                  <Label>{t('foods.proteinLabel')}</Label>
                   <Input type="number" inputMode="decimal" value={basicForm.protein} onChange={(e)=>setBasicForm((prev)=>({...prev, protein:e.target.value }))} />
                 </div>
               </div>
               <div className="md:col-span-6 flex items-center justify-end gap-2">
                 <Button variant="outline" onClick={() => setShowScanner(true)}>
                   <Barcode className="mr-2 h-4 w-4" />
-                  Scan Barcode
+                  {t('foods.scanTitle')}
                 </Button>
-                <Button onClick={handleAddBasic}>Add Food</Button>
+                <Button onClick={handleAddBasic}>{t('foods.addFoodButton')}</Button>
               </div>
             </div>
           </TabsContent>
@@ -5703,16 +5743,16 @@ function AddFoodCard({ foods, onAdd, tab, onClose, initialBasicForm }){
           <TabsContent value="recipe" className="mt-4">
             <div className="grid gap-3 md:grid-cols-6">
               <div className="md:col-span-3">
-                <Label>Recipe name</Label>
-                <Input value={recipeForm.name} onChange={(e)=>setRecipeForm((prev)=>({...prev, name:e.target.value }))} placeholder="e.g. Vanilla Pancake" />
+                <Label>{t('foods.foodNameLabel')}</Label>
+                <Input value={recipeForm.name} onChange={(e)=>setRecipeForm((prev)=>({...prev, name:e.target.value }))} placeholder={t('foods.recipeNamePlaceholder')} />
               </div>
               <div>
-                <Label>Unit</Label>
+                <Label>{t('foods.unitLabel')}</Label>
                 <Select value={recipeForm.unit} onValueChange={(v)=>setRecipeForm((prev)=>({...prev, unit:v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="per100g">per 100g</SelectItem>
-                    <SelectItem value="perServing">per serving</SelectItem>
+                    <SelectItem value="per100g">{t('foods.per100g')}</SelectItem>
+                    <SelectItem value="perServing">{t('foods.perServing')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -5721,7 +5761,7 @@ function AddFoodCard({ foods, onAdd, tab, onClose, initialBasicForm }){
                 <Input type="number" inputMode="decimal" value={recipeForm.servingSize} onChange={(e)=>setRecipeForm((prev)=>({...prev, servingSize:e.target.value }))} />
               </div>
               <div className="md:col-span-6">
-                <Label>Ingredients</Label>
+                <Label>{t('foods.ingredientsLabel')}</Label>
                 <RecipeIngredientsEditor
                   ingredients={recipeIngredients}
                   onChange={setRecipeIngredients}
@@ -5730,19 +5770,19 @@ function AddFoodCard({ foods, onAdd, tab, onClose, initialBasicForm }){
               </div>
               <div className="md:col-span-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
-                  <Label>kcal</Label>
+                  <Label>{t('foods.kcalLabel')}</Label>
                   <Input type="number" inputMode="decimal" value={recipeForm.kcal} onChange={(e)=>setRecipeForm((prev)=>({...prev, kcal:e.target.value }))} />
                 </div>
                 <div>
-                  <Label>Fat (g)</Label>
+                  <Label>{t('foods.fatLabel')}</Label>
                   <Input type="number" inputMode="decimal" value={recipeForm.fat} onChange={(e)=>setRecipeForm((prev)=>({...prev, fat:e.target.value }))} />
                 </div>
                 <div>
-                  <Label>Carbs (g)</Label>
+                  <Label>{t('foods.carbsLabel')}</Label>
                   <Input type="number" inputMode="decimal" value={recipeForm.carbs} onChange={(e)=>setRecipeForm((prev)=>({...prev, carbs:e.target.value }))} />
                 </div>
                 <div>
-                  <Label>Protein (g)</Label>
+                  <Label>{t('foods.proteinLabel')}</Label>
                   <Input type="number" inputMode="decimal" value={recipeForm.protein} onChange={(e)=>setRecipeForm((prev)=>({...prev, protein:e.target.value }))} />
                 </div>
               </div>
@@ -5750,7 +5790,7 @@ function AddFoodCard({ foods, onAdd, tab, onClose, initialBasicForm }){
                 Totals above auto-fill from the ingredients. Adjust manually if you need to fine tune.
               </div>
               <div className="md:col-span-6 text-right">
-                <Button onClick={handleAddRecipe}>Add Home Recipe</Button>
+                <Button onClick={handleAddRecipe}>{t('foods.addRecipeButton')}</Button>
               </div>
             </div>
           </TabsContent>
@@ -5781,6 +5821,7 @@ function AddFoodCard({ foods, onAdd, tab, onClose, initialBasicForm }){
 }
 
 function RecipeIngredientsEditor({ ingredients, onChange, foods, ownerId }) {
+  const { t } = useTranslation();
   const availableFoods = useMemo(
     () => foods.filter((food) => food.id !== ownerId),
     [foods, ownerId]
@@ -5829,7 +5870,7 @@ function RecipeIngredientsEditor({ ingredients, onChange, foods, ownerId }) {
     <div className="space-y-3">
       {ingredients.length === 0 && (
         <div className="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500 dark:border-slate-700">
-          Add ingredients from your food database to build this recipe.
+          {t('foods.recipeBuildEmpty')}
         </div>
       )}
       {ingredients.map((item) => {
@@ -5840,7 +5881,7 @@ function RecipeIngredientsEditor({ ingredients, onChange, foods, ownerId }) {
           <div key={item.id} className="space-y-2 rounded-lg border border-slate-200 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/40">
             <div className="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto] items-end">
               <div>
-                <Label className="text-xs font-medium uppercase tracking-wide text-slate-500">Ingredient</Label>
+                <Label className="text-xs font-medium uppercase tracking-wide text-slate-500">{t('foods.ingredientLabel')}</Label>
                 <IngredientFoodPicker
                   value={item.foodId}
                   foods={availableFoods}
@@ -5849,7 +5890,7 @@ function RecipeIngredientsEditor({ ingredients, onChange, foods, ownerId }) {
                 />
               </div>
               <div>
-                <Label className="text-xs font-medium uppercase tracking-wide text-slate-500">Quantity</Label>
+                <Label className="text-xs font-medium uppercase tracking-wide text-slate-500">{t('daily.quantityLabel')}</Label>
                 <div className="mt-1 flex items-center gap-2">
                   <Input
                     type="number"
@@ -5869,17 +5910,17 @@ function RecipeIngredientsEditor({ ingredients, onChange, foods, ownerId }) {
             <div className="text-xs text-slate-500">
               {selected && macros
                 ? `${formatNumber(macros.kcal)} kcal · P ${formatNumber(macros.protein)} g · C ${formatNumber(macros.carbs)} g · F ${formatNumber(macros.fat)} g`
-                : "Pick a food and quantity to see the contribution."}
+                : t('foods.recipePickFoodQty')}
             </div>
           </div>
         );
       })}
       <div className="flex items-center justify-between">
         {!canAddIngredient && (
-          <span className="text-xs text-slate-500">Add foods to your database to build recipes.</span>
+          <span className="text-xs text-slate-500">{t('foods.addFoodsForRecipes')}</span>
         )}
         <Button type="button" variant="outline" size="sm" onClick={handleAdd} disabled={!canAddIngredient}>
-          <Plus className="mr-2 h-4 w-4" /> Add ingredient
+          <Plus className="mr-2 h-4 w-4" /> {t('foods.addIngredient')}
         </Button>
       </div>
     </div>
@@ -5887,6 +5928,7 @@ function RecipeIngredientsEditor({ ingredients, onChange, foods, ownerId }) {
 }
 
 function IngredientFoodPicker({ value, foods, allFoods, onSelect }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const selected = allFoods.find((food) => food.id === value) || null;
@@ -5933,7 +5975,7 @@ function IngredientFoodPicker({ value, foods, allFoods, onSelect }) {
           setQuery(event.target.value);
           setOpen(true);
         }}
-        placeholder="Search ingredient"
+        placeholder={t('foods.searchIngredient')}
       />
       <Search className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
       {open && results.length > 0 && (
@@ -5958,7 +6000,7 @@ function IngredientFoodPicker({ value, foods, allFoods, onSelect }) {
       )}
       {showEmptyState && (
         <div className="absolute z-20 mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500 shadow dark:border-slate-700 dark:bg-slate-900">
-          No foods match that search.
+          {t('foods.noFoodsMatchSearch')}
         </div>
       )}
     </div>
