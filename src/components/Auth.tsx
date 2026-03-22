@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,18 +14,19 @@ function getErrorMessage(error, fallback) {
   return error.message || fallback;
 }
 
-function toFriendlyAuthError(error, fallback) {
+function toFriendlyAuthError(error, fallback, t) {
   const message = getErrorMessage(error, fallback).toLowerCase();
   if (message.includes("email not confirmed") || message.includes("email_not_confirmed")) {
-    return "Email not confirmed yet. Check your inbox for the confirmation email.";
+    return t("auth.emailNotConfirmed");
   }
   if (message.includes("rate limit") || message.includes("too many") || message.includes("email rate limit exceeded")) {
-    return "Too many emails sent. Please try again later.";
+    return t("auth.tooManyEmails");
   }
   return getErrorMessage(error, fallback);
 }
 
 export default function Auth() {
+  const { t } = useTranslation();
   const [tab, setTab] = useState("signin");
 
   const [identifier, setIdentifier] = useState("");
@@ -68,12 +70,12 @@ export default function Auth() {
 
     const rawIdentifier = identifier.trim();
     if (!rawIdentifier) {
-      setSignInError("Email or username is required");
+      setSignInError(t("auth.emailOrUsername") + " " + t("error.usernameRequired").toLowerCase());
       return;
     }
 
     if (!signInPassword) {
-      setSignInError("Password is required");
+      setSignInError(t("auth.password") + " is required");
       return;
     }
 
@@ -88,12 +90,12 @@ export default function Auth() {
         });
 
         if (lookupError) {
-          setSignInError(getErrorMessage(lookupError, "Unable to find username"));
+          setSignInError(getErrorMessage(lookupError, t("auth.unableToFindUsername")));
           return;
         }
 
         if (!resolvedEmail) {
-          setSignInError("Username not found");
+          setSignInError(t("auth.usernameNotFound"));
           return;
         }
 
@@ -106,7 +108,7 @@ export default function Auth() {
       });
 
       if (signInErrorResult) {
-        setSignInError(toFriendlyAuthError(signInErrorResult, "Unable to sign in"));
+        setSignInError(toFriendlyAuthError(signInErrorResult, t("auth.unableToSignIn"), t));
       }
     } finally {
       setSignInLoading(false);
@@ -118,7 +120,7 @@ export default function Auth() {
     const email = resetEmail.trim();
 
     if (!email || !email.includes("@")) {
-      setSignInError("Please enter your email to reset password");
+      setSignInError(t("auth.resetEmailRequired"));
       return;
     }
 
@@ -127,11 +129,11 @@ export default function Auth() {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email);
       if (error) {
-        setSignInError(toFriendlyAuthError(error, "Unable to send reset email"));
+        setSignInError(toFriendlyAuthError(error, t("auth.unableToSendReset"), t));
         return;
       }
 
-      setSignInSuccess("Check your email for reset link");
+      setSignInSuccess(t("auth.checkEmailReset"));
     } finally {
       setSignInLoading(false);
     }
@@ -140,7 +142,7 @@ export default function Auth() {
   const handleResendConfirmation = async () => {
     const email = registerEmail.trim().toLowerCase();
     if (!email.includes("@")) {
-      setRegisterError("Please enter a valid email to resend confirmation.");
+      setRegisterError(t("auth.validEmailRequired"));
       return;
     }
 
@@ -151,10 +153,10 @@ export default function Auth() {
     try {
       const { error } = await supabase.auth.resend({ type: "signup", email });
       if (error) {
-        setRegisterError(toFriendlyAuthError(error, "Unable to resend confirmation email"));
+        setRegisterError(toFriendlyAuthError(error, t("auth.unableResendConfirmation"), t));
         return;
       }
-      setResendMessage("Confirmation email sent. Please check your inbox.");
+      setResendMessage(t("auth.confirmationEmailSent"));
     } finally {
       setResendLoading(false);
     }
@@ -166,22 +168,18 @@ export default function Auth() {
     const email = registerEmail.trim().toLowerCase();
 
     if (!email.includes("@")) {
-      setRegisterError("Please enter a valid email");
+      setRegisterError(t("auth.validEmailRegister"));
       return;
     }
 
     if (passwordsDoNotMatch) {
-      setRegisterError("Passwords do not match");
+      setRegisterError(t("auth.passwordsDoNotMatch"));
       return;
     }
 
     setRegisterLoading(true);
 
     try {
-      // Generate a temporary username prefixed with "_new_" so the DB trigger
-      // (username NOT NULL) doesn't fail. The "_new_" prefix lets loadProfile
-      // detect this is a fresh account and trigger the onboarding questionnaire.
-      // The onboarding will replace it with the user's real chosen name.
       const emailPrefix = email.split("@")[0].replace(/[^a-z0-9_]/gi, "").toLowerCase() || "user";
       const tempUsername = `_new_${emailPrefix}_${Math.random().toString(36).slice(2, 7)}`;
 
@@ -192,11 +190,11 @@ export default function Auth() {
       });
 
       if (registerErrorResult) {
-        setRegisterError(toFriendlyAuthError(registerErrorResult, "Unable to register"));
+        setRegisterError(toFriendlyAuthError(registerErrorResult, t("auth.unableToRegister"), t));
         return;
       }
 
-      setRegisterSuccess("Account created. Check your inbox (and spam) to confirm your email, then return to sign in.");
+      setRegisterSuccess(t("auth.accountCreated"));
     } finally {
       setRegisterLoading(false);
     }
@@ -222,26 +220,26 @@ export default function Auth() {
         <CardContent>
           <Tabs value={tab} onValueChange={setTab} className="space-y-4">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="register">Register</TabsTrigger>
+              <TabsTrigger value="signin">{t("auth.signInTab")}</TabsTrigger>
+              <TabsTrigger value="register">{t("auth.registerTab")}</TabsTrigger>
             </TabsList>
 
             <TabsContent value="signin" className="space-y-4">
               {!isResetMode ? (
                 <>
                   <div className="space-y-2">
-                    <Label htmlFor="signin-identifier">Email or username</Label>
+                    <Label htmlFor="signin-identifier">{t("auth.emailOrUsername")}</Label>
                     <Input
                       id="signin-identifier"
                       type="text"
                       value={identifier}
                       onChange={(event) => setIdentifier(event.target.value)}
-                      placeholder="you@example.com or username"
+                      placeholder={t("auth.emailOrUsernamePlaceholder")}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="signin-password">Password</Label>
+                    <Label htmlFor="signin-password">{t("auth.password")}</Label>
                     <Input
                       id="signin-password"
                       type="password"
@@ -252,7 +250,7 @@ export default function Auth() {
                   </div>
 
                   <Button className="w-full" onClick={handleSignIn} disabled={signInLoading}>
-                    {signInLoading ? "Signing in..." : "Sign in"}
+                    {signInLoading ? t("auth.signingIn") : t("auth.signIn")}
                   </Button>
 
                   <button
@@ -264,25 +262,25 @@ export default function Auth() {
                       resetSignInMessages();
                     }}
                   >
-                    Forgot password?
+                    {t("auth.forgotPassword")}
                   </button>
                 </>
               ) : (
                 <>
                   <div className="space-y-2">
-                    <Label htmlFor="reset-email">Email</Label>
+                    <Label htmlFor="reset-email">{t("auth.email")}</Label>
                     <Input
                       id="reset-email"
                       type="email"
                       value={resetEmail}
                       onChange={(event) => setResetEmail(event.target.value)}
-                      placeholder="you@example.com"
+                      placeholder={t("auth.emailPlaceholder")}
                     />
                   </div>
 
                   <div className="flex gap-2">
                     <Button className="flex-1" onClick={handlePasswordReset} disabled={signInLoading}>
-                      {signInLoading ? "Sending..." : "Send reset link"}
+                      {signInLoading ? t("auth.sending") : t("auth.sendResetLink")}
                     </Button>
                     <Button
                       variant="outline"
@@ -292,7 +290,7 @@ export default function Auth() {
                         resetSignInMessages();
                       }}
                     >
-                      Back
+                      {t("auth.back")}
                     </Button>
                   </div>
                 </>
@@ -304,18 +302,18 @@ export default function Auth() {
 
             <TabsContent value="register" className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="register-email">Email</Label>
+                <Label htmlFor="register-email">{t("auth.email")}</Label>
                 <Input
                   id="register-email"
                   type="email"
                   value={registerEmail}
                   onChange={(event) => setRegisterEmail(event.target.value)}
-                  placeholder="you@example.com"
+                  placeholder={t("auth.emailPlaceholder")}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="register-password">Password</Label>
+                <Label htmlFor="register-password">{t("auth.password")}</Label>
                 <Input
                   id="register-password"
                   type="password"
@@ -326,7 +324,7 @@ export default function Auth() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="register-confirm-password">Confirm Password</Label>
+                <Label htmlFor="register-confirm-password">{t("auth.confirmPassword")}</Label>
                 <Input
                   id="register-confirm-password"
                   type="password"
@@ -337,11 +335,11 @@ export default function Auth() {
               </div>
 
               {passwordsDoNotMatch ? (
-                <p className="text-sm text-amber-600 dark:text-amber-400">Passwords do not match</p>
+                <p className="text-sm text-amber-600 dark:text-amber-400">{t("auth.passwordsDoNotMatch")}</p>
               ) : null}
 
               <Button className="w-full" onClick={handleRegister} disabled={!canSubmitRegister}>
-                {registerLoading ? "Creating account..." : "Register"}
+                {registerLoading ? t("auth.creatingAccount") : t("auth.register")}
               </Button>
 
               {registerError ? <p className="text-sm text-red-600 dark:text-red-400">{registerError}</p> : null}
@@ -354,7 +352,7 @@ export default function Auth() {
                     disabled={resendLoading}
                     className="text-sm underline text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100 disabled:opacity-60"
                   >
-                    {resendLoading ? "Resending..." : "Resend confirmation email"}
+                    {resendLoading ? t("auth.resending") : t("auth.resendConfirmation")}
                   </button>
                   {resendMessage ? <p className="text-sm text-emerald-600 dark:text-emerald-400">{resendMessage}</p> : null}
                 </div>
