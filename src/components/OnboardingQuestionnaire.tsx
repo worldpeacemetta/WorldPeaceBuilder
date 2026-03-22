@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -117,7 +118,9 @@ function ProgressBar({ step, total }) {
   );
 }
 
-function StepWrapper({ title, subtitle, children, onNext, onSkip, nextLabel = "Continue", nextDisabled = false, isLast = false }) {
+function StepWrapper({ title, subtitle, children, onNext, onSkip, nextLabel, nextDisabled = false, isLast = false }) {
+  const { t } = useTranslation();
+  const label = nextLabel ?? t("onboarding.continueButton");
   return (
     <div className="space-y-6">
       <div>
@@ -133,11 +136,11 @@ function StepWrapper({ title, subtitle, children, onNext, onSkip, nextLabel = "C
           onClick={onNext}
           disabled={nextDisabled}
         >
-          {nextLabel}
+          {label}
         </Button>
         {onSkip && !isLast && (
           <Button variant="ghost" className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300" onClick={onSkip}>
-            Skip
+            {t("onboarding.skipButton")}
           </Button>
         )}
       </div>
@@ -201,6 +204,7 @@ function ActivityCard({ value, label, description, selected, onClick }) {
 }
 
 function MacroBox({ label, value, onChange, color }) {
+  const { t } = useTranslation();
   return (
     <div className={`rounded-xl p-3 ${color} space-y-1`}>
       <p className="text-xs font-semibold uppercase tracking-wide opacity-70">{label}</p>
@@ -211,7 +215,7 @@ function MacroBox({ label, value, onChange, color }) {
         onChange={(e) => onChange(Math.max(0, Number(e.target.value)))}
         className="w-full bg-transparent text-2xl font-bold outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
-      <p className="text-xs opacity-60">{label === "Calories" ? "kcal" : "g"}</p>
+      <p className="text-xs opacity-60">{label === t("macro.kcal") ? "kcal" : "g"}</p>
     </div>
   );
 }
@@ -221,6 +225,7 @@ function MacroBox({ label, value, onChange, color }) {
 const TOTAL_STEPS = 6;
 
 export default function OnboardingQuestionnaire({ userEmail, onComplete }) {
+  const { t } = useTranslation();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
 
@@ -334,19 +339,19 @@ export default function OnboardingQuestionnaire({ userEmail, onComplete }) {
       case 0:
         return (
           <StepWrapper
-            title="Hey there! What should we call you?"
-            subtitle="This is how you'll appear in the app."
+            title={t("onboarding.step0Title")}
+            subtitle={t("onboarding.step0Subtitle")}
             onNext={next}
             nextDisabled={!displayName.trim()}
           >
             <div className="space-y-2">
-              <Label htmlFor="onb-name">Your name or nickname</Label>
+              <Label htmlFor="onb-name">{t("onboarding.step0NameLabel")}</Label>
               <Input
                 id="onb-name"
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="e.g. Alex"
+                placeholder={t("onboarding.step0NamePlaceholder")}
                 className="text-lg"
                 autoFocus
                 onKeyDown={(e) => e.key === "Enter" && displayName.trim() && next()}
@@ -359,14 +364,14 @@ export default function OnboardingQuestionnaire({ userEmail, onComplete }) {
       case 1:
         return (
           <StepWrapper
-            title="A little about you"
-            subtitle="This helps us personalise your calorie estimates. Totally optional."
+            title={t("onboarding.step1Title")}
+            subtitle={t("onboarding.step1Subtitle")}
             onNext={next}
             onSkip={skip}
           >
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="onb-age">Age</Label>
+                <Label htmlFor="onb-age">{t("onboarding.step1AgeLabel")}</Label>
                 <Input
                   id="onb-age"
                   type="number"
@@ -374,17 +379,17 @@ export default function OnboardingQuestionnaire({ userEmail, onComplete }) {
                   max={120}
                   value={age}
                   onChange={(e) => setAge(e.target.value)}
-                  placeholder="e.g. 28"
+                  placeholder={t("onboarding.step1AgePlaceholder")}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label>Biological sex <span className="text-slate-400 font-normal">(for BMR calculation)</span></Label>
+                <Label>{t("onboarding.step1SexLabel")} <span className="text-slate-400 font-normal">{t("onboarding.step1SexHint")}</span></Label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { value: "male", label: "Male" },
-                    { value: "female", label: "Female" },
-                    { value: "other", label: "Other" },
+                    { value: "male", label: t("onboarding.step1Male") },
+                    { value: "female", label: t("onboarding.step1Female") },
+                    { value: "other", label: t("onboarding.step1Other") },
                   ].map((opt) => (
                     <button
                       key={opt.value}
@@ -409,8 +414,8 @@ export default function OnboardingQuestionnaire({ userEmail, onComplete }) {
       case 2:
         return (
           <StepWrapper
-            title="Your body stats"
-            subtitle="Used to compute your TDEE and macro targets. Optional."
+            title={t("onboarding.step2Title")}
+            subtitle={t("onboarding.step2Subtitle")}
             onNext={next}
             onSkip={skip}
           >
@@ -433,18 +438,18 @@ export default function OnboardingQuestionnaire({ userEmail, onComplete }) {
             {unit === "metric" ? (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label htmlFor="onb-height-cm">Height (cm)</Label>
-                  <Input id="onb-height-cm" type="number" min={100} max={250} value={heightCm} onChange={(e) => setHeightCm(e.target.value)} placeholder="e.g. 178" />
+                  <Label htmlFor="onb-height-cm">{t("onboarding.step2HeightCm")}</Label>
+                  <Input id="onb-height-cm" type="number" min={100} max={250} value={heightCm} onChange={(e) => setHeightCm(e.target.value)} placeholder={t("onboarding.step2HeightCmPlaceholder")} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="onb-weight-kg">Weight (kg)</Label>
-                  <Input id="onb-weight-kg" type="number" min={30} max={300} value={weightKg} onChange={(e) => setWeightKg(e.target.value)} placeholder="e.g. 75" />
+                  <Label htmlFor="onb-weight-kg">{t("onboarding.step2WeightKg")}</Label>
+                  <Input id="onb-weight-kg" type="number" min={30} max={300} value={weightKg} onChange={(e) => setWeightKg(e.target.value)} placeholder={t("onboarding.step2WeightKgPlaceholder")} />
                 </div>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label>Height</Label>
+                  <Label>{t("onboarding.step2Height")}</Label>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <Input type="number" min={3} max={8} value={heightFt} onChange={(e) => setHeightFt(e.target.value)} placeholder="5" />
@@ -457,15 +462,15 @@ export default function OnboardingQuestionnaire({ userEmail, onComplete }) {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="onb-weight-lb">Weight (lb)</Label>
-                  <Input id="onb-weight-lb" type="number" min={66} max={660} value={weightLb} onChange={(e) => setWeightLb(e.target.value)} placeholder="e.g. 165" />
+                  <Label htmlFor="onb-weight-lb">{t("onboarding.step2WeightLb")}</Label>
+                  <Input id="onb-weight-lb" type="number" min={66} max={660} value={weightLb} onChange={(e) => setWeightLb(e.target.value)} placeholder={t("onboarding.step2WeightLbPlaceholder")} />
                 </div>
               </div>
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="onb-bf">Body fat % <span className="text-slate-400 font-normal">(optional — improves accuracy)</span></Label>
-              <Input id="onb-bf" type="number" min={3} max={60} value={bodyFatPct} onChange={(e) => setBodyFatPct(e.target.value)} placeholder="e.g. 18" />
+              <Label htmlFor="onb-bf">{t("onboarding.step2BodyFat")} <span className="text-slate-400 font-normal">{t("onboarding.step2BodyFatHint")}</span></Label>
+              <Input id="onb-bf" type="number" min={3} max={60} value={bodyFatPct} onChange={(e) => setBodyFatPct(e.target.value)} placeholder={t("onboarding.step2BodyFatPlaceholder")} />
             </div>
           </StepWrapper>
         );
@@ -474,18 +479,18 @@ export default function OnboardingQuestionnaire({ userEmail, onComplete }) {
       case 3:
         return (
           <StepWrapper
-            title="How active are you?"
-            subtitle="On average across all your days — not just gym days."
+            title={t("onboarding.step3Title")}
+            subtitle={t("onboarding.step3Subtitle")}
             onNext={next}
             onSkip={skip}
           >
             <div className="space-y-2">
               {[
-                { value: "sedentary", label: "Sedentary", description: "Desk job, little to no exercise" },
-                { value: "light", label: "Lightly active", description: "Light exercise 1–3 days/week" },
-                { value: "moderate", label: "Moderately active", description: "Exercise 3–5 days/week" },
-                { value: "active", label: "Very active", description: "Hard exercise 6–7 days/week" },
-                { value: "athlete", label: "Athlete", description: "Very hard training + physical job" },
+                { value: "sedentary", label: t("onboarding.step3Sedentary"), description: t("onboarding.step3SedentaryDesc") },
+                { value: "light", label: t("onboarding.step3Light"), description: t("onboarding.step3LightDesc") },
+                { value: "moderate", label: t("onboarding.step3Moderate"), description: t("onboarding.step3ModerateDesc") },
+                { value: "active", label: t("onboarding.step3Active"), description: t("onboarding.step3ActiveDesc") },
+                { value: "athlete", label: t("onboarding.step3Athlete"), description: t("onboarding.step3AthleteDesc") },
               ].map((opt) => (
                 <ActivityCard key={opt.value} {...opt} selected={activity === opt.value} onClick={() => setActivity(opt.value)} />
               ))}
@@ -497,25 +502,25 @@ export default function OnboardingQuestionnaire({ userEmail, onComplete }) {
       case 4:
         return (
           <StepWrapper
-            title="What's your goal?"
-            subtitle="This shapes your calorie target and macro split."
+            title={t("onboarding.step4Title")}
+            subtitle={t("onboarding.step4Subtitle")}
             onNext={next}
             onSkip={skip}
           >
             <div className="space-y-2">
-              <GoalCard icon="⚖️" label="Maintain weight" description="Eat at your energy expenditure — stay steady." selected={goalMode === "maintenance"} onClick={() => setGoalMode("maintenance")} />
-              <GoalCard icon="🔥" label="Cutting" description="Caloric deficit to lose body fat while preserving muscle." selected={goalMode === "cutting"} onClick={() => setGoalMode("cutting")} />
-              <GoalCard icon="💪" label="Bulking" description="Caloric surplus to build muscle and strength." selected={goalMode === "bulking"} onClick={() => setGoalMode("bulking")} />
-              <GoalCard icon="📆" label="Train day / Rest day" description="Different macros on gym days vs rest days — carb cycling." selected={goalMode === "dual"} onClick={() => setGoalMode("dual")} />
+              <GoalCard icon="⚖️" label={t("onboarding.step4Maintain")} description={t("onboarding.step4MaintainDesc")} selected={goalMode === "maintenance"} onClick={() => setGoalMode("maintenance")} />
+              <GoalCard icon="🔥" label={t("onboarding.step4Cutting")} description={t("onboarding.step4CuttingDesc")} selected={goalMode === "cutting"} onClick={() => setGoalMode("cutting")} />
+              <GoalCard icon="💪" label={t("onboarding.step4Bulking")} description={t("onboarding.step4BulkingDesc")} selected={goalMode === "bulking"} onClick={() => setGoalMode("bulking")} />
+              <GoalCard icon="📆" label={t("onboarding.step4Dual")} description={t("onboarding.step4DualDesc")} selected={goalMode === "dual"} onClick={() => setGoalMode("dual")} />
             </div>
 
             {(goalMode === "cutting" || goalMode === "bulking") && (
               <div className="pt-2 space-y-2">
-                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">How aggressive?</p>
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("onboarding.step4HowAggressive")}</p>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { value: "moderate", label: goalMode === "cutting" ? "Moderate (−350 kcal)" : "Lean bulk (+250 kcal)" },
-                    { value: "aggressive", label: goalMode === "cutting" ? "Aggressive (−600 kcal)" : "Aggressive (+450 kcal)" },
+                    { value: "moderate", label: goalMode === "cutting" ? t("onboarding.step4ModCutting") : t("onboarding.step4ModBulking") },
+                    { value: "aggressive", label: goalMode === "cutting" ? t("onboarding.step4AggCutting") : t("onboarding.step4AggBulking") },
                   ].map((opt) => (
                     <button
                       key={opt.value}
@@ -538,45 +543,45 @@ export default function OnboardingQuestionnaire({ userEmail, onComplete }) {
 
       // ── Step 5: Macro review ──────────────────────────────────────────────
       case 5:
-        if (!macros) return <div className="text-center py-12 text-slate-500">Computing your targets…</div>;
+        if (!macros) return <div className="text-center py-12 text-slate-500">{t("onboarding.step5Computing")}</div>;
 
         return (
           <StepWrapper
-            title="Your suggested targets"
-            subtitle={macros.tdee ? `Based on a TDEE of ~${macros.tdee} kcal/day. Adjust anything that doesn't feel right.` : "Adjust these to match your preferences."}
+            title={t("onboarding.step5Title")}
+            subtitle={macros.tdee ? t("onboarding.step5SubtitleTDEE", { tdee: macros.tdee }) : t("onboarding.step5Subtitle")}
             onNext={handleComplete}
-            nextLabel={saving ? "Saving…" : "Get started!"}
+            nextLabel={saving ? t("onboarding.saving") : t("onboarding.getStarted")}
             nextDisabled={saving}
             isLast
           >
             {macros.mode === "dual" ? (
               <div className="space-y-4">
-                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">Training days</p>
+                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">{t("onboarding.step5TrainingDays")}</p>
                 <div className="grid grid-cols-2 gap-2">
-                  <MacroBox label="Calories" value={macros.train.kcal} onChange={(v) => setMacros((m) => ({ ...m, train: { ...m.train, kcal: v } }))} color="bg-violet-50 dark:bg-violet-950/30 text-violet-900 dark:text-violet-100" />
-                  <MacroBox label="Protein" value={macros.train.protein} onChange={(v) => setMacros((m) => ({ ...m, train: { ...m.train, protein: v } }))} color="bg-blue-50 dark:bg-blue-950/30 text-blue-900 dark:text-blue-100" />
-                  <MacroBox label="Carbs" value={macros.train.carbs} onChange={(v) => setMacros((m) => ({ ...m, train: { ...m.train, carbs: v } }))} color="bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-100" />
-                  <MacroBox label="Fat" value={macros.train.fat} onChange={(v) => setMacros((m) => ({ ...m, train: { ...m.train, fat: v } }))} color="bg-rose-50 dark:bg-rose-950/30 text-rose-900 dark:text-rose-100" />
+                  <MacroBox label={t("macro.kcal")} value={macros.train.kcal} onChange={(v) => setMacros((m) => ({ ...m, train: { ...m.train, kcal: v } }))} color="bg-violet-50 dark:bg-violet-950/30 text-violet-900 dark:text-violet-100" />
+                  <MacroBox label={t("macro.protein")} value={macros.train.protein} onChange={(v) => setMacros((m) => ({ ...m, train: { ...m.train, protein: v } }))} color="bg-blue-50 dark:bg-blue-950/30 text-blue-900 dark:text-blue-100" />
+                  <MacroBox label={t("macro.carbs")} value={macros.train.carbs} onChange={(v) => setMacros((m) => ({ ...m, train: { ...m.train, carbs: v } }))} color="bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-100" />
+                  <MacroBox label={t("macro.fat")} value={macros.train.fat} onChange={(v) => setMacros((m) => ({ ...m, train: { ...m.train, fat: v } }))} color="bg-rose-50 dark:bg-rose-950/30 text-rose-900 dark:text-rose-100" />
                 </div>
 
-                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 pt-2">Rest days</p>
+                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 pt-2">{t("onboarding.step5RestDays")}</p>
                 <div className="grid grid-cols-2 gap-2">
-                  <MacroBox label="Calories" value={macros.rest.kcal} onChange={(v) => setMacros((m) => ({ ...m, rest: { ...m.rest, kcal: v } }))} color="bg-violet-50 dark:bg-violet-950/30 text-violet-900 dark:text-violet-100" />
-                  <MacroBox label="Protein" value={macros.rest.protein} onChange={(v) => setMacros((m) => ({ ...m, rest: { ...m.rest, protein: v } }))} color="bg-blue-50 dark:bg-blue-950/30 text-blue-900 dark:text-blue-100" />
-                  <MacroBox label="Carbs" value={macros.rest.carbs} onChange={(v) => setMacros((m) => ({ ...m, rest: { ...m.rest, carbs: v } }))} color="bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-100" />
-                  <MacroBox label="Fat" value={macros.rest.fat} onChange={(v) => setMacros((m) => ({ ...m, rest: { ...m.rest, fat: v } }))} color="bg-rose-50 dark:bg-rose-950/30 text-rose-900 dark:text-rose-100" />
+                  <MacroBox label={t("macro.kcal")} value={macros.rest.kcal} onChange={(v) => setMacros((m) => ({ ...m, rest: { ...m.rest, kcal: v } }))} color="bg-violet-50 dark:bg-violet-950/30 text-violet-900 dark:text-violet-100" />
+                  <MacroBox label={t("macro.protein")} value={macros.rest.protein} onChange={(v) => setMacros((m) => ({ ...m, rest: { ...m.rest, protein: v } }))} color="bg-blue-50 dark:bg-blue-950/30 text-blue-900 dark:text-blue-100" />
+                  <MacroBox label={t("macro.carbs")} value={macros.rest.carbs} onChange={(v) => setMacros((m) => ({ ...m, rest: { ...m.rest, carbs: v } }))} color="bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-100" />
+                  <MacroBox label={t("macro.fat")} value={macros.rest.fat} onChange={(v) => setMacros((m) => ({ ...m, rest: { ...m.rest, fat: v } }))} color="bg-rose-50 dark:bg-rose-950/30 text-rose-900 dark:text-rose-100" />
                 </div>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
-                <MacroBox label="Calories" value={macros.kcal} onChange={(v) => setMacros((m) => ({ ...m, kcal: v }))} color="bg-violet-50 dark:bg-violet-950/30 text-violet-900 dark:text-violet-100" />
-                <MacroBox label="Protein" value={macros.protein} onChange={(v) => setMacros((m) => ({ ...m, protein: v }))} color="bg-blue-50 dark:bg-blue-950/30 text-blue-900 dark:text-blue-100" />
-                <MacroBox label="Carbs" value={macros.carbs} onChange={(v) => setMacros((m) => ({ ...m, carbs: v }))} color="bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-100" />
-                <MacroBox label="Fat" value={macros.fat} onChange={(v) => setMacros((m) => ({ ...m, fat: v }))} color="bg-rose-50 dark:bg-rose-950/30 text-rose-900 dark:text-rose-100" />
+                <MacroBox label={t("macro.kcal")} value={macros.kcal} onChange={(v) => setMacros((m) => ({ ...m, kcal: v }))} color="bg-violet-50 dark:bg-violet-950/30 text-violet-900 dark:text-violet-100" />
+                <MacroBox label={t("macro.protein")} value={macros.protein} onChange={(v) => setMacros((m) => ({ ...m, protein: v }))} color="bg-blue-50 dark:bg-blue-950/30 text-blue-900 dark:text-blue-100" />
+                <MacroBox label={t("macro.carbs")} value={macros.carbs} onChange={(v) => setMacros((m) => ({ ...m, carbs: v }))} color="bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-100" />
+                <MacroBox label={t("macro.fat")} value={macros.fat} onChange={(v) => setMacros((m) => ({ ...m, fat: v }))} color="bg-rose-50 dark:bg-rose-950/30 text-rose-900 dark:text-rose-100" />
               </div>
             )}
 
-            <p className="text-xs text-slate-400 dark:text-slate-500 text-center">You can always tweak these later in Settings → Daily Macro Goals.</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 text-center">{t("onboarding.step5SettingsHint")}</p>
           </StepWrapper>
         );
 
