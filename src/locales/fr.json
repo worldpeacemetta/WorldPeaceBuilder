@@ -358,6 +358,8 @@
     "accountCreated": "Compte créé. Vérifiez votre boîte mail (et les spams) pour confirmer, puis revenez vous connecter."
   },
   "onboarding": {
+    "langStepTitle": "Choisissez votre langue",
+    "langStepSubtitle": "Vous pourrez toujours la modifier plus tard dans Profil → Langue.",
     "step0Title": "Bienvenue ! Comment doit-on vous appeler ?",
     "step0Subtitle": "C'est ainsi que vous apparaîtrez dans l'application.",
     "step0NameLabel": "Votre prénom ou surnom",

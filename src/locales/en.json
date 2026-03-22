@@ -358,6 +358,8 @@
     "accountCreated": "Account created. Check your inbox (and spam) to confirm your email, then return to sign in."
   },
   "onboarding": {
+    "langStepTitle": "Choose your language",
+    "langStepSubtitle": "You can always change this later in Profile → Language.",
     "step0Title": "Hey there! What should we call you?",
     "step0Subtitle": "This is how you'll appear in the app.",
     "step0NameLabel": "Your name or nickname",
