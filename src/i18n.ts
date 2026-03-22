@@ -15,6 +15,9 @@ i18n
     // Resources are bundled inline — initialize synchronously so useTranslation()
     // never throws a Suspense promise before the first render.
     initImmediate: false,
+    // Belt-and-suspenders: also disable Suspense integration so the hook never
+    // throws a Promise even if init timing is unexpected.
+    react: { useSuspense: false },
   });
 
 export function setLanguage(lang: string) {
