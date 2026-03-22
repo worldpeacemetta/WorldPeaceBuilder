@@ -541,10 +541,48 @@ const ensureFoods = (list) => list.map((food) => sanitizeFood(food));
 
 /** @type {Food[]} */
 const DEFAULT_FOODS = [
+  // Vegetables
+  sanitizeFood({ id: crypto.randomUUID(), name: "Tomato", unit: "per100g", category: "vegetable", kcal: 18, fat: 0.2, carbs: 3.9, protein: 0.9 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Broccoli", unit: "per100g", category: "vegetable", kcal: 34, fat: 0.4, carbs: 6.6, protein: 2.8 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Spinach", unit: "per100g", category: "vegetable", kcal: 23, fat: 0.4, carbs: 3.6, protein: 2.9 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Carrot", unit: "per100g", category: "vegetable", kcal: 41, fat: 0.2, carbs: 9.6, protein: 0.9 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Cucumber", unit: "per100g", category: "vegetable", kcal: 16, fat: 0.1, carbs: 3.6, protein: 0.7 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Red Bell Pepper", unit: "per100g", category: "vegetable", kcal: 31, fat: 0.3, carbs: 6.0, protein: 1.0 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Onion", unit: "per100g", category: "vegetable", kcal: 40, fat: 0.1, carbs: 9.3, protein: 1.1 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Zucchini", unit: "per100g", category: "vegetable", kcal: 17, fat: 0.3, carbs: 3.1, protein: 1.2 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Sweet Potato", unit: "per100g", category: "vegetable", kcal: 86, fat: 0.1, carbs: 20.1, protein: 1.6 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Lettuce", unit: "per100g", category: "vegetable", kcal: 15, fat: 0.2, carbs: 2.9, protein: 1.4 }),
+  // Fruits
+  sanitizeFood({ id: crypto.randomUUID(), name: "Apple", unit: "per100g", category: "fruit", kcal: 52, fat: 0.2, carbs: 13.8, protein: 0.3 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Banana", unit: "per100g", category: "fruit", kcal: 89, fat: 0.3, carbs: 22.8, protein: 1.1 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Orange", unit: "per100g", category: "fruit", kcal: 47, fat: 0.1, carbs: 11.8, protein: 0.9 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Strawberry", unit: "per100g", category: "fruit", kcal: 32, fat: 0.3, carbs: 7.7, protein: 0.7 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Blueberry", unit: "per100g", category: "fruit", kcal: 57, fat: 0.3, carbs: 14.5, protein: 0.7 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Mango", unit: "per100g", category: "fruit", kcal: 60, fat: 0.4, carbs: 15.0, protein: 0.8 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Grapes", unit: "per100g", category: "fruit", kcal: 69, fat: 0.2, carbs: 18.1, protein: 0.6 }),
+  // Meat & Eggs
   sanitizeFood({ id: crypto.randomUUID(), name: "Chicken Breast (cooked)", unit: "per100g", category: "meat", kcal: 165, fat: 3.6, carbs: 0, protein: 31 }),
-  sanitizeFood({ id: crypto.randomUUID(), name: "White Rice (cooked)", unit: "per100g", category: "grains", kcal: 130, fat: 0.3, carbs: 28, protein: 2.7 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Egg", unit: "per100g", category: "eggProducts", kcal: 155, fat: 11, carbs: 1.1, protein: 13 }),
+  // Fish & Seafood
+  sanitizeFood({ id: crypto.randomUUID(), name: "Salmon", unit: "per100g", category: "fish", kcal: 208, fat: 13, carbs: 0, protein: 20 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Tuna (canned)", unit: "per100g", category: "fish", kcal: 116, fat: 1.0, carbs: 0, protein: 26 }),
+  // Grains
+  sanitizeFood({ id: crypto.randomUUID(), name: "White Rice (cooked)", unit: "per100g", category: "grains", kcal: 130, fat: 0.3, carbs: 28.2, protein: 2.7 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Pasta (cooked)", unit: "per100g", category: "grains", kcal: 131, fat: 1.1, carbs: 25, protein: 5.0 }),
+  // Cereals
+  sanitizeFood({ id: crypto.randomUUID(), name: "Oats", unit: "per100g", category: "cereals", kcal: 389, fat: 6.9, carbs: 66, protein: 17 }),
+  // Bread & Bakery
+  sanitizeFood({ id: crypto.randomUUID(), name: "Whole Wheat Bread", unit: "per100g", category: "breadBakery", kcal: 247, fat: 3.4, carbs: 41, protein: 13 }),
+  // Dairy
+  sanitizeFood({ id: crypto.randomUUID(), name: "Greek Yogurt", unit: "per100g", category: "yogurt", kcal: 59, fat: 0.4, carbs: 3.6, protein: 10 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Whole Milk", unit: "per100g", category: "milk", kcal: 61, fat: 3.3, carbs: 4.8, protein: 3.2 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Cheddar Cheese", unit: "per100g", category: "cheese", kcal: 402, fat: 33, carbs: 1.3, protein: 25 }),
+  // Plant Protein / Legumes
+  sanitizeFood({ id: crypto.randomUUID(), name: "Chickpeas (cooked)", unit: "per100g", category: "plantProtein", kcal: 164, fat: 2.6, carbs: 27, protein: 8.9 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Lentils (cooked)", unit: "per100g", category: "plantProtein", kcal: 116, fat: 0.4, carbs: 20, protein: 9.0 }),
+  sanitizeFood({ id: crypto.randomUUID(), name: "Black Beans (cooked)", unit: "per100g", category: "plantProtein", kcal: 132, fat: 0.5, carbs: 24, protein: 8.9 }),
+  // Cooking Oil & Supplement
   sanitizeFood({ id: crypto.randomUUID(), name: "Olive Oil", unit: "perServing", servingSize: 10, category: "cookingOil", kcal: 88, fat: 10, carbs: 0, protein: 0 }),
-  sanitizeFood({ id: crypto.randomUUID(), name: "Apple", unit: "per100g", category: "fruit", kcal: 52, fat: 0.2, carbs: 14, protein: 0.3 }),
   sanitizeFood({ id: crypto.randomUUID(), name: "Whey Protein (1 scoop)", unit: "perServing", servingSize: 30, category: "supplement", kcal: 120, fat: 1.5, carbs: 3, protein: 24 }),
 ];
 
@@ -1359,7 +1397,9 @@ export default function MacroTrackerApp(){
   const badgesLoadedRef = useRef(false);
   useEffect(() => {
     if (!session?.user?.id || entriesLoading || profileLoading) return;
-    const freshEarned = computeEarnedBadgeIds(entries, foods, goalValuesForDate);
+    const defaultFoodIdSet = new Set(settings.defaultFoodIds ?? []);
+    const userAddedFoods = defaultFoodIdSet.size > 0 ? foods.filter((f) => !defaultFoodIdSet.has(f.id)) : foods;
+    const freshEarned = computeEarnedBadgeIds(entries, userAddedFoods, goalValuesForDate);
     const newlyEarned = [...freshEarned].filter((id) => !earnedBadgeIds.has(id));
 
     // Always merge — never remove a badge once earned, even if data changes
@@ -2126,6 +2166,45 @@ export default function MacroTrackerApp(){
     });
     setSettings(nextSettings);
     await saveUserProfile(nextSettings);
+
+    // 3. Seed default foods for new users
+    const seedPayload = DEFAULT_FOODS.map((f) => ({
+      user_id: session.user.id,
+      name: f.name,
+      brand: f.brand ?? null,
+      unit: f.unit,
+      serving_size: f.servingSize ?? null,
+      kcal: f.kcal,
+      fat: f.fat,
+      carbs: f.carbs,
+      protein: f.protein,
+      category: f.category,
+      components: null,
+    }));
+    const { data: seeded } = await supabase.from("foods").insert(seedPayload).select();
+    if (seeded?.length) {
+      const mapped = seeded.map((r) =>
+        sanitizeFood({
+          id: r.id,
+          name: r.name,
+          brand: r.brand,
+          unit: r.unit,
+          servingSize: r.serving_size,
+          kcal: r.kcal,
+          fat: r.fat,
+          carbs: r.carbs,
+          protein: r.protein,
+          category: r.category,
+          components: r.components,
+          createdAt: r.created_at,
+        })
+      );
+      setFoods(mapped);
+      // Persist seeded IDs so badge logic can exclude them from user-added counts
+      const settingsWithDefaults = { ...nextSettings, defaultFoodIds: seeded.map((r) => r.id) };
+      setSettings(settingsWithDefaults);
+      save(K_SETTINGS, stripProfileSettingsForStorage(settingsWithDefaults));
+    }
   }, [session?.user?.id, settings, saveUserProfile]);
 
   const handleUpdateUsername = useCallback(async () => {
