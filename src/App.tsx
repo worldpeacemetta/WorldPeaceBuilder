@@ -1397,7 +1397,9 @@ export default function MacroTrackerApp(){
   const badgesLoadedRef = useRef(false);
   useEffect(() => {
     if (!session?.user?.id || entriesLoading || profileLoading) return;
-    const freshEarned = computeEarnedBadgeIds(entries, foods, goalValuesForDate);
+    const defaultFoodIdSet = new Set(settings.defaultFoodIds ?? []);
+    const userAddedFoods = defaultFoodIdSet.size > 0 ? foods.filter((f) => !defaultFoodIdSet.has(f.id)) : foods;
+    const freshEarned = computeEarnedBadgeIds(entries, userAddedFoods, goalValuesForDate);
     const newlyEarned = [...freshEarned].filter((id) => !earnedBadgeIds.has(id));
 
     // Always merge — never remove a badge once earned, even if data changes
@@ -2198,6 +2200,10 @@ export default function MacroTrackerApp(){
         })
       );
       setFoods(mapped);
+      // Persist seeded IDs so badge logic can exclude them from user-added counts
+      const settingsWithDefaults = { ...nextSettings, defaultFoodIds: seeded.map((r) => r.id) };
+      setSettings(settingsWithDefaults);
+      save(K_SETTINGS, stripProfileSettingsForStorage(settingsWithDefaults));
     }
   }, [session?.user?.id, settings, saveUserProfile]);
 
