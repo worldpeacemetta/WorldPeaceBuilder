@@ -981,8 +981,11 @@ export default function MacroTrackerApp(){
       } else {
         const usernameLower = data?.username ?? "";
         // "_new_" prefix marks a temporary username set at registration time.
-        // These users haven't gone through onboarding yet — treat as no name set.
-        const isTempUsername = usernameLower.startsWith("_new_");
+        // Check BOTH the profiles DB column AND the auth user_metadata username
+        // (which we set in signUp options.data). The DB trigger may use the email
+        // prefix for the DB username, so user_metadata is the more reliable signal.
+        const metaUsername = session?.user?.user_metadata?.username ?? "";
+        const isTempUsername = usernameLower.startsWith("_new_") || metaUsername.startsWith("_new_");
         const displayUsername = isTempUsername ? "" : (data?.display_username ?? usernameLower);
 
         // Auto-migrate legacy users: if they have a real username but no display_username yet.
@@ -2165,6 +2168,10 @@ export default function MacroTrackerApp(){
 
     setProfileUsername(displayName);
     setAccountUsername(displayName);
+
+    // Clear the "_new_" prefix from auth user_metadata so subsequent logins
+    // don't re-trigger onboarding (the DB trigger may not have set "_new_" prefix).
+    supabase.auth.updateUser({ data: { username: displayName } }).catch(() => {});
 
     // 2. Merge profile + dailyGoals into settings and persist to Supabase
     const nextSettings = ensureSettings({
