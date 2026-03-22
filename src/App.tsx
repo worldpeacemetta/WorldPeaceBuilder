@@ -3497,7 +3497,7 @@ export default function MacroTrackerApp(){
                   <div className="flex items-center justify-between gap-3">
                     <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">{t('settings.macroGoalsTitle')}</h3>
                     <Select value={activeSetup} onValueChange={handleSetupChange}>
-                      <SelectTrigger className="h-8 w-44"><SelectValue placeholder={t('settings.setupPlaceholder')} /></SelectTrigger>
+                      <SelectTrigger className="h-8 w-52 whitespace-nowrap"><SelectValue placeholder={t('settings.setupPlaceholder')} /></SelectTrigger>
                       <SelectContent>
                         {SETUP_MODES.map((mode) => (
                           <SelectItem key={mode} value={mode}>{t('setup.'+mode)}</SelectItem>
