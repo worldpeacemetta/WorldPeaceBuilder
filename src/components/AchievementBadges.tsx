@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export interface BadgeDef {
   id: number;
@@ -719,6 +720,7 @@ export const BadgeIcon = ({ icon, locked, accent }: any) => {
 };
 
 export default function AchievementBadges({ earnedBadgeIds }: { earnedBadgeIds: Set<string> }) {
+  const { t } = useTranslation();
   const [showEarnedOnly, setShowEarnedOnly] = useState(false);
   const earnedCount = BADGES.filter(b => earnedBadgeIds.has(b.stringId)).length;
   const categories = [...new Set(BADGES.map(b => b.category))];
@@ -733,7 +735,7 @@ export default function AchievementBadges({ earnedBadgeIds }: { earnedBadgeIds: 
 
       <div style={{ maxWidth: 960, margin: "0 auto" }}>
         <p className="text-slate-500 dark:text-slate-400" style={{ fontSize: 13, textAlign: "center", marginBottom: 20 }}>
-          {earnedCount} of {BADGES.length} earned
+          {earnedCount} / {BADGES.length}
         </p>
 
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 32, gap: 0 }}>
@@ -752,7 +754,7 @@ export default function AchievementBadges({ earnedBadgeIds }: { earnedBadgeIds: 
               transition: "all 0.2s",
             }}
           >
-            🏅 All Badges
+            🏅 {t("settings.badgesTitle")}
           </button>
           <button
             onClick={() => setShowEarnedOnly(true)}
@@ -770,7 +772,7 @@ export default function AchievementBadges({ earnedBadgeIds }: { earnedBadgeIds: 
               transition: "all 0.2s",
             }}
           >
-            ✨ Earned
+            ✨ {t("settings.achievementsTitle")}
           </button>
         </div>
 
@@ -787,7 +789,7 @@ export default function AchievementBadges({ earnedBadgeIds }: { earnedBadgeIds: 
                 textTransform: "uppercase",
                 letterSpacing: "1.5px",
               }}>
-                {cat}
+                {t(`badges.categories.${cat}`, cat)}
               </h2>
               <div style={{
                 display: "grid",
@@ -831,7 +833,7 @@ export default function AchievementBadges({ earnedBadgeIds }: { earnedBadgeIds: 
                         textAlign: "center",
                         lineHeight: 1.3,
                       }}>
-                        {badge.name}
+                        {t(`badges.${badge.stringId}.name`, badge.name)}
                       </span>
                       <span className={earned ? "text-slate-500 dark:text-[#9E9EBE]" : "text-slate-300 dark:text-[#55556A]"} style={{
                         fontSize: 9,
@@ -840,7 +842,7 @@ export default function AchievementBadges({ earnedBadgeIds }: { earnedBadgeIds: 
                         textAlign: "center",
                         lineHeight: 1.3,
                       }}>
-                        {badge.desc}
+                        {t(`badges.${badge.stringId}.desc`, badge.desc)}
                       </span>
                     </div>
                   );
