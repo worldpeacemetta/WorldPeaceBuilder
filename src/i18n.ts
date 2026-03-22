@@ -12,6 +12,9 @@ i18n
     lng: localStorage.getItem(K_LANG) ?? "en",
     fallbackLng: "en",
     interpolation: { escapeValue: false },
+    // Resources are bundled inline — initialize synchronously so useTranslation()
+    // never throws a Suspense promise before the first render.
+    initImmediate: false,
   });
 
 export function setLanguage(lang: string) {
