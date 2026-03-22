@@ -4859,6 +4859,7 @@ function GoalDonut({ label, theme, actual, goal, unit }) {
   );
 }
 function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, goalMode }) {
+  const { t } = useTranslation();
   const dayLabel = selectedDate ? format(new Date(selectedDate), "PP") : "Select a day";
   const gradientPrefix = useId();
   const unit = topMacroKey === "kcal" ? "kcal" : "g";
@@ -5105,6 +5106,7 @@ function MobileFoodCard({ food, onEdit, onDelete }) {
 }
 
 function EditableFoodRow({ food, onEdit, onDelete, selected, onSelect }) {
+  const { t } = useTranslation();
   const totalMacros = (food.fat ?? 0) + (food.carbs ?? 0) + (food.protein ?? 0);
   const fatPct = totalMacros > 0 ? ((food.fat ?? 0) / totalMacros) * 100 : 0;
   const carbsPct = totalMacros > 0 ? ((food.carbs ?? 0) / totalMacros) * 100 : 0;
