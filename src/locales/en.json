@@ -233,8 +233,8 @@
     "resetAllData": "Reset all data",
     "languageTitle": "Language",
     "languageLabel": "App language",
-    "badgesTitle": "Achievements",
-    "achievementsTitle": "Achievements",
+    "badgesTitle": "All Badges",
+    "achievementsTitle": "Earned",
     "weightHistoryTitle": "Weight history",
     "profileHistory": "Profile History",
     "setupPowersHint": "{{setup}} powers the dashboard whenever this setup is active."
@@ -263,6 +263,7 @@
     "weightRangeLast6Months": "Last 6 months",
     "weightRangeLast12Months": "Last 12 months",
     "weightRangeAllTime": "All time",
+    "topFoodsTitle": "Top Foods by Macros",
     "weightRange_30": "Last 30 days",
     "weightRange_90": "Last 3 months",
     "weightRange_180": "Last 6 months",

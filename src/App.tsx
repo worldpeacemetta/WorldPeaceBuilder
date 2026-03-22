@@ -1314,7 +1314,7 @@ export default function MacroTrackerApp(){
     ];
 
     return summaries;
-  }, [totalsByDate]);
+  }, [totalsByDate, t]);
 
   const dailyGoals = settings.dailyGoals ?? ensureDailyGoals(DEFAULT_SETTINGS.dailyGoals);
   const activeSetup = normalizeSetupMode(dailyGoals?.setup);
@@ -4929,7 +4929,7 @@ function TopFoodsCard({ topFoods, topMacroKey, onMacroChange, selectedDate, goal
     <Card>
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <CardTitle className="min-w-0 truncate">Top Foods by Macros — {dayLabel}</CardTitle>
+          <CardTitle className="min-w-0 truncate">{t('cards.topFoodsTitle')} — {dayLabel}</CardTitle>
           <div className="flex flex-wrap items-center gap-2">
             <GoalModeBadge value={goalMode} />
             <Select value={topMacroKey} onValueChange={onMacroChange}>
