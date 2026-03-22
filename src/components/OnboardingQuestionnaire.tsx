@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { setLanguage } from "../i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -222,22 +223,25 @@ function MacroBox({ label, value, onChange, color }) {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 7;
 
 export default function OnboardingQuestionnaire({ userEmail, onComplete }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
 
-  // Step 0 — Name
+  // Step 0 — Language
+  const [selectedLang, setSelectedLang] = useState(i18n.language?.startsWith("fr") ? "fr" : "en");
+
+  // Step 1 — Name
   const emailPrefix = userEmail?.split("@")[0] ?? "";
   const [displayName, setDisplayName] = useState(emailPrefix);
 
-  // Step 1 — Age & Sex
+  // Step 2 — Age & Sex
   const [age, setAge] = useState("");
   const [sex, setSex] = useState(""); // "male" | "female" | "other"
 
-  // Step 2 — Height & Weight
+  // Step 3 — Height & Weight
   const [unit, setUnit] = useState("metric"); // "metric" | "imperial"
   const [heightCm, setHeightCm] = useState("");
   const [heightFt, setHeightFt] = useState("");
@@ -246,14 +250,14 @@ export default function OnboardingQuestionnaire({ userEmail, onComplete }) {
   const [weightLb, setWeightLb] = useState("");
   const [bodyFatPct, setBodyFatPct] = useState("");
 
-  // Step 3 — Activity
+  // Step 4 — Activity
   const [activity, setActivity] = useState("moderate");
 
-  // Step 4 — Goal
+  // Step 5 — Goal
   const [goalMode, setGoalMode] = useState("maintenance"); // "maintenance" | "cutting" | "bulking" | "dual"
   const [aggressiveness, setAggressiveness] = useState("moderate"); // "moderate" | "aggressive"
 
-  // Step 5 — Review macros (editable)
+  // Step 6 — Review macros (editable)
   const [macros, setMacros] = useState(null); // { kcal, protein, fat, carbs } or dual {train, rest}
 
   // Sync unit changes for height/weight fields
@@ -273,9 +277,9 @@ export default function OnboardingQuestionnaire({ userEmail, onComplete }) {
     setUnit(newUnit);
   }, [unit, heightCm, heightFt, heightIn, weightKg, weightLb]);
 
-  // Compute macros when reaching step 5
+  // Compute macros when reaching step 6
   useEffect(() => {
-    if (step !== 5) return;
+    if (step !== 6) return;
 
     const resolvedHeightCm = unit === "metric" ? Number(heightCm) : ftInToCm(heightFt || 0, heightIn || 0);
     const resolvedWeightKg = unit === "metric" ? Number(weightKg) : lbToKg(Number(weightLb));
@@ -335,8 +339,49 @@ export default function OnboardingQuestionnaire({ userEmail, onComplete }) {
 
   const renderStep = () => {
     switch (step) {
-      // ── Step 0: Name ──────────────────────────────────────────────────────
+      // ── Step 0: Language ──────────────────────────────────────────────────
       case 0:
+        return (
+          <StepWrapper
+            title={t("onboarding.langStepTitle")}
+            subtitle={t("onboarding.langStepSubtitle")}
+            onNext={next}
+          >
+            <div className="grid grid-cols-2 gap-3">
+              {([
+                { code: "en", flag: "🇬🇧", label: "English" },
+                { code: "fr", flag: "🇫🇷", label: "Français" },
+              ] as const).map(({ code, flag, label }) => (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => {
+                    setSelectedLang(code);
+                    setLanguage(code);
+                  }}
+                  className={`flex flex-col items-center gap-2 py-6 rounded-2xl border-2 font-semibold text-sm transition-all ${
+                    selectedLang === code
+                      ? "border-violet-500 bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300"
+                      : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300"
+                  }`}
+                >
+                  <span className="text-4xl">{flag}</span>
+                  <span>{label}</span>
+                  {selectedLang === code && (
+                    <div className="w-4 h-4 rounded-full bg-violet-500 flex items-center justify-center">
+                      <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </StepWrapper>
+        );
+
+      // ── Step 1: Name ──────────────────────────────────────────────────────
+      case 1:
         return (
           <StepWrapper
             title={t("onboarding.step0Title")}
@@ -360,8 +405,8 @@ export default function OnboardingQuestionnaire({ userEmail, onComplete }) {
           </StepWrapper>
         );
 
-      // ── Step 1: Age & Sex ─────────────────────────────────────────────────
-      case 1:
+      // ── Step 2: Age & Sex ─────────────────────────────────────────────────
+      case 2:
         return (
           <StepWrapper
             title={t("onboarding.step1Title")}
@@ -410,8 +455,8 @@ export default function OnboardingQuestionnaire({ userEmail, onComplete }) {
           </StepWrapper>
         );
 
-      // ── Step 2: Height & Weight ───────────────────────────────────────────
-      case 2:
+      // ── Step 3: Height & Weight ───────────────────────────────────────────
+      case 3:
         return (
           <StepWrapper
             title={t("onboarding.step2Title")}
@@ -475,8 +520,8 @@ export default function OnboardingQuestionnaire({ userEmail, onComplete }) {
           </StepWrapper>
         );
 
-      // ── Step 3: Activity level ────────────────────────────────────────────
-      case 3:
+      // ── Step 4: Activity level ────────────────────────────────────────────
+      case 4:
         return (
           <StepWrapper
             title={t("onboarding.step3Title")}
@@ -498,8 +543,8 @@ export default function OnboardingQuestionnaire({ userEmail, onComplete }) {
           </StepWrapper>
         );
 
-      // ── Step 4: Goal ──────────────────────────────────────────────────────
-      case 4:
+      // ── Step 5: Goal ──────────────────────────────────────────────────────
+      case 5:
         return (
           <StepWrapper
             title={t("onboarding.step4Title")}
@@ -541,8 +586,8 @@ export default function OnboardingQuestionnaire({ userEmail, onComplete }) {
           </StepWrapper>
         );
 
-      // ── Step 5: Macro review ──────────────────────────────────────────────
-      case 5:
+      // ── Step 6: Macro review ──────────────────────────────────────────────
+      case 6:
         if (!macros) return <div className="text-center py-12 text-slate-500">{t("onboarding.step5Computing")}</div>;
 
         return (

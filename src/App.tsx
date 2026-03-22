@@ -772,8 +772,13 @@ export default function MacroTrackerApp(){
     return validTabs.has(hash) ? hash : 'dashboard';
   });
   // Persist active tab in URL hash so refresh / sharing lands on the right tab.
+  // Guard: do NOT overwrite a Supabase auth callback hash (access_token / error_description).
   useEffect(() => {
-    if (typeof window !== 'undefined') window.location.hash = tab;
+    if (typeof window === 'undefined') return;
+    const h = window.location.hash;
+    if (!h.includes('access_token') && !h.includes('error_description')) {
+      window.location.hash = tab;
+    }
   }, [tab]);
   const [foodPendingDelete, setFoodPendingDelete] = useState(null);
   const [foodCategoryFilter, setFoodCategoryFilter] = useState(new Set());
