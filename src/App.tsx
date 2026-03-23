@@ -1567,10 +1567,10 @@ export default function MacroTrackerApp(){
     });
 
     const macros = [
-      { key: "kcal", label: "Calories", unit: "kcal", theme: MACRO_THEME.kcal },
-      { key: "protein", label: "Protein", unit: "g", theme: MACRO_THEME.protein },
-      { key: "carbs", label: "Carbs", unit: "g", theme: MACRO_THEME.carbs },
-      { key: "fat", label: "Fat", unit: "g", theme: MACRO_THEME.fat },
+      { key: "kcal", label: t('macro.kcal'), unit: "kcal", theme: MACRO_THEME.kcal },
+      { key: "protein", label: t('macro.protein'), unit: "g", theme: MACRO_THEME.protein },
+      { key: "carbs", label: t('macro.carbs'), unit: "g", theme: MACRO_THEME.carbs },
+      { key: "fat", label: t('macro.fat'), unit: "g", theme: MACRO_THEME.fat },
     ];
 
     const rows = macros.map((macro) => {
@@ -2496,10 +2496,10 @@ export default function MacroTrackerApp(){
 
             {/* ── Mobile: compact 4-column macro strip ── */}
             <div className="sm:hidden grid grid-cols-4 gap-2 py-2">
-              <CompactMacroCell label="Cal"   color={COLORS.kcal}    actualNum={stickyTotals.kcal}     goalNum={stickyGoals.kcal}     unit="kcal" />
-              <CompactMacroCell label="Pro"   color={COLORS.protein} actualNum={stickyTotals.protein}  goalNum={stickyGoals.protein}  unit="g"    />
-              <CompactMacroCell label="Carbs" color={COLORS.carbs}   actualNum={stickyTotals.carbs}    goalNum={stickyGoals.carbs}    unit="g"    />
-              <CompactMacroCell label="Fat"   color={COLORS.fat}     actualNum={stickyTotals.fat}      goalNum={stickyGoals.fat}      unit="g"    />
+              <CompactMacroCell label={t('macro.kcal')}    color={COLORS.kcal}    actualNum={stickyTotals.kcal}     goalNum={stickyGoals.kcal}     unit="kcal" />
+              <CompactMacroCell label={t('macro.protein')} color={COLORS.protein} actualNum={stickyTotals.protein}  goalNum={stickyGoals.protein}  unit="g"    />
+              <CompactMacroCell label={t('macro.carbs')}   color={COLORS.carbs}   actualNum={stickyTotals.carbs}    goalNum={stickyGoals.carbs}    unit="g"    />
+              <CompactMacroCell label={t('macro.fat')}     color={COLORS.fat}     actualNum={stickyTotals.fat}      goalNum={stickyGoals.fat}      unit="g"    />
             </div>
 
             {/* ── Desktop: original StripKpi cards + select toggle (unchanged) ── */}
@@ -2511,7 +2511,7 @@ export default function MacroTrackerApp(){
                   const remaining = over ? `${Math.abs(rem).toFixed(0)} ${t('sticky.over')}` : `${rem.toFixed(0)} ${t('sticky.left')}`;
                   return (
                     <StripKpi
-                      label="Calories"
+                      label={t('macro.kcal')}
                       color={COLORS.kcal}
                       actual={`${stickyTotals.kcal.toFixed(0)} kcal`}
                       goal={`${stickyGoals.kcal.toFixed(0)} kcal`}
@@ -2526,7 +2526,7 @@ export default function MacroTrackerApp(){
                   const remaining = over ? `${Math.abs(rem).toFixed(1)} g ${t('sticky.over')}` : `${rem.toFixed(1)} g ${t('sticky.left')}`;
                   return (
                     <StripKpi
-                      label="Protein"
+                      label={t('macro.protein')}
                       color={COLORS.protein}
                       actual={`${stickyTotals.protein.toFixed(0)} g`}
                       goal={`${stickyGoals.protein.toFixed(0)} g`}
@@ -2541,7 +2541,7 @@ export default function MacroTrackerApp(){
                   const remaining = over ? `${Math.abs(rem).toFixed(1)} g ${t('sticky.over')}` : `${rem.toFixed(1)} g ${t('sticky.left')}`;
                   return (
                     <StripKpi
-                      label="Carbs"
+                      label={t('macro.carbs')}
                       color={COLORS.carbs}
                       actual={`${stickyTotals.carbs.toFixed(0)} g`}
                       goal={`${stickyGoals.carbs.toFixed(0)} g`}
@@ -2556,7 +2556,7 @@ export default function MacroTrackerApp(){
                   const remaining = over ? `${Math.abs(rem).toFixed(1)} g ${t('sticky.over')}` : `${rem.toFixed(1)} g ${t('sticky.left')}`;
                   return (
                     <StripKpi
-                      label="Fat"
+                      label={t('macro.fat')}
                       color={COLORS.fat}
                       actual={`${stickyTotals.fat.toFixed(0)} g`}
                       goal={`${stickyGoals.fat.toFixed(0)} g`}
@@ -2715,7 +2715,7 @@ export default function MacroTrackerApp(){
                               const key = item.dataKey ?? item.name ?? "value";
                               const isCalories = key === "kcal";
                               const unit = isCalories ? "kcal" : "g";
-                              const macroLabel = item.name ?? t('macro.'+key, MACRO_LABELS[key] ?? key);
+                              const macroLabel = t('macro.'+key, MACRO_LABELS[key] ?? key);
                               const swatchColor =
                                 MACRO_THEME[key]?.dark
                                 ?? MACRO_THEME[key]?.gradientTo
@@ -2844,9 +2844,9 @@ export default function MacroTrackerApp(){
                           ? label
                           : payload[0]?.payload?.meal ?? "";
                         const macroOrder = [
-                          { key: "carbs", label: "Carbs", color: MACRO_THEME.carbs.dark ?? MACRO_THEME.carbs.base },
-                          { key: "protein", label: "Protein", color: MACRO_THEME.protein.dark ?? MACRO_THEME.protein.base },
-                          { key: "fat", label: "Fat", color: MACRO_THEME.fat.dark ?? MACRO_THEME.fat.base },
+                          { key: "carbs", label: t('macro.carbs'), color: MACRO_THEME.carbs.dark ?? MACRO_THEME.carbs.base },
+                          { key: "protein", label: t('macro.protein'), color: MACRO_THEME.protein.dark ?? MACRO_THEME.protein.base },
+                          { key: "fat", label: t('macro.fat'), color: MACRO_THEME.fat.dark ?? MACRO_THEME.fat.base },
                         ];
 
                         return (
