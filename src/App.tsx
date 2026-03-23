@@ -2611,10 +2611,10 @@ export default function MacroTrackerApp(){
                 <CardContent className="flex-1">
                   <div className="flex h-full items-center justify-center">
                     <div className="grid w-full grid-cols-2 gap-2 sm:gap-4 content-center">
-                      <GoalDonut label="Calories" theme={MACRO_THEME.kcal} actual={goalTotals.kcal} goal={goalTarget.kcal} unit="kcal" />
-                      <GoalDonut label="Protein" theme={MACRO_THEME.protein} actual={goalTotals.protein} goal={goalTarget.protein} unit="g" />
-                      <GoalDonut label="Carbs" theme={MACRO_THEME.carbs} actual={goalTotals.carbs} goal={goalTarget.carbs} unit="g" />
-                      <GoalDonut label="Fat" theme={MACRO_THEME.fat} actual={goalTotals.fat} goal={goalTarget.fat} unit="g" />
+                      <GoalDonut label={t('macro.kcal')} theme={MACRO_THEME.kcal} actual={goalTotals.kcal} goal={goalTarget.kcal} unit="kcal" />
+                      <GoalDonut label={t('macro.protein')} theme={MACRO_THEME.protein} actual={goalTotals.protein} goal={goalTarget.protein} unit="g" />
+                      <GoalDonut label={t('macro.carbs')} theme={MACRO_THEME.carbs} actual={goalTotals.carbs} goal={goalTarget.carbs} unit="g" />
+                      <GoalDonut label={t('macro.fat')} theme={MACRO_THEME.fat} actual={goalTotals.fat} goal={goalTarget.fat} unit="g" />
                     </div>
                   </div>
                 </CardContent>
