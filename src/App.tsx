@@ -1041,6 +1041,10 @@ export default function MacroTrackerApp(){
 
         if (!active) return;
         if (!error && data) {
+          // Restore language preference from DB — keeps it in sync across devices.
+          if (data.language) {
+            setLanguage(data.language);
+          }
           setSettings((prev) => {
             // Supabase is authoritative. Local (localStorage) values are used only
             // as a fallback when the Supabase field has never been set (null/absent).
@@ -1567,10 +1571,10 @@ export default function MacroTrackerApp(){
     });
 
     const macros = [
-      { key: "kcal", label: "Calories", unit: "kcal", theme: MACRO_THEME.kcal },
-      { key: "protein", label: "Protein", unit: "g", theme: MACRO_THEME.protein },
-      { key: "carbs", label: "Carbs", unit: "g", theme: MACRO_THEME.carbs },
-      { key: "fat", label: "Fat", unit: "g", theme: MACRO_THEME.fat },
+      { key: "kcal", label: t('macro.kcal'), unit: "kcal", theme: MACRO_THEME.kcal },
+      { key: "protein", label: t('macro.protein'), unit: "g", theme: MACRO_THEME.protein },
+      { key: "carbs", label: t('macro.carbs'), unit: "g", theme: MACRO_THEME.carbs },
+      { key: "fat", label: t('macro.fat'), unit: "g", theme: MACRO_THEME.fat },
     ];
 
     const rows = macros.map((macro) => {
@@ -2142,6 +2146,14 @@ export default function MacroTrackerApp(){
     }
   }, [profileSaving, saveUserProfile, setSettings]);
 
+  const handleSetLanguage = useCallback(async (lang: string) => {
+    setLanguage(lang);
+    const userId = session?.user?.id;
+    if (!userId) return;
+    // Fire-and-forget: persist preference so it restores on any device.
+    await supabase.from("user_profile").upsert({ id: userId, language: lang }, { onConflict: "id" });
+  }, [session?.user?.id]);
+
   const handleSignOut = useCallback(async () => {
     await supabase.auth.signOut();
   }, []);
@@ -2496,10 +2508,10 @@ export default function MacroTrackerApp(){
 
             {/* ── Mobile: compact 4-column macro strip ── */}
             <div className="sm:hidden grid grid-cols-4 gap-2 py-2">
-              <CompactMacroCell label="Cal"   color={COLORS.kcal}    actualNum={stickyTotals.kcal}     goalNum={stickyGoals.kcal}     unit="kcal" />
-              <CompactMacroCell label="Pro"   color={COLORS.protein} actualNum={stickyTotals.protein}  goalNum={stickyGoals.protein}  unit="g"    />
-              <CompactMacroCell label="Carbs" color={COLORS.carbs}   actualNum={stickyTotals.carbs}    goalNum={stickyGoals.carbs}    unit="g"    />
-              <CompactMacroCell label="Fat"   color={COLORS.fat}     actualNum={stickyTotals.fat}      goalNum={stickyGoals.fat}      unit="g"    />
+              <CompactMacroCell label={t('macro.kcal')}    color={COLORS.kcal}    actualNum={stickyTotals.kcal}     goalNum={stickyGoals.kcal}     unit="kcal" />
+              <CompactMacroCell label={t('macro.protein')} color={COLORS.protein} actualNum={stickyTotals.protein}  goalNum={stickyGoals.protein}  unit="g"    />
+              <CompactMacroCell label={t('macro.carbs')}   color={COLORS.carbs}   actualNum={stickyTotals.carbs}    goalNum={stickyGoals.carbs}    unit="g"    />
+              <CompactMacroCell label={t('macro.fat')}     color={COLORS.fat}     actualNum={stickyTotals.fat}      goalNum={stickyGoals.fat}      unit="g"    />
             </div>
 
             {/* ── Desktop: original StripKpi cards + select toggle (unchanged) ── */}
@@ -2511,7 +2523,7 @@ export default function MacroTrackerApp(){
                   const remaining = over ? `${Math.abs(rem).toFixed(0)} ${t('sticky.over')}` : `${rem.toFixed(0)} ${t('sticky.left')}`;
                   return (
                     <StripKpi
-                      label="Calories"
+                      label={t('macro.kcal')}
                       color={COLORS.kcal}
                       actual={`${stickyTotals.kcal.toFixed(0)} kcal`}
                       goal={`${stickyGoals.kcal.toFixed(0)} kcal`}
@@ -2526,7 +2538,7 @@ export default function MacroTrackerApp(){
                   const remaining = over ? `${Math.abs(rem).toFixed(1)} g ${t('sticky.over')}` : `${rem.toFixed(1)} g ${t('sticky.left')}`;
                   return (
                     <StripKpi
-                      label="Protein"
+                      label={t('macro.protein')}
                       color={COLORS.protein}
                       actual={`${stickyTotals.protein.toFixed(0)} g`}
                       goal={`${stickyGoals.protein.toFixed(0)} g`}
@@ -2541,7 +2553,7 @@ export default function MacroTrackerApp(){
                   const remaining = over ? `${Math.abs(rem).toFixed(1)} g ${t('sticky.over')}` : `${rem.toFixed(1)} g ${t('sticky.left')}`;
                   return (
                     <StripKpi
-                      label="Carbs"
+                      label={t('macro.carbs')}
                       color={COLORS.carbs}
                       actual={`${stickyTotals.carbs.toFixed(0)} g`}
                       goal={`${stickyGoals.carbs.toFixed(0)} g`}
@@ -2556,7 +2568,7 @@ export default function MacroTrackerApp(){
                   const remaining = over ? `${Math.abs(rem).toFixed(1)} g ${t('sticky.over')}` : `${rem.toFixed(1)} g ${t('sticky.left')}`;
                   return (
                     <StripKpi
-                      label="Fat"
+                      label={t('macro.fat')}
                       color={COLORS.fat}
                       actual={`${stickyTotals.fat.toFixed(0)} g`}
                       goal={`${stickyGoals.fat.toFixed(0)} g`}
@@ -2611,10 +2623,10 @@ export default function MacroTrackerApp(){
                 <CardContent className="flex-1">
                   <div className="flex h-full items-center justify-center">
                     <div className="grid w-full grid-cols-2 gap-2 sm:gap-4 content-center">
-                      <GoalDonut label="Calories" theme={MACRO_THEME.kcal} actual={goalTotals.kcal} goal={goalTarget.kcal} unit="kcal" />
-                      <GoalDonut label="Protein" theme={MACRO_THEME.protein} actual={goalTotals.protein} goal={goalTarget.protein} unit="g" />
-                      <GoalDonut label="Carbs" theme={MACRO_THEME.carbs} actual={goalTotals.carbs} goal={goalTarget.carbs} unit="g" />
-                      <GoalDonut label="Fat" theme={MACRO_THEME.fat} actual={goalTotals.fat} goal={goalTarget.fat} unit="g" />
+                      <GoalDonut label={t('macro.kcal')} theme={MACRO_THEME.kcal} actual={goalTotals.kcal} goal={goalTarget.kcal} unit="kcal" />
+                      <GoalDonut label={t('macro.protein')} theme={MACRO_THEME.protein} actual={goalTotals.protein} goal={goalTarget.protein} unit="g" />
+                      <GoalDonut label={t('macro.carbs')} theme={MACRO_THEME.carbs} actual={goalTotals.carbs} goal={goalTarget.carbs} unit="g" />
+                      <GoalDonut label={t('macro.fat')} theme={MACRO_THEME.fat} actual={goalTotals.fat} goal={goalTarget.fat} unit="g" />
                     </div>
                   </div>
                 </CardContent>
@@ -2715,7 +2727,7 @@ export default function MacroTrackerApp(){
                               const key = item.dataKey ?? item.name ?? "value";
                               const isCalories = key === "kcal";
                               const unit = isCalories ? "kcal" : "g";
-                              const macroLabel = item.name ?? t('macro.'+key, MACRO_LABELS[key] ?? key);
+                              const macroLabel = t('macro.'+key, MACRO_LABELS[key] ?? key);
                               const swatchColor =
                                 MACRO_THEME[key]?.dark
                                 ?? MACRO_THEME[key]?.gradientTo
@@ -2844,9 +2856,9 @@ export default function MacroTrackerApp(){
                           ? label
                           : payload[0]?.payload?.meal ?? "";
                         const macroOrder = [
-                          { key: "carbs", label: "Carbs", color: MACRO_THEME.carbs.dark ?? MACRO_THEME.carbs.base },
-                          { key: "protein", label: "Protein", color: MACRO_THEME.protein.dark ?? MACRO_THEME.protein.base },
-                          { key: "fat", label: "Fat", color: MACRO_THEME.fat.dark ?? MACRO_THEME.fat.base },
+                          { key: "carbs", label: t('macro.carbs'), color: MACRO_THEME.carbs.dark ?? MACRO_THEME.carbs.base },
+                          { key: "protein", label: t('macro.protein'), color: MACRO_THEME.protein.dark ?? MACRO_THEME.protein.base },
+                          { key: "fat", label: t('macro.fat'), color: MACRO_THEME.fat.dark ?? MACRO_THEME.fat.base },
                         ];
 
                         return (
@@ -3592,46 +3604,47 @@ export default function MacroTrackerApp(){
                       </Select>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between gap-3 pt-1">
-                    <span className="text-xs text-slate-400 dark:text-slate-500">
-                      {profileLastSavedAt instanceof Date
-                        ? t('settings.lastSaved', { time: formatDistanceToNow(profileLastSavedAt, { addSuffix: true }) })
-                        : t('settings.notSavedYet')}
-                    </span>
-                    <Button
-                      size="sm"
-                      onClick={handleSaveBodyProfile}
-                      disabled={profileSaving}
-                      className="bg-slate-900 text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-                    >
-                      {profileSaving ? t('settings.savingStats') : t('settings.saveStats')}
-                    </Button>
+                  <div className="pt-1 space-y-3">
+                    {/* Language — auto-saves to DB on click, no extra button needed */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">{t('settings.languageTitle')}</Label>
+                      <div className="flex gap-2">
+                        {([['en', 'English'], ['fr', 'Français']] as const).map(([code, label]) => (
+                          <button
+                            key={code}
+                            type="button"
+                            onClick={() => handleSetLanguage(code)}
+                            className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+                              i18nHook.language === code
+                                ? 'border-violet-500 bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300'
+                                : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs text-slate-400 dark:text-slate-500">
+                        {profileLastSavedAt instanceof Date
+                          ? t('settings.lastSaved', { time: formatDistanceToNow(profileLastSavedAt, { addSuffix: true }) })
+                          : t('settings.notSavedYet')}
+                      </span>
+                      <Button
+                        size="sm"
+                        onClick={handleSaveBodyProfile}
+                        disabled={profileSaving}
+                        className="bg-slate-900 text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                      >
+                        {profileSaving ? t('settings.savingStats') : t('settings.saveStats')}
+                      </Button>
+                    </div>
                   </div>
                   {profileSaveError && <p className="text-sm text-red-600 dark:text-red-400">{profileSaveError}</p>}
                   {profileSaveSuccess && <p className="text-sm text-emerald-600 dark:text-emerald-400">{profileSaveSuccess}</p>}
                 </div>
                 <BadgesCard earnedBadgeIds={earnedBadgeIds} />
-              </div>
-
-              {/* Language */}
-              <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-5 space-y-3">
-                <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">{t('settings.languageTitle')}</h3>
-                <div className="flex gap-2">
-                  {([['en', 'English'], ['fr', 'Français']] as const).map(([code, label]) => (
-                    <button
-                      key={code}
-                      type="button"
-                      onClick={() => setLanguage(code)}
-                      className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
-                        i18nHook.language === code
-                          ? 'border-violet-500 bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300'
-                          : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
               </div>
 
               {/* Danger zone */}
