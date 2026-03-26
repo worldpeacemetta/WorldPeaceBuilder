@@ -244,7 +244,7 @@ class _EntryTile extends ConsumerWidget {
             height: 1.3,
           ),
         ),
-        onTap: () => _showEditEntrySheet(context, ref, entry, date),
+        onTap: () => showEditEntrySheet(context, ref, entry, date),
       ),
     );
   }
@@ -253,7 +253,7 @@ class _EntryTile extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 // Edit entry bottom sheet — change qty and/or meal
 // ---------------------------------------------------------------------------
-void _showEditEntrySheet(
+void showEditEntrySheet(
     BuildContext context, WidgetRef ref, Entry entry, String date) {
   showModalBottomSheet(
     context: context,

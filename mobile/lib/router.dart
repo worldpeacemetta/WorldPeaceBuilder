@@ -6,7 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/auth_provider.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
-import 'screens/daily_log/daily_log_screen.dart';
+import 'screens/daily_log/log_history_screen.dart';
+import 'screens/daily_log/day_detail_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/food_db/food_db_screen.dart';
 import 'screens/profile/profile_screen.dart';
@@ -31,13 +32,21 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/auth',
         builder: (context, state) => const AuthScreen(),
       ),
+      // Full-screen day detail — must be above StatefulShellRoute so it has no nav bar
+      GoRoute(
+        path: '/log/:date',
+        builder: (context, state) {
+          final date = state.pathParameters['date']!;
+          return DayDetailScreen(date: date);
+        },
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => HomeScreen(shell: shell),
         branches: [
           StatefulShellBranch(routes: [
             GoRoute(
               path: '/log',
-              builder: (context, state) => const DailyLogScreen(),
+              builder: (context, state) => const LogHistoryScreen(),
             ),
           ]),
           StatefulShellBranch(routes: [
