@@ -223,28 +223,62 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     await _loadFromSupabase();
   }
 
-  /// Fetch daily_macro_goals from the profiles table and merge into state.
+  /// Fetch all synced fields from the user_profile table.
+  /// Web app uses user_profile (not profiles) for goals + body stats.
   Future<void> _loadFromSupabase() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
     try {
       final row = await Supabase.instance.client
-          .from('profiles')
-          .select('daily_macro_goals')
+          .from('user_profile')
+          .select('daily_macro_goals, age, sex, height, weight, body_fat, activity_level, profile_history')
           .eq('id', user.id)
           .maybeSingle();
       if (row == null) return;
-      final goals = row['daily_macro_goals'];
-      if (goals == null) return;
-      final parsed = _settingsFromSupabase(goals as Map<String, dynamic>);
-      state = parsed;
-      // Keep local cache in sync.
+
+      // Preserve language (mobile-only, not stored in web app).
+      final currentLanguage = state.language;
+      final currentTheme    = state.theme;
+
+      // Goals + mode from daily_macro_goals JSONB.
+      AppSettings updated = state;
+      final goalsJson = row['daily_macro_goals'];
+      if (goalsJson != null) {
+        updated = _settingsFromSupabase(goalsJson as Map<String, dynamic>)
+            .copyWith(language: currentLanguage, theme: currentTheme);
+      }
+
+      // Body stats from individual columns.
+      updated = updated.copyWith(
+        bodyStats: BodyStats(
+          age:        (row['age']          as num?)?.toInt(),
+          sex:        (row['sex']          as String?) ?? updated.bodyStats.sex,
+          heightCm:   (row['height']       as num?)?.toDouble(),
+          weightKg:   (row['weight']       as num?)?.toDouble(),
+          bodyFatPct: (row['body_fat']     as num?)?.toDouble(),
+          activity:   (row['activity_level'] as String?) ?? updated.bodyStats.activity,
+        ),
+      );
+
+      // Weight history from profile_history JSONB array.
+      final historyJson = row['profile_history'];
+      if (historyJson is List && historyJson.isNotEmpty) {
+        try {
+          updated = updated.copyWith(
+            weightHistory: historyJson
+                .map((e) => WeightEntry.fromJson((e as Map).cast()))
+                .toList(),
+          );
+        } catch (_) {}
+      }
+
+      state = updated;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_kSettings, jsonEncode(state.toJson()));
     } catch (_) {}
   }
 
-  /// Call after sign-in to pull goals from the server.
+  /// Call after sign-in to pull everything from the server.
   Future<void> syncFromSupabase() => _loadFromSupabase();
 
   Future<void> _save() async {
@@ -256,10 +290,19 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
     try {
-      await Supabase.instance.client.from('profiles').upsert({
-        'id': user.id,
+      final b = state.bodyStats;
+      final history = state.weightHistory.map((e) => e.toJson()).toList();
+      await Supabase.instance.client.from('user_profile').upsert({
+        'id':               user.id,
         'daily_macro_goals': _settingsToSupabase(state),
-        'updated_at': DateTime.now().toIso8601String(),
+        'age':              b.age,
+        'sex':              b.sex,
+        'height':           b.heightCm,
+        'weight':           b.weightKg,
+        'body_fat':         b.bodyFatPct,
+        'activity_level':   b.activity,
+        'profile_history':  history,
+        'updated_at':       DateTime.now().toIso8601String(),
       });
     } catch (_) {}
   }
