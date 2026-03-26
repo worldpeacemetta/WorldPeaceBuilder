@@ -60,6 +60,28 @@ class EntriesNotifier extends StateNotifier<AsyncValue<List<Entry>>> {
     }
   }
 
+  Future<bool> updateEntry(String id, {double? qty, String? meal}) async {
+    try {
+      final updates = <String, dynamic>{};
+      if (qty != null) updates['qty'] = qty;
+      if (meal != null) updates['meal'] = meal;
+      if (updates.isEmpty) return true;
+      final row = await _supabase
+          .from('entries')
+          .update(updates)
+          .eq('id', id)
+          .select('*, food:foods(*)')
+          .single();
+      final updated = Entry.fromJson(row as Map<String, dynamic>);
+      state = state.whenData(
+        (list) => list.map((e) => e.id == id ? updated : e).toList(),
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<bool> deleteEntry(String id) async {
     try {
       await _supabase.from('entries').delete().eq('id', id);

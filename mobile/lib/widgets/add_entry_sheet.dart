@@ -7,6 +7,16 @@ import '../providers/entries_provider.dart';
 import '../providers/foods_provider.dart';
 import '../theme.dart';
 
+/// Returns the most appropriate meal based on current time of day.
+String _suggestMeal() {
+  final h = DateTime.now().hour;
+  if (h < 10) return 'breakfast';
+  if (h < 13) return 'lunch';
+  if (h < 17) return 'snack';
+  if (h < 21) return 'dinner';
+  return 'snack';
+}
+
 void showAddEntrySheet(BuildContext context, WidgetRef ref, String date) {
   showModalBottomSheet(
     context: context,
@@ -32,7 +42,7 @@ class _AddEntrySheet extends ConsumerStatefulWidget {
 
 class _AddEntrySheetState extends ConsumerState<_AddEntrySheet> {
   Food? _selectedFood;
-  String _meal = 'breakfast';
+  String _meal = _suggestMeal();
   final _qtyCtrl = TextEditingController(text: '100');
   final _searchCtrl = TextEditingController();
   String _search = '';

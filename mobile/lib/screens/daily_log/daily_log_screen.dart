@@ -237,7 +237,188 @@ class _EntryTile extends ConsumerWidget {
             height: 1.3,
           ),
         ),
+        onTap: () => _showEditEntrySheet(context, ref, entry, date),
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Edit entry bottom sheet — change qty and/or meal
+// ---------------------------------------------------------------------------
+void _showEditEntrySheet(
+    BuildContext context, WidgetRef ref, Entry entry, String date) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: AppColors.card,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (ctx) => ProviderScope(
+      parent: ProviderScope.containerOf(context),
+      child: _EditEntrySheet(entry: entry, date: date),
+    ),
+  );
+}
+
+class _EditEntrySheet extends ConsumerStatefulWidget {
+  const _EditEntrySheet({required this.entry, required this.date});
+  final Entry entry;
+  final String date;
+
+  @override
+  ConsumerState<_EditEntrySheet> createState() => _EditEntrySheetState();
+}
+
+class _EditEntrySheetState extends ConsumerState<_EditEntrySheet> {
+  late final TextEditingController _qtyCtrl;
+  late String _meal;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _qtyCtrl = TextEditingController(
+      text: widget.entry.qty.toStringAsFixed(
+          widget.entry.food?.unit == 'per100g' ? 0 : 1),
+    );
+    _meal = widget.entry.meal;
+  }
+
+  @override
+  void dispose() {
+    _qtyCtrl.dispose();
+    super.dispose();
+  }
+
+  MacroValues get _preview {
+    final food = widget.entry.food;
+    if (food == null) return const MacroValues();
+    final qty = double.tryParse(_qtyCtrl.text) ?? 0;
+    return food.scaledMacros(qty);
+  }
+
+  Future<void> _save() async {
+    final qty = double.tryParse(_qtyCtrl.text) ?? 0;
+    if (qty <= 0) return;
+    setState(() => _saving = true);
+    final ok = await ref.read(entriesProvider(widget.date).notifier).updateEntry(
+      widget.entry.id,
+      qty: qty,
+      meal: _meal,
+    );
+    if (mounted) {
+      Navigator.pop(context);
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update entry')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final food = widget.entry.food;
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 12, 16, bottom + 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          Text(
+            food?.displayName ?? widget.entry.foodId,
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              SizedBox(
+                width: 120,
+                child: TextField(
+                  controller: _qtyCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    labelText: food?.unit == 'per100g' ? 'Grams' : 'Servings',
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: _meal,
+                  decoration: const InputDecoration(labelText: 'Meal'),
+                  items: mealOrder.map((m) => DropdownMenuItem(
+                    value: m,
+                    child: Text(mealLabels[m] ?? m,
+                        style: const TextStyle(fontSize: 14)),
+                  )).toList(),
+                  onChanged: (v) => setState(() => _meal = v!),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.bg,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _MacroPreview('Kcal', _preview.kcal, AppColors.kcal),
+                _MacroPreview('Protein', _preview.protein, AppColors.protein),
+                _MacroPreview('Carbs', _preview.carbs, AppColors.carbs),
+                _MacroPreview('Fat', _preview.fat, AppColors.fat),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _saving ? null : _save,
+            child: _saving
+                ? const SizedBox(height: 20, width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Save Changes'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MacroPreview extends StatelessWidget {
+  const _MacroPreview(this.label, this.value, this.color);
+  final String label;
+  final double value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          value.round().toString(),
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: color),
+        ),
+        Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+      ],
     );
   }
 }
