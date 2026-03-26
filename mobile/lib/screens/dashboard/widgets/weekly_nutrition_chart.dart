@@ -402,7 +402,7 @@ class _BarPainter extends CustomPainter {
           ).createShader(fillRect),
       );
       // Reset clip
-      canvas.clipRect(rect, clipOp: ClipOp.intersect);
+      canvas.clipRect(rect);
     }
 
     // ── Goal tick line ───────────────────────────────────────────────────
