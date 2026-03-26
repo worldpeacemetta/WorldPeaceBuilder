@@ -1050,6 +1050,7 @@ export default function MacroTrackerApp(){
             // as a fallback when the Supabase field has never been set (null/absent).
             const local = ensureSettings(prev);
             return ensureSettings({
+              ...local,
               profile: {
                 age: data.age != null ? Number(data.age) : local.profile.age,
                 sex: data.sex ?? local.profile.sex,
