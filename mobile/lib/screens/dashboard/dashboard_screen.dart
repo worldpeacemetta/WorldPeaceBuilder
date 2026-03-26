@@ -7,7 +7,7 @@ import '../../providers/date_provider.dart';
 import '../../providers/entries_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../theme.dart';
-import '../../widgets/macro_ring_chart.dart';
+
 import 'widgets/food_logging_card.dart';
 import 'widgets/weekly_nutrition_chart.dart';
 import 'widgets/weight_trend_card.dart';
@@ -63,11 +63,7 @@ class DashboardScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
-          // Macro rings row
-          _MacroRingsCard(totals: totals, goals: goals),
-          const SizedBox(height: 16),
-
-          // Per-macro progress bars
+          // Macro progress bars
           _MacroProgressCard(totals: totals, goals: goals),
           const SizedBox(height: 16),
 
@@ -87,57 +83,6 @@ class DashboardScreen extends ConsumerWidget {
           _TopFoodsCard(date: date),
           const SizedBox(height: 24),
         ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Macro rings (4 donut rings side by side)
-// ---------------------------------------------------------------------------
-class _MacroRingsCard extends StatelessWidget {
-  const _MacroRingsCard({required this.totals, required this.goals});
-  final MacroValues totals;
-  final MacroGoals goals;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            MacroRingChart(
-              label: 'Calories',
-              actual: totals.kcal,
-              goal: goals.kcal,
-              unit: 'kcal',
-              color: AppColors.kcal,
-            ),
-            MacroRingChart(
-              label: 'Protein',
-              actual: totals.protein,
-              goal: goals.protein,
-              unit: 'g',
-              color: AppColors.protein,
-            ),
-            MacroRingChart(
-              label: 'Carbs',
-              actual: totals.carbs,
-              goal: goals.carbs,
-              unit: 'g',
-              color: AppColors.carbs,
-            ),
-            MacroRingChart(
-              label: 'Fat',
-              actual: totals.fat,
-              goal: goals.fat,
-              unit: 'g',
-              color: AppColors.fat,
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -177,20 +122,31 @@ class _MacroProgressCard extends StatelessWidget {
 
   Widget _bar(String label, double actual, double goal, String unit, Color color) {
     final pct = goal > 0 ? (actual / goal).clamp(0.0, 1.0) : 0.0;
+    final pctInt = (pct * 100).round();
     final over = goal > 0 && actual > goal;
+    final displayColor = over ? AppColors.danger : color;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(label, style: const TextStyle(fontSize: 13, color: AppColors.textMuted)),
+            const Spacer(),
             Text(
               '${actual.round()} / ${goal.round()} $unit',
-              style: TextStyle(
-                fontSize: 12,
-                color: over ? AppColors.danger : AppColors.textMuted,
-                fontWeight: over ? FontWeight.w600 : FontWeight.normal,
+              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 38,
+              child: Text(
+                '$pctInt%',
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: displayColor,
+                ),
               ),
             ),
           ],
@@ -201,7 +157,7 @@ class _MacroProgressCard extends StatelessWidget {
           child: LinearProgressIndicator(
             value: pct,
             backgroundColor: AppColors.border,
-            valueColor: AlwaysStoppedAnimation(over ? AppColors.danger : color),
+            valueColor: AlwaysStoppedAnimation(displayColor),
             minHeight: 6,
           ),
         ),
