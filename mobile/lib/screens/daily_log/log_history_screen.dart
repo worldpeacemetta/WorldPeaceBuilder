@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/utils.dart';
 import '../../models/entry.dart';
+import '../../models/food.dart';
 import '../../providers/entries_provider.dart';
 import '../../providers/log_history_provider.dart';
 import '../../theme.dart';
