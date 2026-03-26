@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -83,6 +84,10 @@ class _DayDetailScreenState extends ConsumerState<DayDetailScreen> {
                   height: 180,
                   child: PageView(
                     controller: _pageController,
+                    scrollBehavior: const ScrollBehavior().copyWith(dragDevices: {
+                      PointerDeviceKind.touch,
+                      PointerDeviceKind.mouse,
+                    }),
                     onPageChanged: (p) => setState(() => _currentPage = p),
                     children: [
                       _MacroTotalsPanel(
