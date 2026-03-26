@@ -5,6 +5,7 @@ import '../core/constants.dart';
 import '../models/food.dart';
 import '../providers/foods_provider.dart';
 import '../theme.dart';
+import 'barcode_scanner_sheet.dart';
 
 void showAddFoodSheet(BuildContext context, WidgetRef ref, {Food? existing}) {
   showModalBottomSheet(
@@ -98,6 +99,25 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
     }
   }
 
+  Future<void> _scanBarcode() async {
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const BarcodeScannerSheet(),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _nameCtrl.text    = result['name'] as String? ?? '';
+      _brandCtrl.text   = result['brand'] as String? ?? '';
+      _kcalCtrl.text    = (result['kcal'] as num?)?.round().toString() ?? '';
+      _proteinCtrl.text = (result['protein'] as num?)?.round().toString() ?? '';
+      _carbsCtrl.text   = (result['carbs'] as num?)?.round().toString() ?? '';
+      _fatCtrl.text     = (result['fat'] as num?)?.round().toString() ?? '';
+      _unit             = (result['unit'] as String?) ?? 'per100g';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.of(context).viewInsets.bottom;
@@ -132,6 +152,12 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
                         ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                   const Spacer(),
+                  if (!isEdit)
+                    IconButton(
+                      tooltip: 'Scan barcode',
+                      icon: const Icon(Icons.qr_code_scanner, color: AppColors.protein),
+                      onPressed: _scanBarcode,
+                    ),
                   TextButton(onPressed: Navigator.of(context).pop, child: const Text('Cancel')),
                 ],
               ),

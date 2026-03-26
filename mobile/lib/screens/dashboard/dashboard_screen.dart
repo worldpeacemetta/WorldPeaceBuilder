@@ -8,7 +8,9 @@ import '../../providers/entries_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../theme.dart';
 import '../../widgets/macro_ring_chart.dart';
-import '../../widgets/weekly_chart.dart';
+import 'widgets/food_logging_card.dart';
+import 'widgets/weekly_nutrition_chart.dart';
+import 'widgets/weight_trend_card.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -69,8 +71,16 @@ class DashboardScreen extends ConsumerWidget {
           _MacroProgressCard(totals: totals, goals: goals),
           const SizedBox(height: 16),
 
-          // Weekly chart
-          WeeklyChartCard(date: date),
+          // Weekly Nutrition (multi-macro toggle)
+          WeeklyNutritionChart(date: date),
+          const SizedBox(height: 16),
+
+          // Food Logging per-meal breakdown
+          FoodLoggingCard(date: date),
+          const SizedBox(height: 16),
+
+          // Weight Trend
+          const WeightTrendCard(),
           const SizedBox(height: 16),
 
           // Top foods

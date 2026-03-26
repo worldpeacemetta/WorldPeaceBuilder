@@ -40,6 +40,70 @@ class MacroGoals {
 }
 
 // ---------------------------------------------------------------------------
+// BodyStats
+// ---------------------------------------------------------------------------
+class BodyStats {
+  final int? age;
+  final String sex;           // male | female | other
+  final double? heightCm;
+  final double? weightKg;
+  final double? bodyFatPct;
+  final String activity;      // sedentary | light | moderate | active | very_active
+
+  const BodyStats({
+    this.age,
+    this.sex = 'other',
+    this.heightCm,
+    this.weightKg,
+    this.bodyFatPct,
+    this.activity = 'moderate',
+  });
+
+  factory BodyStats.fromJson(Map<String, dynamic> j) => BodyStats(
+    age:        (j['age'] as num?)?.toInt(),
+    sex:        (j['sex'] as String?) ?? 'other',
+    heightCm:   (j['heightCm'] as num?)?.toDouble(),
+    weightKg:   (j['weightKg'] as num?)?.toDouble(),
+    bodyFatPct: (j['bodyFatPct'] as num?)?.toDouble(),
+    activity:   (j['activity'] as String?) ?? 'moderate',
+  );
+
+  Map<String, dynamic> toJson() => {
+    'age': age, 'sex': sex, 'heightCm': heightCm,
+    'weightKg': weightKg, 'bodyFatPct': bodyFatPct, 'activity': activity,
+  };
+
+  BodyStats copyWith({
+    int? age, String? sex, double? heightCm,
+    double? weightKg, double? bodyFatPct, String? activity,
+  }) => BodyStats(
+    age: age ?? this.age, sex: sex ?? this.sex,
+    heightCm: heightCm ?? this.heightCm, weightKg: weightKg ?? this.weightKg,
+    bodyFatPct: bodyFatPct ?? this.bodyFatPct, activity: activity ?? this.activity,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// WeightEntry — one entry in the weight history log.
+// ---------------------------------------------------------------------------
+class WeightEntry {
+  final String date;    // YYYY-MM-DD
+  final double weight;
+  final double? bodyFat;
+
+  const WeightEntry({required this.date, required this.weight, this.bodyFat});
+
+  factory WeightEntry.fromJson(Map<String, dynamic> j) => WeightEntry(
+    date:    j['date'] as String,
+    weight:  (j['weight'] as num).toDouble(),
+    bodyFat: (j['bodyFat'] as num?)?.toDouble(),
+  );
+
+  Map<String, dynamic> toJson() =>
+      {'date': date, 'weight': weight, 'bodyFat': bodyFat};
+}
+
+// ---------------------------------------------------------------------------
 // Settings model
 // ---------------------------------------------------------------------------
 class AppSettings {
@@ -51,6 +115,9 @@ class AppSettings {
   final MacroGoals cuttingGoals;
   final MacroGoals maintenanceGoals;
   final String theme;             // system | light | dark
+  final String language;          // en | fr | es | de | pt | it | nl | ja | zh
+  final BodyStats bodyStats;
+  final List<WeightEntry> weightHistory;
 
   const AppSettings({
     this.setupMode = 'maintenance',
@@ -61,6 +128,9 @@ class AppSettings {
     this.cuttingGoals   = const MacroGoals(kcal: 1600, protein: 180, carbs: 130, fat: 55),
     this.maintenanceGoals = const MacroGoals(),
     this.theme = 'dark',
+    this.language = 'en',
+    this.bodyStats = const BodyStats(),
+    this.weightHistory = const [],
   });
 
   MacroGoals get activeGoals {
@@ -81,7 +151,14 @@ class AppSettings {
     bulkingGoals  : MacroGoals.fromJson((j['bulkingGoals']   as Map?)?.cast() ?? {}),
     cuttingGoals  : MacroGoals.fromJson((j['cuttingGoals']   as Map?)?.cast() ?? {}),
     maintenanceGoals: MacroGoals.fromJson((j['maintenanceGoals'] as Map?)?.cast() ?? {}),
-    theme: (j['theme'] as String?) ?? 'dark',
+    theme   : (j['theme'] as String?) ?? 'dark',
+    language: (j['language'] as String?) ?? 'en',
+    bodyStats: j['bodyStats'] != null
+        ? BodyStats.fromJson((j['bodyStats'] as Map).cast())
+        : const BodyStats(),
+    weightHistory: (j['weightHistory'] as List?)
+        ?.map((e) => WeightEntry.fromJson((e as Map).cast()))
+        .toList() ?? [],
   );
 
   Map<String, dynamic> toJson() => {
@@ -92,7 +169,10 @@ class AppSettings {
     'bulkingGoals'  : bulkingGoals.toJson(),
     'cuttingGoals'  : cuttingGoals.toJson(),
     'maintenanceGoals': maintenanceGoals.toJson(),
-    'theme': theme,
+    'theme'   : theme,
+    'language': language,
+    'bodyStats': bodyStats.toJson(),
+    'weightHistory': weightHistory.map((e) => e.toJson()).toList(),
   };
 
   AppSettings copyWith({
@@ -104,6 +184,9 @@ class AppSettings {
     MacroGoals? cuttingGoals,
     MacroGoals? maintenanceGoals,
     String? theme,
+    String? language,
+    BodyStats? bodyStats,
+    List<WeightEntry>? weightHistory,
   }) => AppSettings(
     setupMode: setupMode ?? this.setupMode,
     dualProfile: dualProfile ?? this.dualProfile,
@@ -112,7 +195,10 @@ class AppSettings {
     bulkingGoals  : bulkingGoals   ?? this.bulkingGoals,
     cuttingGoals  : cuttingGoals   ?? this.cuttingGoals,
     maintenanceGoals: maintenanceGoals ?? this.maintenanceGoals,
-    theme: theme ?? this.theme,
+    theme        : theme         ?? this.theme,
+    language     : language      ?? this.language,
+    bodyStats    : bodyStats     ?? this.bodyStats,
+    weightHistory: weightHistory ?? this.weightHistory,
   );
 }
 

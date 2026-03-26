@@ -102,6 +102,11 @@ class ProfileScreen extends ConsumerWidget {
           _GoalsEditor(settings: settings),
           const SizedBox(height: 16),
 
+          // Body Stats
+          _SectionHeader('Body Stats'),
+          _BodyStatsEditor(settings: settings),
+          const SizedBox(height: 16),
+
           // Appearance
           _SectionHeader('Appearance'),
           Card(
@@ -129,6 +134,36 @@ class ProfileScreen extends ConsumerWidget {
                       .update(settings.copyWith(theme: v)),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Language
+          _SectionHeader('Language'),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: DropdownButtonFormField<String>(
+                value: settings.language,
+                decoration: const InputDecoration(
+                  labelText: 'App Language',
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'en', child: Text('🇬🇧  English')),
+                  DropdownMenuItem(value: 'fr', child: Text('🇫🇷  Français')),
+                  DropdownMenuItem(value: 'es', child: Text('🇪🇸  Español')),
+                  DropdownMenuItem(value: 'de', child: Text('🇩🇪  Deutsch')),
+                  DropdownMenuItem(value: 'pt', child: Text('🇵🇹  Português')),
+                  DropdownMenuItem(value: 'it', child: Text('🇮🇹  Italiano')),
+                  DropdownMenuItem(value: 'nl', child: Text('🇳🇱  Nederlands')),
+                  DropdownMenuItem(value: 'ja', child: Text('🇯🇵  日本語')),
+                  DropdownMenuItem(value: 'zh', child: Text('🇨🇳  中文')),
+                ],
+                onChanged: (v) => ref.read(settingsProvider.notifier)
+                    .update(settings.copyWith(language: v)),
+              ),
             ),
           ),
           const SizedBox(height: 24),
@@ -267,6 +302,128 @@ class _GoalsEditorState extends ConsumerState<_GoalsEditor> {
       ),
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Body stats editor
+// ---------------------------------------------------------------------------
+class _BodyStatsEditor extends ConsumerStatefulWidget {
+  const _BodyStatsEditor({required this.settings});
+  final AppSettings settings;
+
+  @override
+  ConsumerState<_BodyStatsEditor> createState() => _BodyStatsEditorState();
+}
+
+class _BodyStatsEditorState extends ConsumerState<_BodyStatsEditor> {
+  late final TextEditingController _ageCtrl;
+  late final TextEditingController _heightCtrl;
+  late final TextEditingController _weightCtrl;
+  late final TextEditingController _bfCtrl;
+  late String _sex;
+  late String _activity;
+
+  static const _activities = {
+    'sedentary'  : 'Sedentary (desk job)',
+    'light'      : 'Light (1–3×/week)',
+    'moderate'   : 'Moderate (3–5×/week)',
+    'active'     : 'Active (6–7×/week)',
+    'very_active': 'Very active (2×/day)',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    final b = widget.settings.bodyStats;
+    _ageCtrl    = TextEditingController(text: b.age?.toString() ?? '');
+    _heightCtrl = TextEditingController(text: b.heightCm?.toStringAsFixed(0) ?? '');
+    _weightCtrl = TextEditingController(text: b.weightKg?.toStringAsFixed(1) ?? '');
+    _bfCtrl     = TextEditingController(text: b.bodyFatPct?.toStringAsFixed(1) ?? '');
+    _sex      = b.sex;
+    _activity = b.activity;
+  }
+
+  @override
+  void dispose() {
+    _ageCtrl.dispose(); _heightCtrl.dispose();
+    _weightCtrl.dispose(); _bfCtrl.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final updated = widget.settings.bodyStats.copyWith(
+      age:        int.tryParse(_ageCtrl.text),
+      heightCm:   double.tryParse(_heightCtrl.text),
+      weightKg:   double.tryParse(_weightCtrl.text),
+      bodyFatPct: double.tryParse(_bfCtrl.text),
+      sex:        _sex,
+      activity:   _activity,
+    );
+    ref.read(settingsProvider.notifier)
+        .update(widget.settings.copyWith(bodyStats: updated));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Stats saved')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(child: _numField('Age (years)', _ageCtrl, 'yrs')),
+                const SizedBox(width: 10),
+                Expanded(child: _numField('Height', _heightCtrl, 'cm')),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: _numField('Weight', _weightCtrl, 'kg')),
+                const SizedBox(width: 10),
+                Expanded(child: _numField('Body fat', _bfCtrl, '%')),
+              ],
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: _sex,
+              decoration: const InputDecoration(labelText: 'Sex'),
+              items: const [
+                DropdownMenuItem(value: 'male',   child: Text('Male')),
+                DropdownMenuItem(value: 'female', child: Text('Female')),
+                DropdownMenuItem(value: 'other',  child: Text('Other / prefer not to say')),
+              ],
+              onChanged: (v) => setState(() => _sex = v!),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: _activity,
+              decoration: const InputDecoration(labelText: 'Activity Level'),
+              items: _activities.entries
+                  .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
+                  .toList(),
+              onChanged: (v) => setState(() => _activity = v!),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(onPressed: _save, child: const Text('Save Stats')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _numField(String label, TextEditingController ctrl, String suffix) =>
+      TextField(
+        controller: ctrl,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(labelText: label, suffixText: suffix),
+      );
 }
 
 // ---------------------------------------------------------------------------
