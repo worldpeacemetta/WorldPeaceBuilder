@@ -118,6 +118,9 @@ class AppSettings {
   final String language;          // en | fr | es | de | pt | it | nl | ja | zh
   final BodyStats bodyStats;
   final List<WeightEntry> weightHistory;
+  // Per-date goal overrides — mirrors web app's daily_macro_goals.byDate
+  // Key: ISO date string, Value: {setup, profile}
+  final Map<String, Map<String, String>> goalSchedule;
 
   const AppSettings({
     this.setupMode = 'maintenance',
@@ -131,6 +134,7 @@ class AppSettings {
     this.language = 'en',
     this.bodyStats = const BodyStats(),
     this.weightHistory = const [],
+    this.goalSchedule = const {},
   });
 
   MacroGoals get activeGoals {
@@ -140,6 +144,33 @@ class AppSettings {
       case 'bulking':      return bulkingGoals;
       case 'cutting':      return cuttingGoals;
       default:             return maintenanceGoals;
+    }
+  }
+
+  /// Returns the correct goals for a specific date, honouring per-date
+  /// overrides stored in goalSchedule (mirrors web app's resolveModeEntry).
+  MacroGoals goalsForDate(String isoDate) {
+    // 1. Direct override for this exact date.
+    var entry = goalSchedule[isoDate];
+    // 2. Most-recent override on or before this date.
+    if (entry == null && goalSchedule.isNotEmpty) {
+      final sorted = goalSchedule.keys.toList()..sort();
+      for (int i = sorted.length - 1; i >= 0; i--) {
+        if (sorted[i].compareTo(isoDate) <= 0) {
+          entry = goalSchedule[sorted[i]];
+          break;
+        }
+      }
+    }
+    if (entry == null) return activeGoals;
+    final setup   = entry['setup']   ?? setupMode;
+    final profile = entry['profile'] ?? dualProfile;
+    switch (setup) {
+      case 'dual':
+        return profile == 'rest' ? dualRestGoals : dualTrainGoals;
+      case 'bulking':   return bulkingGoals;
+      case 'cutting':   return cuttingGoals;
+      default:          return maintenanceGoals;
     }
   }
 
@@ -159,6 +190,9 @@ class AppSettings {
     weightHistory: (j['weightHistory'] as List?)
         ?.map((e) => WeightEntry.fromJson((e as Map).cast()))
         .toList() ?? [],
+    goalSchedule: (j['goalSchedule'] as Map?)?.map(
+      (k, v) => MapEntry(k as String, (v as Map).cast<String, String>()),
+    ) ?? {},
   );
 
   Map<String, dynamic> toJson() => {
@@ -173,6 +207,7 @@ class AppSettings {
     'language': language,
     'bodyStats': bodyStats.toJson(),
     'weightHistory': weightHistory.map((e) => e.toJson()).toList(),
+    'goalSchedule': goalSchedule,
   };
 
   AppSettings copyWith({
@@ -187,6 +222,7 @@ class AppSettings {
     String? language,
     BodyStats? bodyStats,
     List<WeightEntry>? weightHistory,
+    Map<String, Map<String, String>>? goalSchedule,
   }) => AppSettings(
     setupMode: setupMode ?? this.setupMode,
     dualProfile: dualProfile ?? this.dualProfile,
@@ -199,6 +235,7 @@ class AppSettings {
     language     : language      ?? this.language,
     bodyStats    : bodyStats     ?? this.bodyStats,
     weightHistory: weightHistory ?? this.weightHistory,
+    goalSchedule : goalSchedule  ?? this.goalSchedule,
   );
 }
 
@@ -330,6 +367,18 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
 
   static AppSettings _settingsFromSupabase(Map<String, dynamic> g) {
     final dual = g['dual'] as Map?;
+    // Parse byDate overrides: { "2026-03-20": { setup: "dual", profile: "rest" } }
+    final byDate = g['byDate'] as Map?;
+    final goalSchedule = <String, Map<String, String>>{};
+    if (byDate != null) {
+      byDate.forEach((k, v) {
+        if (v is Map) {
+          goalSchedule[k as String] = (v).map(
+            (ek, ev) => MapEntry(ek.toString(), ev.toString()),
+          );
+        }
+      });
+    }
     return AppSettings(
       setupMode:        (g['setup'] as String?) ?? 'maintenance',
       dualProfile:      (dual?['active'] as String?) ?? 'train',
@@ -338,6 +387,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
       bulkingGoals:     _goalsFromJson(g['bulking']),
       cuttingGoals:     _goalsFromJson(g['cutting']),
       maintenanceGoals: _goalsFromJson(g['maintenance']),
+      goalSchedule:     goalSchedule,
     );
   }
 

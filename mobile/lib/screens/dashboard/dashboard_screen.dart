@@ -19,7 +19,7 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final date = ref.watch(dashboardDateProvider);
     final totals = ref.watch(macroTotalsProvider(date));
-    final goals = ref.watch(settingsProvider).activeGoals;
+    final goals = ref.watch(settingsProvider).goalsForDate(date);
     final isToday = date == todayISO();
 
     return Scaffold(
@@ -67,20 +67,20 @@ class DashboardScreen extends ConsumerWidget {
           _MacroProgressCard(totals: totals, goals: goals),
           const SizedBox(height: 16),
 
-          // Weekly Nutrition (multi-macro toggle)
-          WeeklyNutritionChart(date: date),
-          const SizedBox(height: 16),
-
           // Food Logging per-meal breakdown
           FoodLoggingCard(date: date),
           const SizedBox(height: 16),
 
-          // Weight Trend
-          const WeightTrendCard(),
-          const SizedBox(height: 16),
-
           // Top foods
           _TopFoodsCard(date: date),
+          const SizedBox(height: 16),
+
+          // Weekly Nutrition (multi-macro toggle)
+          WeeklyNutritionChart(date: date),
+          const SizedBox(height: 16),
+
+          // Weight Trend
+          const WeightTrendCard(),
           const SizedBox(height: 24),
         ],
       ),

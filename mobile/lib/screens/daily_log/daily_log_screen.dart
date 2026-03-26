@@ -20,7 +20,7 @@ class DailyLogScreen extends ConsumerWidget {
     final entriesAsync = ref.watch(logEntriesProvider);
     final byMeal = ref.watch(logEntriesByMealProvider);
     final totals = ref.watch(macroTotalsProvider(logDate));
-    final goals = ref.watch(settingsProvider).activeGoals;
+    final goals = ref.watch(settingsProvider).goalsForDate(logDate);
     final isToday = logDate == todayISO();
 
     return Scaffold(

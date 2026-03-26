@@ -68,15 +68,15 @@ class _WeeklyNutritionChartState extends ConsumerState<WeeklyNutritionChart> {
 
   @override
   Widget build(BuildContext context) {
-    final days  = weekDates(widget.date);
-    final goals = ref.watch(settingsProvider).activeGoals;
+    final days     = weekDates(widget.date);
+    final settings = ref.watch(settingsProvider);
 
-    final dayTotals = days
-        .map((d) => ref.watch(macroTotalsProvider(d)))
-        .toList();
+    final dayTotals = days.map((d) => ref.watch(macroTotalsProvider(d))).toList();
+    final dayGoals  = days.map((d) => settings.goalsForDate(d)).toList();
 
     final selIdx    = days.indexOf(_selectedDay).clamp(0, 6);
     final selTotals = dayTotals[selIdx];
+    final selGoals  = dayGoals[selIdx];
 
     return Card(
       child: Padding(
@@ -132,7 +132,7 @@ class _WeeklyNutritionChartState extends ConsumerState<WeeklyNutritionChart> {
                   child: _DayGrid(
                     days: days,
                     dayTotals: dayTotals,
-                    goals: goals,
+                    dayGoals: dayGoals,
                     selectedDay: _selectedDay,
                     showRemaining: _showRemaining,
                     macroKeys: _macroKeys,
@@ -149,7 +149,7 @@ class _WeeklyNutritionChartState extends ConsumerState<WeeklyNutritionChart> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: _macroKeys.map((key) {
                       final actual = _macroActual(selTotals, key);
-                      final goal   = _macroGoal(goals, key);
+                      final goal   = _macroGoal(selGoals, key);
                       final color  = _macroColors[key]!;
                       final over   = actual > goal && goal > 0;
                       return Padding(
@@ -238,7 +238,7 @@ class _DayGrid extends StatelessWidget {
   const _DayGrid({
     required this.days,
     required this.dayTotals,
-    required this.goals,
+    required this.dayGoals,
     required this.selectedDay,
     required this.showRemaining,
     required this.macroKeys,
@@ -248,7 +248,7 @@ class _DayGrid extends StatelessWidget {
 
   final List<String> days;
   final List<MacroValues> dayTotals;
-  final MacroGoals goals;
+  final List<MacroGoals> dayGoals;
   final String selectedDay;
   final bool showRemaining;
   final List<String> macroKeys;
@@ -261,6 +261,7 @@ class _DayGrid extends StatelessWidget {
       children: List.generate(7, (col) {
         final day    = days[col];
         final totals = dayTotals[col];
+        final goals  = dayGoals[col];
         final isSel  = day == selectedDay;
         final dt     = DateTime.parse(day);
         final isToday = day == todayISO();
