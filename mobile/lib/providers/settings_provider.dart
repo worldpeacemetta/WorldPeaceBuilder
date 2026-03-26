@@ -147,7 +147,33 @@ class AppSettings {
     }
   }
 
-  /// Returns the correct goals for a specific date, honouring per-date
+  /// Returns {setup, profile} for a date, honouring per-date overrides.
+  Map<String, String> modeEntryForDate(String isoDate) {
+    var entry = goalSchedule[isoDate];
+    if (entry == null && goalSchedule.isNotEmpty) {
+      final sorted = goalSchedule.keys.toList()..sort();
+      for (int i = sorted.length - 1; i >= 0; i--) {
+        if (sorted[i].compareTo(isoDate) <= 0) {
+          entry = goalSchedule[sorted[i]];
+          break;
+        }
+      }
+    }
+    return entry ?? {'setup': setupMode, 'profile': dualProfile};
+  }
+
+  /// Returns the display label for the active mode on a given date.
+  String modeLabelForDate(String isoDate) {
+    final e = modeEntryForDate(isoDate);
+    final setup = e['setup'] ?? setupMode;
+    final profile = e['profile'] ?? dualProfile;
+    if (setup == 'dual') return profile == 'rest' ? 'Rest Day' : 'Train Day';
+    const labels = {'bulking': 'Bulking', 'cutting': 'Cutting', 'maintenance': 'Maintenance'};
+    return labels[setup] ?? 'Maintenance';
+  }
+
+  /// Whether this date has an explicit per-date override (not just the default).
+  bool hasDateOverride(String isoDate) => goalSchedule.containsKey(isoDate);
   /// overrides stored in goalSchedule (mirrors web app's resolveModeEntry).
   MacroGoals goalsForDate(String isoDate) {
     // 1. Direct override for this exact date.
@@ -350,6 +376,20 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     await _saveToSupabase();
   }
 
+  /// Set (or replace) the goal-mode override for a specific date.
+  Future<void> setDateOverride(String isoDate, String setup, String profile) async {
+    final updated = Map<String, Map<String, String>>.from(state.goalSchedule)
+      ..[isoDate] = {'setup': setup, 'profile': profile};
+    await update(state.copyWith(goalSchedule: updated));
+  }
+
+  /// Remove the per-date override so the date falls back to the default mode.
+  Future<void> clearDateOverride(String isoDate) async {
+    final updated = Map<String, Map<String, String>>.from(state.goalSchedule)
+      ..remove(isoDate);
+    await update(state.copyWith(goalSchedule: updated));
+  }
+
   // -------------------------------------------------------------------------
   // Mapping between mobile AppSettings ↔ web app daily_macro_goals schema.
   // Web schema: { setup, dual: { train, rest, active }, bulking, cutting, maintenance }
@@ -401,6 +441,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     'bulking':      s.bulkingGoals.toJson(),
     'cutting':      s.cuttingGoals.toJson(),
     'maintenance':  s.maintenanceGoals.toJson(),
+    if (s.goalSchedule.isNotEmpty) 'byDate': s.goalSchedule,
   };
 }
 

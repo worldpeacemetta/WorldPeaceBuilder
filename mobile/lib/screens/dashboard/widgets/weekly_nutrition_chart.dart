@@ -8,6 +8,7 @@ import '../../../providers/date_provider.dart';
 import '../../../providers/entries_provider.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../theme.dart';
+import '../../../widgets/mode_pill.dart';
 
 /// Weekly Nutrition — vertical pill bar grid, inspired by MacroFactor.
 ///
@@ -71,8 +72,9 @@ class _WeeklyNutritionChartState extends ConsumerState<WeeklyNutritionChart> {
     final days     = weekDates(widget.date);
     final settings = ref.watch(settingsProvider);
 
-    final dayTotals = days.map((d) => ref.watch(macroTotalsProvider(d))).toList();
-    final dayGoals  = days.map((d) => settings.goalsForDate(d)).toList();
+    final dayTotals  = days.map((d) => ref.watch(macroTotalsProvider(d))).toList();
+    final dayGoals   = days.map((d) => settings.goalsForDate(d)).toList();
+    final dayModeColors = days.map((d) => modeColor(settings.modeLabelForDate(d))).toList();
 
     final selIdx    = days.indexOf(_selectedDay).clamp(0, 6);
     final selTotals = dayTotals[selIdx];
@@ -133,6 +135,7 @@ class _WeeklyNutritionChartState extends ConsumerState<WeeklyNutritionChart> {
                     days: days,
                     dayTotals: dayTotals,
                     dayGoals: dayGoals,
+                    dayModeColors: dayModeColors,
                     selectedDay: _selectedDay,
                     showRemaining: _showRemaining,
                     macroKeys: _macroKeys,
@@ -239,6 +242,7 @@ class _DayGrid extends StatelessWidget {
     required this.days,
     required this.dayTotals,
     required this.dayGoals,
+    required this.dayModeColors,
     required this.selectedDay,
     required this.showRemaining,
     required this.macroKeys,
@@ -249,6 +253,7 @@ class _DayGrid extends StatelessWidget {
   final List<String> days;
   final List<MacroValues> dayTotals;
   final List<MacroGoals> dayGoals;
+  final List<Color> dayModeColors;
   final String selectedDay;
   final bool showRemaining;
   final List<String> macroKeys;
@@ -259,10 +264,11 @@ class _DayGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: List.generate(7, (col) {
-        final day    = days[col];
-        final totals = dayTotals[col];
-        final goals  = dayGoals[col];
-        final isSel  = day == selectedDay;
+        final day       = days[col];
+        final totals    = dayTotals[col];
+        final goals     = dayGoals[col];
+        final modeColor = dayModeColors[col];
+        final isSel     = day == selectedDay;
         final dt     = DateTime.parse(day);
         final isToday = day == todayISO();
 
@@ -293,13 +299,22 @@ class _DayGrid extends StatelessWidget {
                       showRem: showRemaining,
                     ),
                   )),
-                  // Day label
+                  // Day letter
                   Text(
                     DateFormat('E').format(dt).substring(0, 1),
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
                       color: isToday ? Colors.white : AppColors.textMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  // Mode dot
+                  Container(
+                    width: 5, height: 5,
+                    decoration: BoxDecoration(
+                      color: modeColor,
+                      shape: BoxShape.circle,
                     ),
                   ),
                 ],

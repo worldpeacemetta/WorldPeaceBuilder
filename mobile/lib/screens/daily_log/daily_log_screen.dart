@@ -10,6 +10,7 @@ import '../../providers/settings_provider.dart';
 import '../../theme.dart';
 import '../../widgets/add_entry_sheet.dart';
 import '../../widgets/macro_summary_bar.dart';
+import '../../widgets/mode_pill.dart';
 
 class DailyLogScreen extends ConsumerWidget {
   const DailyLogScreen({super.key});
@@ -29,9 +30,15 @@ class DailyLogScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Daily Log'),
-            Text(
-              formatDateFull(logDate),
-              style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w400),
+            Row(
+              children: [
+                Text(
+                  formatDateFull(logDate),
+                  style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w400),
+                ),
+                const SizedBox(width: 8),
+                ModePill(date: logDate),
+              ],
             ),
           ],
         ),

@@ -7,6 +7,7 @@ import '../../providers/date_provider.dart';
 import '../../providers/entries_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../theme.dart';
+import '../../widgets/mode_pill.dart';
 
 import 'widgets/food_logging_card.dart';
 import 'widgets/weekly_nutrition_chart.dart';
@@ -28,9 +29,15 @@ class DashboardScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Dashboard'),
-            Text(
-              formatDateFull(date),
-              style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w400),
+            Row(
+              children: [
+                Text(
+                  formatDateFull(date),
+                  style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w400),
+                ),
+                const SizedBox(width: 8),
+                ModePill(date: date),
+              ],
             ),
           ],
         ),
