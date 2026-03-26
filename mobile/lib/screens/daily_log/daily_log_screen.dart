@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/utils.dart';
 import '../../models/entry.dart';
+import '../../models/food.dart';
 import '../../providers/date_provider.dart';
 import '../../providers/entries_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -133,7 +134,7 @@ class _MealSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mealTotals = entries.fold(
+    final mealTotals = entries.fold<MacroValues>(
       const MacroValues(),
       (acc, e) => acc + e.macros,
     );
