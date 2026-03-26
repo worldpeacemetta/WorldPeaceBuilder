@@ -26,14 +26,24 @@ final currentUserProvider = Provider<User?>((ref) {
 // Sign-in helpers
 // ---------------------------------------------------------------------------
 
-/// Resolve username → email via Supabase RPC, then sign in.
+/// Sign in with username or email + password.
 Future<AuthResponse> signInWithUsername(String username, String password) async {
-  final email = await _supabase
-      .rpc('get_email_by_username', params: {'p_username': username.trim().toLowerCase()})
-      .single() as String?;
+  final input = username.trim();
 
+  // If it looks like an email, sign in directly without the RPC lookup.
+  if (input.contains('@')) {
+    return _supabase.auth.signInWithPassword(email: input, password: password);
+  }
+
+  // Otherwise resolve username → email via the Supabase RPC.
+  final dynamic result = await _supabase.rpc(
+    'get_email_by_username',
+    params: {'p_username': input.toLowerCase()},
+  );
+
+  final email = result as String?;
   if (email == null || email.isEmpty) {
-    throw const AuthException('Username not found.');
+    throw const AuthException('Username not found. Try signing in with your email instead.');
   }
   return _supabase.auth.signInWithPassword(email: email, password: password);
 }
