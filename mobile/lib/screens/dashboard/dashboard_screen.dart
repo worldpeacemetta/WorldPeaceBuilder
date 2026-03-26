@@ -213,18 +213,42 @@ class _MacroProgressCard extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Top foods by kcal for the day
 // ---------------------------------------------------------------------------
-class _TopFoodsCard extends ConsumerWidget {
+class _TopFoodsCard extends ConsumerStatefulWidget {
   const _TopFoodsCard({required this.date});
   final String date;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final entries = ref.watch(entriesProvider(date)).valueOrNull ?? [];
+  ConsumerState<_TopFoodsCard> createState() => _TopFoodsCardState();
+}
+
+class _TopFoodsCardState extends ConsumerState<_TopFoodsCard> {
+  String _macro = 'kcal';
+
+  double _value(MacroValues m) => switch (_macro) {
+    'protein' => m.protein,
+    'carbs'   => m.carbs,
+    'fat'     => m.fat,
+    _         => m.kcal,
+  };
+
+  String _unit() => _macro == 'kcal' ? 'kcal' : 'g';
+
+  Color _color() => switch (_macro) {
+    'protein' => AppColors.protein,
+    'carbs'   => AppColors.carbs,
+    'fat'     => AppColors.fat,
+    _         => AppColors.kcal,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = ref.watch(entriesProvider(widget.date)).valueOrNull ?? [];
     if (entries.isEmpty) return const SizedBox.shrink();
 
     final sorted = [...entries]
-      ..sort((a, b) => b.macros.kcal.compareTo(a.macros.kcal));
+      ..sort((a, b) => _value(b.macros).compareTo(_value(a.macros)));
     final top5 = sorted.take(5).toList();
+    final maxVal = _value(top5.first.macros);
 
     return Card(
       child: Padding(
@@ -232,36 +256,111 @@ class _TopFoodsCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Top Foods Today',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            // Header + macro toggle
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('Top Foods Today',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                ),
+                _MacroToggle(selected: _macro, onChanged: (v) => setState(() => _macro = v)),
+              ],
+            ),
             const SizedBox(height: 12),
-            ...top5.map((e) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      e.food?.displayName ?? e.foodId,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13),
+            ...top5.map((e) {
+              final val = _value(e.macros);
+              final pct = maxVal > 0 ? val / maxVal : 0.0;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            e.food?.displayName ?? e.foodId,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${val.round()} ${_unit()}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: _color(),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${e.macros.kcal.round()} kcal',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.kcal,
+                    const SizedBox(height: 4),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(
+                        value: pct.toDouble(),
+                        minHeight: 3,
+                        backgroundColor: AppColors.border,
+                        valueColor: AlwaysStoppedAnimation(_color()),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            )),
+                  ],
+                ),
+              );
+            }),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _MacroToggle extends StatelessWidget {
+  const _MacroToggle({required this.selected, required this.onChanged});
+  final String selected;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    const macros = ['kcal', 'protein', 'carbs', 'fat'];
+    const colors = {
+      'kcal': AppColors.kcal, 'protein': AppColors.protein,
+      'carbs': AppColors.carbs, 'fat': AppColors.fat,
+    };
+    const labels = {
+      'kcal': 'Cal', 'protein': 'Pro', 'carbs': 'Carb', 'fat': 'Fat',
+    };
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: macros.map((m) {
+        final active = m == selected;
+        final color = colors[m]!;
+        return GestureDetector(
+          onTap: () => onChanged(m),
+          child: Container(
+            margin: const EdgeInsets.only(left: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            decoration: BoxDecoration(
+              color: active ? color.withValues(alpha: 0.2) : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: active ? color : AppColors.border,
+                width: active ? 1.2 : 1,
+              ),
+            ),
+            child: Text(
+              labels[m]!,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+                color: active ? color : AppColors.textMuted,
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 }
