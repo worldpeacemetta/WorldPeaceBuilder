@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -273,6 +274,10 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     _load();
   }
 
+  // Completer that resolves once the initial Supabase load finishes.
+  // _saveToSupabase awaits this so it never overwrites data it hasn't seen yet.
+  final Completer<void> _initialLoadDone = Completer<void>();
+
   Future<void> _load() async {
     // 1. Load from local cache first (instant, offline-safe).
     final prefs = await SharedPreferences.getInstance();
@@ -284,6 +289,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     }
     // 2. Then pull from Supabase (overrides local if present).
     await _loadFromSupabase();
+    if (!_initialLoadDone.isCompleted) _initialLoadDone.complete();
   }
 
   /// Fetch all synced fields from the user_profile table.
@@ -352,6 +358,8 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   Future<void> _saveToSupabase() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
+    // Wait for the initial Supabase load so we never overwrite data we haven't read.
+    await _initialLoadDone.future;
     try {
       final b = state.bodyStats;
       final history = state.weightHistory.map((e) => e.toJson()).toList();
@@ -441,7 +449,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     'bulking':      s.bulkingGoals.toJson(),
     'cutting':      s.cuttingGoals.toJson(),
     'maintenance':  s.maintenanceGoals.toJson(),
-    if (s.goalSchedule.isNotEmpty) 'byDate': s.goalSchedule,
+    'byDate': s.goalSchedule,  // always write — omitting wipes web-app overrides
   };
 }
 

@@ -19,11 +19,39 @@ Future<void> main() async {
   runApp(const ProviderScope(child: MacroTrackerApp()));
 }
 
-class MacroTrackerApp extends ConsumerWidget {
+class MacroTrackerApp extends ConsumerStatefulWidget {
   const MacroTrackerApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MacroTrackerApp> createState() => _MacroTrackerAppState();
+}
+
+class _MacroTrackerAppState extends ConsumerState<MacroTrackerApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Re-sync from Supabase whenever the app returns to the foreground so
+  /// changes made on the web app (goal schedule, body stats, goals) are
+  /// picked up without a full restart.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState lifecycleState) {
+    if (lifecycleState == AppLifecycleState.resumed) {
+      ref.read(settingsProvider.notifier).syncFromSupabase();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
 
