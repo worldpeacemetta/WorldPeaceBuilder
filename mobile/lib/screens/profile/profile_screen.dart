@@ -98,7 +98,9 @@ class ProfileScreen extends ConsumerWidget {
           const SizedBox(height: 16),
 
           // Active goals editor
-          _SectionHeader('Daily Goals — ${setupModeLabels[settings.setupMode] ?? settings.setupMode}'),
+          _SectionHeader(settings.setupMode == 'dual'
+              ? 'Daily Goals — ${settings.dualProfile == 'train' ? 'Train Day' : 'Rest Day'}'
+              : 'Daily Goals — ${setupModeLabels[settings.setupMode] ?? settings.setupMode}'),
           _GoalsEditor(settings: settings),
           const SizedBox(height: 16),
 
@@ -225,6 +227,24 @@ class _GoalsEditorState extends ConsumerState<_GoalsEditor> {
     _proteinCtrl = TextEditingController(text: _goals.protein.round().toString());
     _carbsCtrl   = TextEditingController(text: _goals.carbs.round().toString());
     _fatCtrl     = TextEditingController(text: _goals.fat.round().toString());
+  }
+
+  @override
+  void didUpdateWidget(_GoalsEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldS = oldWidget.settings;
+    final newS = widget.settings;
+    // Reload controllers when the active profile slot changed (mode switch or
+    // train↔rest toggle) so the fields reflect the correct day's targets.
+    final profileChanged = oldS.setupMode != newS.setupMode ||
+        oldS.dualProfile != newS.dualProfile;
+    if (profileChanged) {
+      _goals = newS.activeGoals;
+      _kcalCtrl.text    = _goals.kcal.round().toString();
+      _proteinCtrl.text = _goals.protein.round().toString();
+      _carbsCtrl.text   = _goals.carbs.round().toString();
+      _fatCtrl.text     = _goals.fat.round().toString();
+    }
   }
 
   @override
