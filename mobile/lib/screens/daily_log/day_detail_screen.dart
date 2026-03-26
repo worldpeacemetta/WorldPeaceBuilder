@@ -404,7 +404,7 @@ class _TopFoodsPanel extends StatelessWidget {
     final sorted = [...entries]
       ..sort((a, b) => _macroValue(b.macros, macro)
           .compareTo(_macroValue(a.macros, macro)));
-    final top5 = sorted.take(5).toList();
+    final top5 = sorted.take(3).toList();
     final maxVal = top5.isNotEmpty ? _macroValue(top5.first.macros, macro) : 1.0;
     final color = _macroColor(macro);
     final unit = _macroUnit(macro);
@@ -414,7 +414,7 @@ class _TopFoodsPanel extends StatelessWidget {
 
     return Container(
       color: AppColors.card,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       child: Column(
         children: [
           Row(
@@ -426,7 +426,7 @@ class _TopFoodsPanel extends StatelessWidget {
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 3),
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                   decoration: BoxDecoration(
                     color: selected ? AppColors.border : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
@@ -445,12 +445,12 @@ class _TopFoodsPanel extends StatelessWidget {
               );
             }),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           ...top5.map((entry) {
             final val = _macroValue(entry.macros, macro);
             final share = maxVal > 0 ? (val / maxVal).clamp(0.0, 1.0) : 0.0;
             return Padding(
-              padding: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.only(bottom: 5),
               child: Column(
                 children: [
                   Row(
