@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/food.dart';
 
@@ -124,6 +125,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   }
 
   Future<void> _load() async {
+    // 1. Load from local cache first (instant, offline-safe).
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_kSettings);
     if (raw != null) {
@@ -131,17 +133,96 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
         state = AppSettings.fromJson(jsonDecode(raw) as Map<String, dynamic>);
       } catch (_) {}
     }
+    // 2. Then pull from Supabase (overrides local if present).
+    await _loadFromSupabase();
   }
+
+  /// Fetch daily_macro_goals from the profiles table and merge into state.
+  Future<void> _loadFromSupabase() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    try {
+      final row = await Supabase.instance.client
+          .from('profiles')
+          .select('daily_macro_goals')
+          .eq('id', user.id)
+          .maybeSingle();
+      if (row == null) return;
+      final goals = row['daily_macro_goals'];
+      if (goals == null) return;
+      final parsed = _settingsFromSupabase(goals as Map<String, dynamic>);
+      state = parsed;
+      // Keep local cache in sync.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kSettings, jsonEncode(state.toJson()));
+    } catch (_) {}
+  }
+
+  /// Call after sign-in to pull goals from the server.
+  Future<void> syncFromSupabase() => _loadFromSupabase();
 
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kSettings, jsonEncode(state.toJson()));
   }
 
+  Future<void> _saveToSupabase() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    try {
+      await Supabase.instance.client.from('profiles').upsert({
+        'id': user.id,
+        'daily_macro_goals': _settingsToSupabase(state),
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+    } catch (_) {}
+  }
+
   Future<void> update(AppSettings updated) async {
     state = updated;
     await _save();
+    await _saveToSupabase();
   }
+
+  // -------------------------------------------------------------------------
+  // Mapping between mobile AppSettings ↔ web app daily_macro_goals schema.
+  // Web schema: { setup, dual: { train, rest, active }, bulking, cutting, maintenance }
+  // -------------------------------------------------------------------------
+  static MacroGoals _goalsFromJson(dynamic json) {
+    if (json is! Map) return const MacroGoals();
+    final m = json.cast<String, dynamic>();
+    return MacroGoals(
+      kcal:    (m['kcal']    as num?)?.toDouble() ?? 2000,
+      protein: (m['protein'] as num?)?.toDouble() ?? 150,
+      carbs:   (m['carbs']   as num?)?.toDouble() ?? 200,
+      fat:     (m['fat']     as num?)?.toDouble() ?? 70,
+    );
+  }
+
+  static AppSettings _settingsFromSupabase(Map<String, dynamic> g) {
+    final dual = g['dual'] as Map?;
+    return AppSettings(
+      setupMode:        (g['setup'] as String?) ?? 'maintenance',
+      dualProfile:      (dual?['active'] as String?) ?? 'train',
+      dualTrainGoals:   _goalsFromJson(dual?['train']),
+      dualRestGoals:    _goalsFromJson(dual?['rest'] ?? dual?['train']),
+      bulkingGoals:     _goalsFromJson(g['bulking']),
+      cuttingGoals:     _goalsFromJson(g['cutting']),
+      maintenanceGoals: _goalsFromJson(g['maintenance']),
+    );
+  }
+
+  static Map<String, dynamic> _settingsToSupabase(AppSettings s) => {
+    'setup': s.setupMode,
+    'dual': {
+      'train':  s.dualTrainGoals.toJson(),
+      'rest':   s.dualRestGoals.toJson(),
+      'active': s.dualProfile,
+    },
+    'bulking':      s.bulkingGoals.toJson(),
+    'cutting':      s.cuttingGoals.toJson(),
+    'maintenance':  s.maintenanceGoals.toJson(),
+  };
 }
 
 final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>(

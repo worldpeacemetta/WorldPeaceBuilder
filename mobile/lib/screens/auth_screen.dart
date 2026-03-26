@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../providers/auth_provider.dart';
+import '../providers/settings_provider.dart';
 import '../theme.dart';
 
 enum _AuthMode { signIn, signUp }
 
-class AuthScreen extends StatefulWidget {
+class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
 
   @override
-  State<AuthScreen> createState() => _AuthScreenState();
+  ConsumerState<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> {
+class _AuthScreenState extends ConsumerState<AuthScreen> {
   _AuthMode _mode = _AuthMode.signIn;
   bool _loading = false;
   String? _error;
@@ -36,6 +39,8 @@ class _AuthScreenState extends State<AuthScreen> {
     try {
       if (_mode == _AuthMode.signIn) {
         await signInWithUsername(_usernameCtrl.text, _passwordCtrl.text);
+        // Pull goals from Supabase immediately after sign-in.
+        await ref.read(settingsProvider.notifier).syncFromSupabase();
       } else {
         await signUp(
           username: _usernameCtrl.text,
