@@ -52,9 +52,7 @@ class _LogHistoryScreenState extends ConsumerState<LogHistoryScreen> {
     final todayNorm = DateTime(todayDate.year, todayDate.month, todayDate.day);
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
       appBar: AppBar(
-        backgroundColor: AppColors.bg,
         elevation: 0,
         title: const Text(
           'Log',

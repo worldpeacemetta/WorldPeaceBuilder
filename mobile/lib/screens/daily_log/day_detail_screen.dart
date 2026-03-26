@@ -47,11 +47,9 @@ class _DayDetailScreenState extends ConsumerState<DayDetailScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            backgroundColor: AppColors.bg,
             pinned: true,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
