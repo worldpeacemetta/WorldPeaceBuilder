@@ -76,7 +76,7 @@ class _FoodDbScreenState extends ConsumerState<FoodDbScreen> {
                   onTap: () => setState(() => _categoryFilter = null),
                 ),
                 ...foodCategories.map((cat) => _CategoryChip(
-                  label: '${categoryEmojis[cat] ?? ''} $cat',
+                  label: '${categoryEmojis[cat] ?? ''} ${categoryLabels[cat] ?? cat}',
                   selected: _categoryFilter == cat,
                   onTap: () => setState(() =>
                       _categoryFilter = _categoryFilter == cat ? null : cat),
@@ -123,7 +123,11 @@ class _FoodDbScreenState extends ConsumerState<FoodDbScreen> {
                         const Icon(Icons.no_food_outlined, size: 48, color: AppColors.textMuted),
                         const SizedBox(height: 10),
                         Text(
-                          foods.isEmpty ? 'No foods yet. Tap + to add.' : 'No results for "$_search"',
+                          foods.isEmpty
+                              ? 'No foods yet. Tap + to add.'
+                              : _search.isNotEmpty
+                                  ? 'No results for "$_search"'
+                                  : 'No foods in ${categoryLabels[_categoryFilter] ?? _categoryFilter}',
                           style: const TextStyle(color: AppColors.textMuted, fontSize: 14),
                         ),
                       ],
@@ -205,6 +209,7 @@ class _FoodTile extends ConsumerWidget {
         categoryEmojis[food.category] ?? '🍽️',
         style: const TextStyle(fontSize: 18),
       ),
+      onTap: () => _showActions(context, ref),
       onLongPress: () => _showActions(context, ref),
     );
   }

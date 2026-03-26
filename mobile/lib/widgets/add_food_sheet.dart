@@ -214,7 +214,7 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
                       ...foodCategories.map((c) => DropdownMenuItem(
                         value: c,
                         child: Text(
-                          '${categoryEmojis[c] ?? ''} $c',
+                          '${categoryEmojis[c] ?? ''} ${categoryLabels[c] ?? c}',
                           style: const TextStyle(fontSize: 13),
                         ),
                       )),
