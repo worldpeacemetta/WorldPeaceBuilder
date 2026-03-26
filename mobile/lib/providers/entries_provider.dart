@@ -38,10 +38,13 @@ class EntriesNotifier extends StateNotifier<AsyncValue<List<Entry>>> {
     required double qty,
     required String meal,
   }) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return false;
     try {
       final row = await _supabase
           .from('entries')
           .insert({
+            'user_id': userId,
             'date': _date,
             'food_id': foodId,
             'qty': qty,

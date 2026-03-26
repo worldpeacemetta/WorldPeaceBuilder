@@ -29,10 +29,12 @@ class FoodsNotifier extends StateNotifier<AsyncValue<List<Food>>> {
   }
 
   Future<Food?> addFood(Map<String, dynamic> insertData) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return null;
     try {
       final row = await _supabase
           .from('foods')
-          .insert(insertData)
+          .insert({...insertData, 'user_id': userId})
           .select()
           .single();
       final food = Food.fromJson(row as Map<String, dynamic>);
