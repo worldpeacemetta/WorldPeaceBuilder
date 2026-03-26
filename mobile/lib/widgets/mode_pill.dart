@@ -181,7 +181,7 @@ class _ModeSheetState extends ConsumerState<_ModeSheet> {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: _setup == mode ? FontWeight.w600 : FontWeight.w400,
-                          color: _setup == mode ? color : AppColors.text,
+                          color: _setup == mode ? color : AppColors.textPrimary,
                         ),
                       ),
                     ),
