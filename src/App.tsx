@@ -470,7 +470,8 @@ function ensureBodyHistory(value) {
     .map((entry) => {
       const date = typeof entry?.date === "string" && ISO_DATE_RE.test(entry.date) ? entry.date : null;
       if (!date) return null;
-      const weightKg = toNumber(entry?.weightKg, 0);
+      const rawWeight = toNumber(entry?.weightKg, 0);
+      const weightKg = rawWeight > 0 ? rawWeight : null;
       const bodyFatPct = entry?.bodyFatPct == null ? null : toNumber(entry.bodyFatPct, 0);
       const recordedAt =
         typeof entry?.recordedAt === "string" && !Number.isNaN(Date.parse(entry.recordedAt))
@@ -2114,7 +2115,7 @@ export default function MacroTrackerApp(){
       const withoutToday = history.filter((entry) => entry.date !== date);
       const nextHistory = [...withoutToday, {
         date,
-        weightKg: weightValue,
+        weightKg: weightValue > 0 ? weightValue : null,
         bodyFatPct: bodyFatValue,
         recordedAt: now.toISOString(),
       }].sort((a, b) => a.date.localeCompare(b.date));
