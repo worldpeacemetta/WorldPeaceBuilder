@@ -6,6 +6,7 @@ import '../models/food.dart';
 import '../providers/entries_provider.dart';
 import '../providers/foods_provider.dart';
 import '../theme.dart';
+import 'add_food_sheet.dart';
 
 /// Returns the most appropriate meal based on current time of day.
 String _suggestMeal() {
@@ -109,11 +110,31 @@ class _AddEntrySheetState extends ConsumerState<_AddEntrySheet> {
               ),
             ),
           ),
+          // Header row: title + New Food shortcut
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Text(
-              'Log Food',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+            child: Row(
+              children: [
+                Text(
+                  'Log Food',
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    showAddFoodSheet(context, ref);
+                  },
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('New Food'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.protein,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
             ),
           ),
 
@@ -157,7 +178,6 @@ class _AddEntrySheetState extends ConsumerState<_AddEntrySheet> {
                           onTap: () {
                             setState(() {
                               _selectedFood = f;
-                              // Default qty: 100 for per100g, 1 for perServing
                               _qtyCtrl.text = f.unit == 'per100g' ? '100' : '1';
                             });
                           },
