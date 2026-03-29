@@ -28,14 +28,20 @@ void showAddEntrySheet(BuildContext context, WidgetRef ref, String date) {
     ),
     builder: (ctx) => ProviderScope(
       parent: ProviderScope.containerOf(context),
-      child: _AddEntrySheet(date: date),
+      child: _AddEntrySheet(date: date, parentContext: context, parentRef: ref),
     ),
   );
 }
 
 class _AddEntrySheet extends ConsumerStatefulWidget {
-  const _AddEntrySheet({required this.date});
+  const _AddEntrySheet({
+    required this.date,
+    required this.parentContext,
+    required this.parentRef,
+  });
   final String date;
+  final BuildContext parentContext;
+  final WidgetRef parentRef;
 
   @override
   ConsumerState<_AddEntrySheet> createState() => _AddEntrySheetState();
@@ -123,8 +129,10 @@ class _AddEntrySheetState extends ConsumerState<_AddEntrySheet> {
                 const Spacer(),
                 TextButton.icon(
                   onPressed: () {
+                    final parentCtx = widget.parentContext;
+                    final parentRef = widget.parentRef;
                     Navigator.pop(context);
-                    showAddFoodSheet(context, ref);
+                    showAddFoodSheet(parentCtx, parentRef);
                   },
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text('New Food'),
