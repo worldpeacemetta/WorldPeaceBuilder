@@ -1,11 +1,8 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants.dart';
 import '../../core/utils.dart';
-import '../../models/entry.dart';
 import '../../models/food.dart';
 import '../../providers/date_provider.dart';
 import '../../providers/entries_provider.dart';
@@ -15,16 +12,6 @@ import '../../theme.dart';
 import '../../widgets/add_entry_sheet.dart';
 import '../../widgets/add_food_sheet.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
-
-// Returns the likely current meal based on time of day.
-String _mealForNow() {
-  final h = DateTime.now().hour;
-  if (h < 10) return 'breakfast';
-  if (h < 14) return 'lunch';
-  if (h < 17) return 'snack';
-  if (h < 21) return 'dinner';
-  return 'other';
-}
 
 // ---------------------------------------------------------------------------
 // Screen
@@ -40,12 +27,7 @@ class _FoodDbScreenState extends ConsumerState<FoodDbScreen> {
   String _search = '';
   String? _categoryFilter;
   bool _showSearch = false;
-  int _macroIndex = 0; // 0=kcal 1=protein 2=carbs 3=fat
   final _searchCtrl = TextEditingController();
-
-  static const _macroKeys   = ['kcal', 'protein', 'carbs', 'fat'];
-  static const _macroColors = [AppColors.kcal, AppColors.protein, AppColors.carbs, AppColors.fat];
-  static const _macroUnits  = ['kcal', 'g', 'g', 'g'];
 
   @override
   void dispose() {
@@ -53,27 +35,12 @@ class _FoodDbScreenState extends ConsumerState<FoodDbScreen> {
     super.dispose();
   }
 
-  double _actual(MacroValues t) => switch (_macroKeys[_macroIndex]) {
-    'protein' => t.protein, 'carbs' => t.carbs, 'fat' => t.fat, _ => t.kcal,
-  };
-
-  double _goalVal(MacroGoals g) => switch (_macroKeys[_macroIndex]) {
-    'protein' => g.protein, 'carbs' => g.carbs, 'fat' => g.fat, _ => g.kcal,
-  };
-
   @override
   Widget build(BuildContext context) {
     final logDate    = ref.watch(logDateProvider);
     final totals     = ref.watch(macroTotalsProvider(logDate));
     final goals      = ref.watch(settingsProvider).goalsForDate(logDate);
     final foodsAsync = ref.watch(foodsProvider);
-
-    final actual   = _actual(totals);
-    final goal     = _goalVal(goals);
-    final progress = goal > 0 ? (actual / goal).clamp(0.0, 1.0) : 0.0;
-    final isOver   = goal > 0 && actual > goal;
-    final color    = _macroColors[_macroIndex];
-    final unit     = _macroUnits[_macroIndex];
 
     return Scaffold(
       appBar: AppBar(
@@ -87,61 +54,8 @@ class _FoodDbScreenState extends ConsumerState<FoodDbScreen> {
       ),
       body: Column(
         children: [
-          // ── Macro KPI bar ────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Left: current meal chip
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.card,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Text(
-                      mealLabels[_mealForNow()] ?? 'Now',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                    ),
-                  ),
-                ),
-                // Center: donut KPI
-                _MacroKpi(
-                  actual: actual,
-                  goal: goal,
-                  progress: progress,
-                  isOver: isOver,
-                  color: color,
-                  unit: unit,
-                ),
-                // Right: up/down to switch macro
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      GestureDetector(
-                        onTap: () => setState(
-                            () => _macroIndex = (_macroIndex - 1 + 4) % 4),
-                        child: const Icon(Icons.keyboard_arrow_up,
-                            color: AppColors.textMuted, size: 24),
-                      ),
-                      GestureDetector(
-                        onTap: () => setState(
-                            () => _macroIndex = (_macroIndex + 1) % 4),
-                        child: const Icon(Icons.keyboard_arrow_down,
-                            color: AppColors.textMuted, size: 24),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // ── Four-macro pill bar ──────────────────────────────────────────
+          _FourMacroBar(totals: totals, goals: goals),
 
           // ── Action bar ────────────────────────────────────────────────────
           if (_showSearch)
@@ -324,97 +238,110 @@ class _FoodDbScreenState extends ConsumerState<FoodDbScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// Macro KPI — small donut with actual / goal
+// Four-macro pill bar — one pill-arc per macro, all in a row
 // ---------------------------------------------------------------------------
-class _MacroKpi extends StatelessWidget {
-  const _MacroKpi({
-    required this.actual,
-    required this.goal,
-    required this.progress,
-    required this.isOver,
-    required this.color,
-    required this.unit,
-  });
-  final double actual, goal, progress;
-  final bool isOver;
-  final Color color;
-  final String unit;
+class _FourMacroBar extends StatelessWidget {
+  const _FourMacroBar({required this.totals, required this.goals});
+  final MacroValues totals;
+  final MacroGoals goals;
 
   @override
   Widget build(BuildContext context) {
-    final c = isOver ? AppColors.danger : color;
-    return SizedBox(
-      width: 96,
-      height: 96,
-      child: Stack(
-        alignment: Alignment.center,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Row(
         children: [
-          CustomPaint(
-            size: const Size(96, 96),
-            painter: _ArcPainter(progress: progress, color: c),
-          ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                actual.round().toString(),
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: c,
-                ),
-              ),
-              Text(
-                '/ ${goal.round()}',
-                style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
-              ),
-              Text(
-                unit,
-                style: TextStyle(fontSize: 9, color: c),
-              ),
-            ],
-          ),
+          Expanded(child: _PillArc(label: 'Cal',  actual: totals.kcal,    goal: goals.kcal,    unit: 'kcal', color: AppColors.kcal)),
+          const SizedBox(width: 8),
+          Expanded(child: _PillArc(label: 'Pro',  actual: totals.protein, goal: goals.protein, unit: 'g',    color: AppColors.protein)),
+          const SizedBox(width: 8),
+          Expanded(child: _PillArc(label: 'Carb', actual: totals.carbs,   goal: goals.carbs,   unit: 'g',    color: AppColors.carbs)),
+          const SizedBox(width: 8),
+          Expanded(child: _PillArc(label: 'Fat',  actual: totals.fat,     goal: goals.fat,     unit: 'g',    color: AppColors.fat)),
         ],
       ),
     );
   }
 }
 
-class _ArcPainter extends CustomPainter {
-  const _ArcPainter({required this.progress, required this.color});
-  final double progress;
+class _PillArc extends StatelessWidget {
+  const _PillArc({
+    required this.label, required this.actual, required this.goal,
+    required this.unit,  required this.color,
+  });
+  final String label, unit;
+  final double actual, goal;
   final Color color;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 8;
-    const sw = 8.0;
+  Widget build(BuildContext context) {
+    final progress = goal > 0 ? (actual / goal).clamp(0.0, 1.0) : 0.0;
+    final c = (goal > 0 && actual > goal) ? AppColors.danger : color;
+    return CustomPaint(
+      painter: _PillArcPainter(progress: progress, color: c),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label,
+                style: TextStyle(fontSize: 9, color: c, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 1),
+            Text(actual.round().toString(),
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: c)),
+            Text('/ ${goal.round()}',
+                style: const TextStyle(fontSize: 9, color: AppColors.textMuted)),
+            Text(unit,
+                style: TextStyle(fontSize: 8, color: c.withValues(alpha: 0.7))),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -pi / 2, 2 * pi, false,
+class _PillArcPainter extends CustomPainter {
+  const _PillArcPainter({required this.progress, required this.color});
+  final double progress;
+  final Color color;
+
+  static const _sw = 2.5;
+  static const _r  = 12.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final inset = _sw / 2 + 1;
+    final rrect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(inset, inset, size.width - inset * 2, size.height - inset * 2),
+      const Radius.circular(_r),
+    );
+
+    // Background border
+    canvas.drawRRect(
+      rrect,
       Paint()
         ..color = AppColors.border
         ..style = PaintingStyle.stroke
-        ..strokeWidth = sw
-        ..strokeCap = StrokeCap.round,
+        ..strokeWidth = _sw,
     );
+
+    // Progress arc traced along the pill border
     if (progress > 0) {
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        -pi / 2, 2 * pi * progress, false,
+      final path = Path()..addRRect(rrect);
+      final m = path.computeMetrics().first;
+      canvas.drawPath(
+        m.extractPath(0, m.length * progress),
         Paint()
           ..color = color
           ..style = PaintingStyle.stroke
-          ..strokeWidth = sw
+          ..strokeWidth = _sw
           ..strokeCap = StrokeCap.round,
       );
     }
   }
 
   @override
-  bool shouldRepaint(_ArcPainter old) =>
+  bool shouldRepaint(_PillArcPainter old) =>
       old.progress != progress || old.color != color;
 }
 
