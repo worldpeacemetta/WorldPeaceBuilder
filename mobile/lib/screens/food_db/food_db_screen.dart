@@ -251,13 +251,13 @@ class _FourMacroBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Row(
         children: [
-          Expanded(child: _PillArc(label: 'Cal',  actual: totals.kcal,    goal: goals.kcal,    unit: 'kcal', color: AppColors.kcal)),
+          Expanded(child: _PillArc(label: 'K', actual: totals.kcal,    goal: goals.kcal,    unit: 'kcal', color: AppColors.kcal)),
           const SizedBox(width: 8),
-          Expanded(child: _PillArc(label: 'Pro',  actual: totals.protein, goal: goals.protein, unit: 'g',    color: AppColors.protein)),
+          Expanded(child: _PillArc(label: 'P', actual: totals.protein, goal: goals.protein, unit: 'g',    color: AppColors.protein)),
           const SizedBox(width: 8),
-          Expanded(child: _PillArc(label: 'Carb', actual: totals.carbs,   goal: goals.carbs,   unit: 'g',    color: AppColors.carbs)),
+          Expanded(child: _PillArc(label: 'C', actual: totals.carbs,   goal: goals.carbs,   unit: 'g',    color: AppColors.carbs)),
           const SizedBox(width: 8),
-          Expanded(child: _PillArc(label: 'Fat',  actual: totals.fat,     goal: goals.fat,     unit: 'g',    color: AppColors.fat)),
+          Expanded(child: _PillArc(label: 'F', actual: totals.fat,     goal: goals.fat,     unit: 'g',    color: AppColors.fat)),
         ],
       ),
     );
@@ -280,19 +280,22 @@ class _PillArc extends StatelessWidget {
     return CustomPaint(
       painter: _PillArcPainter(progress: progress, color: c),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 6),
+        padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(label,
-                style: TextStyle(fontSize: 9, color: c, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 1),
+                style: TextStyle(
+                    fontSize: 9, color: c, fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5)),
+            const SizedBox(height: 2),
             Text(actual.round().toString(),
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: c)),
-            Text('/ ${goal.round()}',
-                style: const TextStyle(fontSize: 9, color: AppColors.textMuted)),
-            Text(unit,
-                style: TextStyle(fontSize: 8, color: c.withValues(alpha: 0.7))),
+                style: TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w700, color: c)),
+            Text('/ ${goal.round()} $unit',
+                style: const TextStyle(
+                    fontSize: 9, color: AppColors.textMuted)),
           ],
         ),
       ),
@@ -306,7 +309,7 @@ class _PillArcPainter extends CustomPainter {
   final Color color;
 
   static const _sw = 2.5;
-  static const _r  = 12.0;
+  static const _r  = 8.0;
 
   @override
   void paint(Canvas canvas, Size size) {
