@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -96,7 +98,7 @@ class DashboardScreen extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Macro progress bars
+// Macro breakdown — donut (kcal) + three macro pills
 // ---------------------------------------------------------------------------
 class _MacroProgressCard extends StatelessWidget {
   const _MacroProgressCard({required this.totals, required this.goals});
@@ -105,6 +107,9 @@ class _MacroProgressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kcalPct = goals.kcal > 0 ? totals.kcal / goals.kcal : 0.0;
+    final kcalOver = goals.kcal > 0 && totals.kcal > goals.kcal;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -113,64 +118,157 @@ class _MacroProgressCard extends StatelessWidget {
           children: [
             const Text('Macro Breakdown',
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-            const SizedBox(height: 14),
-            _bar('Calories', totals.kcal, goals.kcal, 'kcal', AppColors.kcal),
-            const SizedBox(height: 10),
-            _bar('Protein',  totals.protein, goals.protein, 'g', AppColors.protein),
-            const SizedBox(height: 10),
-            _bar('Carbs',    totals.carbs,   goals.carbs,   'g', AppColors.carbs),
-            const SizedBox(height: 10),
-            _bar('Fat',      totals.fat,     goals.fat,     'g', AppColors.fat),
+            const SizedBox(height: 16),
+            // Donut chart centred
+            Center(
+              child: SizedBox(
+                width: 148,
+                height: 148,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CustomPaint(
+                      size: const Size(148, 148),
+                      painter: _DonutPainter(
+                        progress: kcalPct.clamp(0.0, 1.0),
+                        color: AppColors.kcal,
+                        isOver: kcalOver,
+                      ),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          totals.kcal.round().toString(),
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
+                            color: kcalOver ? AppColors.danger : AppColors.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          '/ ${goals.kcal.round()} kcal',
+                          style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${(kcalPct * 100).round()}%',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: kcalOver ? AppColors.danger : AppColors.kcal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Three macro pills
+            Row(
+              children: [
+                Expanded(child: _MacroPill(label: 'Protein', actual: totals.protein, goal: goals.protein, unit: 'g', color: AppColors.protein)),
+                const SizedBox(width: 8),
+                Expanded(child: _MacroPill(label: 'Carbs', actual: totals.carbs, goal: goals.carbs, unit: 'g', color: AppColors.carbs)),
+                const SizedBox(width: 8),
+                Expanded(child: _MacroPill(label: 'Fat', actual: totals.fat, goal: goals.fat, unit: 'g', color: AppColors.fat)),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _bar(String label, double actual, double goal, String unit, Color color) {
-    final pct = goal > 0 ? (actual / goal).clamp(0.0, 1.0) : 0.0;
-    final pctInt = (pct * 100).round();
+class _MacroPill extends StatelessWidget {
+  const _MacroPill({
+    required this.label, required this.actual, required this.goal,
+    required this.unit, required this.color,
+  });
+  final String label;
+  final double actual;
+  final double goal;
+  final String unit;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
     final over = goal > 0 && actual > goal;
-    final displayColor = over ? AppColors.danger : color;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(label, style: const TextStyle(fontSize: 13, color: AppColors.textMuted)),
-            const Spacer(),
-            Text(
-              '${actual.round()} / ${goal.round()} $unit',
-              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+    final c = over ? AppColors.danger : color;
+    final pct = goal > 0 ? (actual / goal).clamp(0.0, 1.0) : 0.0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: c.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: c.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: TextStyle(fontSize: 10, color: c, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text('${actual.round()}$unit',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: c)),
+          Text('/ ${goal.round()}$unit',
+              style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              value: pct,
+              backgroundColor: AppColors.border,
+              valueColor: AlwaysStoppedAnimation(c),
+              minHeight: 3,
             ),
-            const SizedBox(width: 8),
-            SizedBox(
-              width: 38,
-              child: Text(
-                '$pctInt%',
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: displayColor,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 5),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: pct,
-            backgroundColor: AppColors.border,
-            valueColor: AlwaysStoppedAnimation(displayColor),
-            minHeight: 6,
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
+}
+
+class _DonutPainter extends CustomPainter {
+  const _DonutPainter({required this.progress, required this.color, required this.isOver});
+  final double progress;
+  final Color color;
+  final bool isOver;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 14;
+    const sw = 14.0;
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -pi / 2, 2 * pi, false,
+      Paint()
+        ..color = AppColors.border
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = sw
+        ..strokeCap = StrokeCap.round,
+    );
+
+    if (progress > 0) {
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        -pi / 2, 2 * pi * progress, false,
+        Paint()
+          ..color = isOver ? AppColors.danger : color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = sw
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DonutPainter old) =>
+      old.progress != progress || old.isOver != isOver;
 }
 
 // ---------------------------------------------------------------------------

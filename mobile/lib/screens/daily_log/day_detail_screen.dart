@@ -493,94 +493,260 @@ class _TopFoodsPanel extends StatelessWidget {
   }
 }
 
-class _DetailEntryTile extends ConsumerWidget {
+class _DetailEntryTile extends ConsumerStatefulWidget {
   final Entry entry;
   final String date;
 
   const _DetailEntryTile({required this.entry, required this.date});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final macros = entry.macros;
-    final food = entry.food;
-    final unit = food?.unit ?? 'g';
-    final qty = entry.qty % 1 == 0
-        ? entry.qty.toInt().toString()
-        : entry.qty.toStringAsFixed(1);
+  ConsumerState<_DetailEntryTile> createState() => _DetailEntryTileState();
+}
 
-    return ListTile(
-      title: Text(
-        food?.name ?? entry.foodId,
-        style: const TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w500),
-      ),
-      subtitle: Text(
-        '$qty $unit  ·  P ${macros.protein.round()}g  C ${macros.carbs.round()}g  F ${macros.fat.round()}g',
-        style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            '${macros.kcal.round()}',
-            style: const TextStyle(
-              color: AppColors.kcal,
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-            ),
+class _DetailEntryTileState extends ConsumerState<_DetailEntryTile>
+    with SingleTickerProviderStateMixin {
+  static const _revealWidth = 144.0;
+  late final AnimationController _ctrl;
+  late final Animation<double> _slideAnim;
+  bool _open = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    );
+    _slideAnim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    _open ? _ctrl.reverse() : _ctrl.forward();
+    _open = !_open;
+  }
+
+  void _close() {
+    if (_open) {
+      _ctrl.reverse();
+      _open = false;
+    }
+  }
+
+  Future<void> _delete() async {
+    _close();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: const Text('Delete Entry',
+            style: TextStyle(color: AppColors.textPrimary)),
+        content: const Text('Are you sure you want to delete this entry?',
+            style: TextStyle(color: AppColors.textMuted)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel',
+                style: TextStyle(color: AppColors.textMuted)),
           ),
-          const SizedBox(width: 8),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_horiz, size: 18, color: AppColors.textMuted),
-            color: AppColors.card,
-            onSelected: (value) async {
-              if (value == 'edit') {
-                showEditEntrySheet(context, ref, entry, date);
-              } else if (value == 'delete') {
-                final confirmed = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    backgroundColor: AppColors.card,
-                    title: const Text(
-                      'Delete Entry',
-                      style: TextStyle(color: AppColors.textPrimary),
-                    ),
-                    content: const Text(
-                      'Are you sure you want to delete this entry?',
-                      style: TextStyle(color: AppColors.textMuted),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(ctx).pop(false),
-                        child: const Text('Cancel',
-                            style: TextStyle(color: AppColors.textMuted)),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.of(ctx).pop(true),
-                        child: const Text('Delete',
-                            style: TextStyle(color: AppColors.danger)),
-                      ),
-                    ],
-                  ),
-                );
-                if (confirmed == true) {
-                  ref
-                      .read(entriesProvider(date).notifier)
-                      .deleteEntry(entry.id);
-                }
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem<String>(
-                value: 'edit',
-                child: Text('Edit', style: TextStyle(color: AppColors.textPrimary)),
-              ),
-              const PopupMenuItem<String>(
-                value: 'delete',
-                child: Text('Delete', style: TextStyle(color: AppColors.danger)),
-              ),
-            ],
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete',
+                style: TextStyle(color: AppColors.danger)),
           ),
         ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      ref.read(entriesProvider(widget.date).notifier).deleteEntry(widget.entry.id);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final macros = widget.entry.macros;
+    final food = widget.entry.food;
+    final unit = food?.unit ?? 'g';
+    final qty = widget.entry.qty % 1 == 0
+        ? widget.entry.qty.toInt().toString()
+        : widget.entry.qty.toStringAsFixed(1);
+
+    return GestureDetector(
+      onHorizontalDragUpdate: (d) {
+        if (d.delta.dx < -4 && !_open) _toggle();
+        if (d.delta.dx > 4 && _open) _toggle();
+      },
+      onTap: _close,
+      child: AnimatedBuilder(
+        animation: _slideAnim,
+        builder: (_, __) {
+          final offset = -_revealWidth * _slideAnim.value;
+          return Stack(
+            children: [
+              // Morphing action buttons (circle → rectangle as swipe progresses)
+              Positioned(
+                right: 0, top: 0, bottom: 0,
+                child: _MorphButtons(
+                  progress: _slideAnim.value,
+                  onEdit: () {
+                    _close();
+                    showEditEntrySheet(context, ref, widget.entry, widget.date);
+                  },
+                  onDelete: _delete,
+                ),
+              ),
+              // Tile
+              Transform.translate(
+                offset: Offset(offset, 0),
+                child: Container(
+                  color: AppColors.card,
+                  child: ListTile(
+                    title: Text(
+                      food?.name ?? widget.entry.foodId,
+                      style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500),
+                    ),
+                    subtitle: Text(
+                      '$qty $unit  ·  P ${macros.protein.round()}g  C ${macros.carbs.round()}g  F ${macros.fat.round()}g',
+                      style: const TextStyle(
+                          color: AppColors.textMuted, fontSize: 12),
+                    ),
+                    trailing: Text(
+                      '${macros.kcal.round()}',
+                      style: const TextStyle(
+                          color: AppColors.kcal,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ── Morph buttons (circle → rectangle) ───────────────────────────────────────
+
+class _MorphButtons extends StatelessWidget {
+  const _MorphButtons({
+    required this.progress,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final double progress;   // 0.0 (hidden) → 1.0 (fully revealed)
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  static double _lerp(double a, double b, double t) => a + (b - a) * t;
+
+  @override
+  Widget build(BuildContext context) {
+    // At progress=0: buttons appear as circles (44×44)
+    // At progress=1: buttons are full rectangles (72× tile height)
+    const fullW = 72.0;
+    const circleD = 44.0;
+    final btnW   = _lerp(circleD, fullW, progress);
+    final radius = _lerp(circleD / 2, 5.0, progress);
+    // Labels fade in after 60% swipe
+    final labelOpacity = ((progress - 0.6) / 0.4).clamp(0.0, 1.0);
+
+    final pad = _lerp(8.0, 0.0, progress);
+
+    return Opacity(
+      opacity: progress.clamp(0.0, 1.0),
+      child: Padding(
+        padding: EdgeInsets.all(pad),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _MorphBtn(
+              width: btnW,
+              radius: radius,
+              color: AppColors.protein,
+              icon: Icons.edit_outlined,
+              label: 'Edit',
+              labelOpacity: labelOpacity,
+              onTap: onEdit,
+            ),
+            SizedBox(width: _lerp(6.0, 0.0, progress)),
+            _MorphBtn(
+              width: btnW,
+              radius: radius,
+              color: AppColors.danger,
+              icon: Icons.delete_outline,
+              label: 'Delete',
+              labelOpacity: labelOpacity,
+              onTap: onDelete,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MorphBtn extends StatelessWidget {
+  const _MorphBtn({
+    required this.width,
+    required this.radius,
+    required this.color,
+    required this.icon,
+    required this.label,
+    required this.labelOpacity,
+    required this.onTap,
+  });
+
+  final double width;
+  final double radius;
+  final Color color;
+  final IconData icon;
+  final String label;
+  final double labelOpacity;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: width,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(radius),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.white, size: 20),
+            if (labelOpacity > 0) ...[
+              const SizedBox(height: 3),
+              Opacity(
+                opacity: labelOpacity,
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

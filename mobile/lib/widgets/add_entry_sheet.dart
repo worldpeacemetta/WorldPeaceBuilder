@@ -6,6 +6,7 @@ import '../models/food.dart';
 import '../providers/entries_provider.dart';
 import '../providers/foods_provider.dart';
 import '../theme.dart';
+import 'add_food_sheet.dart';
 
 /// Returns the most appropriate meal based on current time of day.
 String _suggestMeal() {
@@ -17,7 +18,12 @@ String _suggestMeal() {
   return 'snack';
 }
 
-void showAddEntrySheet(BuildContext context, WidgetRef ref, String date) {
+void showAddEntrySheet(
+  BuildContext context,
+  WidgetRef ref,
+  String date, {
+  Food? preselectedFood,
+}) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -27,26 +33,47 @@ void showAddEntrySheet(BuildContext context, WidgetRef ref, String date) {
     ),
     builder: (ctx) => ProviderScope(
       parent: ProviderScope.containerOf(context),
-      child: _AddEntrySheet(date: date),
+      child: _AddEntrySheet(
+        date: date,
+        parentContext: context,
+        parentRef: ref,
+        preselectedFood: preselectedFood,
+      ),
     ),
   );
 }
 
 class _AddEntrySheet extends ConsumerStatefulWidget {
-  const _AddEntrySheet({required this.date});
+  const _AddEntrySheet({
+    required this.date,
+    required this.parentContext,
+    required this.parentRef,
+    this.preselectedFood,
+  });
   final String date;
+  final BuildContext parentContext;
+  final WidgetRef parentRef;
+  final Food? preselectedFood;
 
   @override
   ConsumerState<_AddEntrySheet> createState() => _AddEntrySheetState();
 }
 
 class _AddEntrySheetState extends ConsumerState<_AddEntrySheet> {
-  Food? _selectedFood;
+  late Food? _selectedFood;
   String _meal = _suggestMeal();
-  final _qtyCtrl = TextEditingController(text: '100');
+  late final TextEditingController _qtyCtrl;
   final _searchCtrl = TextEditingController();
   String _search = '';
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedFood = widget.preselectedFood;
+    final defaultQty = widget.preselectedFood?.unit == 'perServing' ? '1' : '100';
+    _qtyCtrl = TextEditingController(text: defaultQty);
+  }
 
   @override
   void dispose() {
@@ -109,11 +136,33 @@ class _AddEntrySheetState extends ConsumerState<_AddEntrySheet> {
               ),
             ),
           ),
+          // Header row: title + New Food shortcut
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Text(
-              'Add Food',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+            child: Row(
+              children: [
+                Text(
+                  'Log Food',
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: () {
+                    final parentCtx = widget.parentContext;
+                    final parentRef = widget.parentRef;
+                    Navigator.pop(context);
+                    showAddFoodSheet(parentCtx, parentRef);
+                  },
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('New Food'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.protein,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
             ),
           ),
 
@@ -157,7 +206,6 @@ class _AddEntrySheetState extends ConsumerState<_AddEntrySheet> {
                           onTap: () {
                             setState(() {
                               _selectedFood = f;
-                              // Default qty: 100 for per100g, 1 for perServing
                               _qtyCtrl.text = f.unit == 'per100g' ? '100' : '1';
                             });
                           },

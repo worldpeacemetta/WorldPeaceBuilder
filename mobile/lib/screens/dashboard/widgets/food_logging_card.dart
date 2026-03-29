@@ -6,7 +6,23 @@ import '../../../models/food.dart';
 import '../../../providers/entries_provider.dart';
 import '../../../theme.dart';
 
-/// Per-meal calorie breakdown card — matches web app's Food Logging section.
+const _mealColors = {
+  'breakfast': Color(0xFFFFB347),
+  'lunch'    : AppColors.protein,
+  'dinner'   : AppColors.kcal,
+  'snack'    : AppColors.carbs,
+  'other'    : AppColors.fat,
+};
+
+const _mealIcons = {
+  'breakfast': '🌅',
+  'lunch'    : '☀️',
+  'dinner'   : '🌙',
+  'snack'    : '🍎',
+  'other'    : '🍽️',
+};
+
+/// Per-meal calorie breakdown card — stacked proportion bar + meal cards.
 class FoodLoggingCard extends ConsumerWidget {
   const FoodLoggingCard({super.key, required this.date});
   final String date;
@@ -45,9 +61,17 @@ class FoodLoggingCard extends ConsumerWidget {
                     style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
               ],
             ),
+            const SizedBox(height: 12),
+            // Stacked proportion bar
+            _StackedBar(mealTotals: mealTotals, totalKcal: totalKcal),
             const SizedBox(height: 14),
-            ...mealTotals.entries.map((e) =>
-                _MealRow(meal: e.key, macros: e.value, totalKcal: totalKcal)),
+            // Meal cards (no individual bars)
+            ...mealTotals.entries.map((e) => _MealCard(
+              meal: e.key,
+              macros: e.value,
+              color: _mealColors[e.key] ?? AppColors.kcal,
+              icon: _mealIcons[e.key] ?? '🍽️',
+            )),
           ],
         ),
       ),
@@ -55,61 +79,105 @@ class FoodLoggingCard extends ConsumerWidget {
   }
 }
 
-class _MealRow extends StatelessWidget {
-  const _MealRow({required this.meal, required this.macros, required this.totalKcal});
-  final String meal;
-  final MacroValues macros;
-  final double totalKcal;
+// ---------------------------------------------------------------------------
 
-  static const _mealIcons = {
-    'breakfast': '🌅',
-    'lunch'    : '☀️',
-    'dinner'   : '🌙',
-    'snack'    : '🍎',
-    'other'    : '🍽️',
-  };
+class _StackedBar extends StatelessWidget {
+  const _StackedBar({required this.mealTotals, required this.totalKcal});
+  final Map<String, MacroValues> mealTotals;
+  final double totalKcal;
 
   @override
   Widget build(BuildContext context) {
-    final pct = totalKcal > 0 ? (macros.kcal / totalKcal).clamp(0.0, 1.0) : 0.0;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(5),
+      child: SizedBox(
+        height: 8,
+        child: Row(
+          children: mealTotals.entries.map((e) {
+            final flex = totalKcal > 0
+                ? ((e.value.kcal / totalKcal) * 1000).round()
+                : 0;
+            return Flexible(
+              flex: flex,
+              child: Container(color: _mealColors[e.key] ?? AppColors.kcal),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+}
 
+// ---------------------------------------------------------------------------
+
+class _MealCard extends StatelessWidget {
+  const _MealCard({
+    required this.meal, required this.macros,
+    required this.color, required this.icon,
+  });
+  final String meal;
+  final MacroValues macros;
+  final Color color;
+  final String icon;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
         children: [
-          Row(
-            children: [
-              Text(_mealIcons[meal] ?? '🍽️', style: const TextStyle(fontSize: 16)),
-              const SizedBox(width: 8),
-              Text(mealLabels[meal] ?? meal,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-              const Spacer(),
-              Text(
-                '${macros.kcal.round()} kcal',
-                style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.kcal),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '· P${macros.protein.round()} C${macros.carbs.round()} F${macros.fat.round()}',
-                style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
-              ),
-            ],
+          // Colored accent dot
+          Container(
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-          const SizedBox(height: 5),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: LinearProgressIndicator(
-              value: pct,
-              backgroundColor: AppColors.border,
-              valueColor: const AlwaysStoppedAnimation(AppColors.kcal),
-              minHeight: 4,
+          const SizedBox(width: 8),
+          Text(icon, style: const TextStyle(fontSize: 15)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              mealLabels[meal] ?? meal,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
             ),
           ),
+          // kcal value
+          Text(
+            '${macros.kcal.round()}',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color),
+          ),
+          const SizedBox(width: 3),
+          const Text('kcal', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+          const SizedBox(width: 10),
+          // P / C / F chips
+          _Chip('P', macros.protein.round(), AppColors.protein),
+          const SizedBox(width: 4),
+          _Chip('C', macros.carbs.round(), AppColors.carbs),
+          const SizedBox(width: 4),
+          _Chip('F', macros.fat.round(), AppColors.fat),
         ],
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip(this.label, this.value, this.color);
+  final String label;
+  final int value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        '$label$value',
+        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: color),
       ),
     );
   }

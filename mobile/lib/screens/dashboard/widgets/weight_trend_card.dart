@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,11 @@ import 'package:intl/intl.dart';
 import '../../../core/utils.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../theme.dart';
+
+// Cyan — matches web app's body fat line colour.
+const _kBFColor = Color(0xFF22D3EE);
+// Purple — matches web app's weight line colour.
+const _kWeightColor = Color(0xFFA855F7);
 
 class WeightTrendCard extends ConsumerStatefulWidget {
   const WeightTrendCard({super.key});
@@ -28,11 +34,10 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
   Future<void> _logWeight() async {
     final weight = double.tryParse(_weightCtrl.text);
     if (weight == null || weight <= 0) return;
-    final bf     = double.tryParse(_bfCtrl.text);
-    final today  = todayISO();
+    final bf    = double.tryParse(_bfCtrl.text);
+    final today = todayISO();
     final settings = ref.read(settingsProvider);
 
-    // Replace today's entry if already present, otherwise append.
     final history = [...settings.weightHistory];
     final idx = history.indexWhere((e) => e.date == today);
     final entry = WeightEntry(date: today, weight: weight, bodyFat: bf);
@@ -83,16 +88,20 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                   child: TextField(
                     controller: _weightCtrl,
                     autofocus: true,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'Weight (kg)', suffixText: 'kg'),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                        labelText: 'Weight (kg)', suffixText: 'kg'),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
                     controller: _bfCtrl,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'Body fat % (opt)', suffixText: '%'),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                        labelText: 'Body fat % (opt)', suffixText: '%'),
                   ),
                 ),
               ],
@@ -105,13 +114,73 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
     );
   }
 
+  // ── helpers ──────────────────────────────────────────────────────────────
+
+  /// Padded [min, max] domain for a list of values.
+  static List<double> _domain(List<double> values, double fallbackPad) {
+    if (values.isEmpty) return [0, 1];
+    final mn = values.reduce(min);
+    final mx = values.reduce(max);
+    if (mn == mx) return [mn - fallbackPad, mx + fallbackPad];
+    final pad = max((mx - mn) * 0.1, fallbackPad);
+    return [mn - pad, mx + pad];
+  }
+
+  /// Map a body-fat value into the weight Y-axis coordinate space so both
+  /// series can share a single fl_chart canvas.
+  static double _bfToY(double bf,
+      {required double wMin, required double wMax,
+       required double bfMin, required double bfMax}) {
+    if (bfMax == bfMin) return (wMin + wMax) / 2;
+    return wMin + (bf - bfMin) / (bfMax - bfMin) * (wMax - wMin);
+  }
+
+  /// Reverse mapping: weight-scale Y → body-fat percentage (for axis labels
+  /// and tooltip).
+  static double _yToBF(double y,
+      {required double wMin, required double wMax,
+       required double bfMin, required double bfMax}) {
+    if (wMax == wMin) return (bfMin + bfMax) / 2;
+    return bfMin + (y - wMin) / (wMax - wMin) * (bfMax - bfMin);
+  }
+
+  // ── build ─────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     final history = ref.watch(settingsProvider).weightHistory;
-    // Show last 30 entries max
-    final recent = history.length > 30
+    final recent  = history.length > 30
         ? history.sublist(history.length - 30)
         : history;
+    final latest  = recent.isNotEmpty ? recent.last : null;
+    final hasBF   = recent.any((e) => e.bodyFat != null);
+
+    // Domains
+    final wDomain = _domain(recent.map((e) => e.weight).toList(), 0.5);
+    final bfDomain = hasBF
+        ? _domain(
+            recent.where((e) => e.bodyFat != null).map((e) => e.bodyFat!).toList(),
+            0.3)
+        : [0.0, 1.0];
+
+    final wMin = wDomain[0];  final wMax = wDomain[1];
+    final bfMin = bfDomain[0]; final bfMax = bfDomain[1];
+
+    // Spots
+    final weightSpots = List.generate(
+      recent.length,
+      (i) => FlSpot(i.toDouble(), recent[i].weight),
+    );
+
+    final bfSpots = <FlSpot>[
+      for (int i = 0; i < recent.length; i++)
+        if (recent[i].bodyFat != null)
+          FlSpot(i.toDouble(),
+              _bfToY(recent[i].bodyFat!, wMin: wMin, wMax: wMax, bfMin: bfMin, bfMax: bfMax)),
+    ];
+
+    // How many x-ticks to show
+    final xInterval = max(1, (recent.length / 4).ceil()).toDouble();
 
     return Card(
       child: Padding(
@@ -119,6 +188,7 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── header ──
             Row(
               children: [
                 const Text('Weight Trend',
@@ -139,44 +209,73 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
             if (recent.isEmpty) ...[
               const SizedBox(height: 16),
               const Center(
-                child: Text('No weight data yet.\nTap Log to add your first entry.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                child: Text(
+                  'No weight data yet.\nTap Log to add your first entry.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                ),
               ),
               const SizedBox(height: 8),
             ] else ...[
-              const SizedBox(height: 4),
-              // Latest reading pill
-              if (recent.isNotEmpty) ...[
-                Row(
-                  children: [
-                    Text(
-                      '${recent.last.weight.toStringAsFixed(1)} kg',
-                      style: const TextStyle(
-                        fontSize: 22, fontWeight: FontWeight.w700,
-                        color: AppColors.carbs,
-                      ),
+
+              // ── legend ──
+              Row(
+                children: [
+                  Container(width: 16, height: 2, color: _kWeightColor),
+                  const SizedBox(width: 4),
+                  const Text('Weight',
+                      style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                  if (hasBF) ...[
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: 20,
+                      height: 10,
+                      child: CustomPaint(
+                          painter: _DashLinePainter(color: _kBFColor)),
                     ),
-                    if (recent.last.bodyFat != null) ...[
-                      const SizedBox(width: 10),
-                      Text(
-                        '${recent.last.bodyFat!.toStringAsFixed(1)}% BF',
-                        style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
-                      ),
-                    ],
-                    const Spacer(),
+                    const SizedBox(width: 4),
+                    const Text('Body Fat',
+                        style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 6),
+
+              // ── latest reading ──
+              Row(
+                children: [
+                  Text(
+                    '${latest!.weight.toStringAsFixed(1)} kg',
+                    style: const TextStyle(
+                      fontSize: 22, fontWeight: FontWeight.w700,
+                      color: _kWeightColor,
+                    ),
+                  ),
+                  if (latest.bodyFat != null) ...[
+                    const SizedBox(width: 10),
                     Text(
-                      formatDateDisplay(recent.last.date),
-                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                      '${latest.bodyFat!.toStringAsFixed(1)}% BF',
+                      style: const TextStyle(
+                          fontSize: 13, color: AppColors.textMuted),
                     ),
                   ],
-                ),
-              ],
+                  const Spacer(),
+                  Text(
+                    formatDateDisplay(latest.date),
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.textMuted),
+                  ),
+                ],
+              ),
               const SizedBox(height: 12),
+
+              // ── chart ──
               SizedBox(
-                height: 110,
+                height: 150,
                 child: LineChart(
                   LineChartData(
+                    minY: wMin,
+                    maxY: wMax,
                     gridData: FlGridData(
                       show: true,
                       drawVerticalLine: false,
@@ -185,58 +284,140 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                     ),
                     borderData: FlBorderData(show: false),
                     titlesData: FlTitlesData(
-                      leftTitles  : const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      rightTitles : const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      topTitles   : const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
+                      // Left axis — weight (kg)
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 48,
+                          interval: (wMax - wMin) / 3,
+                          getTitlesWidget: (v, _) => Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: Text(
+                              '${v.toStringAsFixed(1)} kg',
+                              style: const TextStyle(
+                                  fontSize: 9, color: AppColors.textMuted),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Right axis — body fat (%)
+                      rightTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: hasBF,
+                          reservedSize: 38,
+                          interval: (wMax - wMin) / 3,
+                          getTitlesWidget: (v, _) {
+                            final bf = _yToBF(v,
+                                wMin: wMin, wMax: wMax,
+                                bfMin: bfMin, bfMax: bfMax);
+                            return Padding(
+                              padding: const EdgeInsets.only(left: 4),
+                              child: Text(
+                                '${bf.toStringAsFixed(1)}%',
+                                style: const TextStyle(
+                                    fontSize: 9, color: _kBFColor),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      // Bottom axis — dates
                       bottomTitles: AxisTitles(
                         sideTitles: SideTitles(
                           showTitles: true,
                           reservedSize: 20,
-                          interval: (recent.length / 4).ceilToDouble(),
+                          interval: xInterval,
                           getTitlesWidget: (v, _) {
                             final i = v.toInt();
-                            if (i < 0 || i >= recent.length) return const SizedBox.shrink();
+                            if (i < 0 || i >= recent.length) {
+                              return const SizedBox.shrink();
+                            }
                             return Text(
-                              DateFormat('M/d').format(DateTime.parse(recent[i].date)),
-                              style: const TextStyle(fontSize: 9, color: AppColors.textMuted),
+                              DateFormat('M/d')
+                                  .format(DateTime.parse(recent[i].date)),
+                              style: const TextStyle(
+                                  fontSize: 9, color: AppColors.textMuted),
                             );
                           },
                         ),
                       ),
                     ),
                     lineBarsData: [
+                      // Weight line (solid, purple, filled below)
                       LineChartBarData(
-                        spots: List.generate(
-                          recent.length,
-                          (i) => FlSpot(i.toDouble(), recent[i].weight),
-                        ),
+                        spots: weightSpots,
                         isCurved: true,
-                        color: AppColors.carbs,
+                        color: _kWeightColor,
                         barWidth: 2,
                         dotData: FlDotData(
                           show: recent.length <= 10,
-                          getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
-                            radius: 3, color: AppColors.carbs, strokeWidth: 0,
-                          ),
+                          getDotPainter: (_, __, ___, ____) =>
+                              FlDotCirclePainter(
+                                  radius: 3,
+                                  color: _kWeightColor,
+                                  strokeWidth: 0),
                         ),
                         belowBarData: BarAreaData(
                           show: true,
-                          color: AppColors.carbs.withValues(alpha: 0.08),
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              _kWeightColor.withValues(alpha: 0.4),
+                              _kWeightColor.withValues(alpha: 0.02),
+                            ],
+                          ),
                         ),
                       ),
+                      // Body fat line (dashed, cyan)
+                      if (hasBF)
+                        LineChartBarData(
+                          spots: bfSpots,
+                          isCurved: true,
+                          color: _kBFColor,
+                          barWidth: 2,
+                          dashArray: [4, 2],
+                          dotData: FlDotData(
+                            show: bfSpots.length <= 10,
+                            getDotPainter: (_, __, ___, ____) =>
+                                FlDotCirclePainter(
+                                    radius: 3,
+                                    color: _kBFColor,
+                                    strokeWidth: 0),
+                          ),
+                          belowBarData: BarAreaData(show: false),
+                        ),
                     ],
                     lineTouchData: LineTouchData(
                       touchTooltipData: LineTouchTooltipData(
                         getTooltipItems: (spots) => spots.map((s) {
                           final i = s.x.toInt();
-                          final entry = i < recent.length ? recent[i] : null;
-                          return LineTooltipItem(
-                            '${s.y.toStringAsFixed(1)} kg'
-                            '${entry?.bodyFat != null ? '\n${entry!.bodyFat!.toStringAsFixed(1)}% BF' : ''}',
-                            const TextStyle(
-                              color: AppColors.carbs, fontWeight: FontWeight.w600, fontSize: 12,
-                            ),
-                          );
+                          if (s.barIndex == 0) {
+                            // Weight tooltip
+                            return LineTooltipItem(
+                              '${s.y.toStringAsFixed(1)} kg',
+                              const TextStyle(
+                                color: _kWeightColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            );
+                          } else {
+                            // Body fat tooltip — convert back to real %
+                            final bf = _yToBF(s.y,
+                                wMin: wMin, wMax: wMax,
+                                bfMin: bfMin, bfMax: bfMax);
+                            return LineTooltipItem(
+                              '${bf.toStringAsFixed(1)}%',
+                              const TextStyle(
+                                color: _kBFColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            );
+                          }
                         }).toList(),
                       ),
                     ),
@@ -249,4 +430,28 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
       ),
     );
   }
+}
+
+/// Draws a short dashed line — used in the legend.
+class _DashLinePainter extends CustomPainter {
+  final Color color;
+  const _DashLinePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+    double x = 0;
+    const dashW = 4.0, gap = 2.0;
+    final y = size.height / 2;
+    while (x < size.width) {
+      canvas.drawLine(Offset(x, y), Offset(min(x + dashW, size.width), y), paint);
+      x += dashW + gap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashLinePainter old) => old.color != color;
 }

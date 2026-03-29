@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -10,14 +11,44 @@ import '../../../providers/settings_provider.dart';
 import '../../../theme.dart';
 import '../../../widgets/mode_pill.dart';
 
-/// Weekly Nutrition — vertical pill bar grid, inspired by MacroFactor.
-///
-/// Layout:
-///   4 macro rows × 7 day columns
-///   Each cell: dark pill with colored fill, white goal-line tick
-///   Selected day column: white rounded-rect highlight
-///   Right panel: selected-day KPI for each macro
-///   Bottom: day-of-week labels + Consumed / Remaining toggle
+// ── Layout constants ─────────────────────────────────────────────────────────
+
+/// Height of each macro row (bar track).
+const _barRowH  = 82.0;
+/// Vertical gap between macro rows.
+const _rowGap   = 10.0;
+/// Width of each individual pill bar.
+const _barW     = 22.0;
+/// The track represents goal × _scale so bars can visually overflow the
+/// goal-line when consumption exceeds target (no red-color trick needed).
+const _scale    = 1.30;
+/// Pill corner radius.
+const _radius   = Radius.circular(6);
+
+// ── Macro config ─────────────────────────────────────────────────────────────
+
+const _keys   = ['kcal', 'protein', 'carbs', 'fat'];
+const _names  = {'kcal': 'Calories', 'protein': 'Protein',
+                 'carbs': 'Carbs',   'fat': 'Fat'};
+const _units  = {'kcal': 'kcal', 'protein': 'g', 'carbs': 'g', 'fat': 'g'};
+const _colors = {
+  'kcal'   : AppColors.kcal,
+  'protein': AppColors.protein,
+  'carbs'  : AppColors.carbs,
+  'fat'    : AppColors.fat,
+};
+
+double _actual(MacroValues t, String k) =>
+    switch (k) { 'kcal' => t.kcal, 'protein' => t.protein,
+                 'fat'  => t.fat,  _ => t.carbs };
+double _goal(MacroGoals g, String k) =>
+    switch (k) { 'kcal' => g.kcal, 'protein' => g.protein,
+                 'fat'  => g.fat,  _ => g.carbs };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Widget
+// ─────────────────────────────────────────────────────────────────────────────
+
 class WeeklyNutritionChart extends ConsumerStatefulWidget {
   const WeeklyNutritionChart({super.key, required this.date});
   final String date;
@@ -27,58 +58,37 @@ class WeeklyNutritionChart extends ConsumerStatefulWidget {
       _WeeklyNutritionChartState();
 }
 
-class _WeeklyNutritionChartState extends ConsumerState<WeeklyNutritionChart> {
-  late String _selectedDay;
-  bool _showRemaining = false;
-
-  static const _macroKeys   = ['kcal', 'protein', 'fat', 'carbs'];
-  static const _macroLabels = {'kcal': 'Cal', 'protein': 'P', 'fat': 'F', 'carbs': 'C'};
-  static const _macroUnits  = {'kcal': 'kcal', 'protein': 'g', 'fat': 'g', 'carbs': 'g'};
-  static const _macroColors = {
-    'kcal'   : AppColors.kcal,
-    'protein': AppColors.protein,
-    'fat'    : AppColors.fat,
-    'carbs'  : AppColors.carbs,
-  };
+class _WeeklyNutritionChartState
+    extends ConsumerState<WeeklyNutritionChart> {
+  late String _sel;
+  bool _rem = false; // false = Consumed, true = Remaining
 
   @override
   void initState() {
     super.initState();
-    _selectedDay = widget.date;
+    _sel = widget.date;
   }
 
   @override
   void didUpdateWidget(WeeklyNutritionChart old) {
     super.didUpdateWidget(old);
-    if (old.date != widget.date) _selectedDay = widget.date;
+    if (old.date != widget.date) _sel = widget.date;
   }
-
-  double _macroActual(MacroValues t, String key) => switch (key) {
-    'kcal'    => t.kcal,
-    'protein' => t.protein,
-    'fat'     => t.fat,
-    _         => t.carbs,
-  };
-
-  double _macroGoal(MacroGoals g, String key) => switch (key) {
-    'kcal'    => g.kcal,
-    'protein' => g.protein,
-    'fat'     => g.fat,
-    _         => g.carbs,
-  };
 
   @override
   Widget build(BuildContext context) {
     final days     = weekDates(widget.date);
     final settings = ref.watch(settingsProvider);
+    final totals   = days.map((d) => ref.watch(macroTotalsProvider(d))).toList();
+    final goals    = days.map((d) => settings.goalsForDate(d)).toList();
+    final dotColors = days.map((d) => modeColor(settings.modeLabelForDate(d))).toList();
 
-    final dayTotals  = days.map((d) => ref.watch(macroTotalsProvider(d))).toList();
-    final dayGoals   = days.map((d) => settings.goalsForDate(d)).toList();
-    final dayModeColors = days.map((d) => modeColor(settings.modeLabelForDate(d))).toList();
+    final selIdx    = days.indexOf(_sel).clamp(0, 6);
+    final selTotals = totals[selIdx];
+    final selGoals  = goals[selIdx];
 
-    final selIdx    = days.indexOf(_selectedDay).clamp(0, 6);
-    final selTotals = dayTotals[selIdx];
-    final selGoals  = dayGoals[selIdx];
+    // ── total chart height (used by KPI rows to align with bars) ──────────
+    final gridH = _keys.length * _barRowH + (_keys.length - 1) * _rowGap;
 
     return Card(
       child: Padding(
@@ -86,16 +96,15 @@ class _WeeklyNutritionChartState extends ConsumerState<WeeklyNutritionChart> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Header ──────────────────────────────────────────────────────
+
+            // ── Header ─────────────────────────────────────────────────────
             Row(
               children: [
                 const Text('Weekly Nutrition',
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                 const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.chevron_left, size: 18),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                _NavBtn(
+                  icon: Icons.chevron_left,
                   onPressed: () {
                     final prev = DateTime.parse(widget.date)
                         .subtract(const Duration(days: 7));
@@ -105,12 +114,11 @@ class _WeeklyNutritionChartState extends ConsumerState<WeeklyNutritionChart> {
                 ),
                 const SizedBox(width: 4),
                 Text(weekRangeLabel(widget.date),
-                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                    style: const TextStyle(
+                        fontSize: 11, color: AppColors.textMuted)),
                 const SizedBox(width: 4),
-                IconButton(
-                  icon: const Icon(Icons.chevron_right, size: 18),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                _NavBtn(
+                  icon: Icons.chevron_right,
                   onPressed: days.last == todayISO()
                       ? null
                       : () {
@@ -123,89 +131,53 @@ class _WeeklyNutritionChartState extends ConsumerState<WeeklyNutritionChart> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
 
-            // ── Grid + KPI ───────────────────────────────────────────────────
+            // ── Grid + KPI ─────────────────────────────────────────────────
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 7 day columns
+                // 7-day bar grid
                 Expanded(
-                  child: _DayGrid(
+                  child: _Grid(
                     days: days,
-                    dayTotals: dayTotals,
-                    dayGoals: dayGoals,
-                    dayModeColors: dayModeColors,
-                    selectedDay: _selectedDay,
-                    showRemaining: _showRemaining,
-                    macroKeys: _macroKeys,
-                    macroColors: _macroColors,
-                    onDayTap: (d) => setState(() => _selectedDay = d),
+                    totals: totals,
+                    goals: goals,
+                    dotColors: dotColors,
+                    selectedDay: _sel,
+                    showRemaining: _rem,
+                    onDayTap: (d) => setState(() => _sel = d),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
 
-                // KPI panel
+                // KPI panel — one row per macro, vertically aligned to bars
                 SizedBox(
-                  width: 86,
+                  width: 90,
+                  height: gridH + 22, // +22 for day-label row below bars
                   child: Column(
+                    mainAxisAlignment: MainAxisAlignment.start,
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: _macroKeys.map((key) {
-                      final actual = _macroActual(selTotals, key);
-                      final goal   = _macroGoal(selGoals, key);
-                      final color  = _macroColors[key]!;
-                      final over   = actual > goal && goal > 0;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 2),
-                        child: SizedBox(
-                          height: _barRowHeight + _barGap,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              RichText(
-                                text: TextSpan(
-                                  children: [
-                                    TextSpan(
-                                      text: _showRemaining
-                                          ? (goal - actual).clamp(0, double.infinity).round().toString()
-                                          : actual.round().toString(),
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w700,
-                                        color: over && !_showRemaining
-                                            ? AppColors.danger
-                                            : color,
-                                      ),
-                                    ),
-                                    TextSpan(
-                                      text: ' ${_macroLabels[key]}',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600,
-                                        color: color.withValues(alpha: 0.8),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Text(
-                                'of ${goal.round()} ${_macroUnits[key]}',
-                                style: const TextStyle(
-                                    fontSize: 9, color: AppColors.textMuted),
-                              ),
-                            ],
-                          ),
+                    children: [
+                      for (int i = 0; i < _keys.length; i++) ...[
+                        if (i > 0) const SizedBox(height: _rowGap),
+                        _KpiCell(
+                          macroKey : _keys[i],
+                          actual   : _actual(selTotals, _keys[i]),
+                          goal     : _goal(selGoals, _keys[i]),
+                          color    : _colors[_keys[i]]!,
+                          showRem  : _rem,
+                          height   : _barRowH,
                         ),
-                      );
-                    }).toList(),
+                      ],
+                    ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
 
-            // ── Consumed / Remaining toggle ──────────────────────────────────
+            // ── Consumed / Remaining toggle ─────────────────────────────────
             Center(
               child: Container(
                 decoration: BoxDecoration(
@@ -216,10 +188,10 @@ class _WeeklyNutritionChartState extends ConsumerState<WeeklyNutritionChart> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _ToggleBtn('Consumed', !_showRemaining,
-                        () => setState(() => _showRemaining = false)),
-                    _ToggleBtn('Remaining', _showRemaining,
-                        () => setState(() => _showRemaining = true)),
+                    _ToggleBtn('Consumed', !_rem,
+                        () => setState(() => _rem = false)),
+                    _ToggleBtn('Remaining', _rem,
+                        () => setState(() => _rem = true)),
                   ],
                 ),
               ),
@@ -231,45 +203,37 @@ class _WeeklyNutritionChartState extends ConsumerState<WeeklyNutritionChart> {
   }
 }
 
-// ── Layout constants ─────────────────────────────────────────────────────────
-const _barRowHeight = 64.0;
-const _barGap       = 6.0;
-const _barWidth     = 26.0;
+// ─────────────────────────────────────────────────────────────────────────────
+// Grid — 7 columns, 4 macro rows each
+// ─────────────────────────────────────────────────────────────────────────────
 
-// ── Day grid: 7 columns, 4 macro-row cells each ──────────────────────────────
-class _DayGrid extends StatelessWidget {
-  const _DayGrid({
+class _Grid extends StatelessWidget {
+  const _Grid({
     required this.days,
-    required this.dayTotals,
-    required this.dayGoals,
-    required this.dayModeColors,
+    required this.totals,
+    required this.goals,
+    required this.dotColors,
     required this.selectedDay,
     required this.showRemaining,
-    required this.macroKeys,
-    required this.macroColors,
     required this.onDayTap,
   });
 
-  final List<String> days;
-  final List<MacroValues> dayTotals;
-  final List<MacroGoals> dayGoals;
-  final List<Color> dayModeColors;
-  final String selectedDay;
-  final bool showRemaining;
-  final List<String> macroKeys;
-  final Map<String, Color> macroColors;
+  final List<String>      days;
+  final List<MacroValues> totals;
+  final List<MacroGoals>  goals;
+  final List<Color>       dotColors;
+  final String            selectedDay;
+  final bool              showRemaining;
   final ValueChanged<String> onDayTap;
 
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: List.generate(7, (col) {
-        final day       = days[col];
-        final totals    = dayTotals[col];
-        final goals     = dayGoals[col];
-        final modeColor = dayModeColors[col];
-        final isSel     = day == selectedDay;
-        final dt     = DateTime.parse(day);
+        final day   = days[col];
+        final isSel = day == selectedDay;
+        final dt    = DateTime.parse(day);
         final isToday = day == todayISO();
 
         return Expanded(
@@ -280,40 +244,47 @@ class _DayGrid extends StatelessWidget {
               decoration: isSel
                   ? BoxDecoration(
                       border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.7), width: 1.5),
-                      borderRadius: BorderRadius.circular(12),
+                          color: Colors.white.withValues(alpha: 0.55),
+                          width: 1.5),
+                      borderRadius: BorderRadius.circular(14),
                     )
                   : null,
               padding: EdgeInsets.symmetric(
-                  horizontal: isSel ? 2 : 3, vertical: isSel ? 4 : 4),
+                  horizontal: isSel ? 1 : 2, vertical: 4),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 4 macro cells
-                  ...macroKeys.map((key) => Padding(
-                    padding: const EdgeInsets.only(bottom: _barGap),
-                    child: _BarCell(
-                      actual : _macroActual(totals, key),
-                      goal   : _macroGoal(goals, key),
-                      color  : macroColors[key]!,
-                      showRem: showRemaining,
+                  // 4 macro bar cells
+                  for (int r = 0; r < _keys.length; r++) ...[
+                    if (r > 0) SizedBox(height: _rowGap),
+                    Center(
+                      child: _BarCell(
+                        actual      : _actual(totals[col], _keys[r]),
+                        goal        : _goal(goals[col], _keys[r]),
+                        color       : _colors[_keys[r]]!,
+                        showRemaining: showRemaining,
+                      ),
                     ),
-                  )),
+                  ],
+                  const SizedBox(height: 6),
                   // Day letter
                   Text(
                     DateFormat('E').format(dt).substring(0, 1),
                     style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
-                      color: isToday ? Colors.white : AppColors.textMuted,
+                      fontSize: 10,
+                      fontWeight:
+                          isToday ? FontWeight.w700 : FontWeight.w400,
+                      color: isToday
+                          ? Colors.white
+                          : AppColors.textMuted,
                     ),
                   ),
                   const SizedBox(height: 3),
-                  // Mode dot
+                  // Mode-color dot
                   Container(
-                    width: 5, height: 5,
+                    width: 4, height: 4,
                     decoration: BoxDecoration(
-                      color: modeColor,
+                      color: dotColors[col],
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -325,146 +296,242 @@ class _DayGrid extends StatelessWidget {
       }),
     );
   }
-
-  double _macroActual(MacroValues t, String key) => switch (key) {
-    'kcal'    => t.kcal,
-    'protein' => t.protein,
-    'fat'     => t.fat,
-    _         => t.carbs,
-  };
-
-  double _macroGoal(MacroGoals g, String key) => switch (key) {
-    'kcal'    => g.kcal,
-    'protein' => g.protein,
-    'fat'     => g.fat,
-    _         => g.carbs,
-  };
 }
 
-// ── Single macro bar cell ────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Single macro bar cell
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _BarCell extends StatelessWidget {
   const _BarCell({
     required this.actual,
     required this.goal,
     required this.color,
-    required this.showRem,
+    required this.showRemaining,
   });
 
   final double actual;
   final double goal;
   final Color  color;
-  final bool   showRem;
+  final bool   showRemaining;
 
   @override
   Widget build(BuildContext context) {
-    final pct    = goal > 0 ? (actual / goal).clamp(0.0, 1.25) : 0.0;
-    final over   = pct > 1.0;
+    // Track represents goal × _scale — provides headroom to visualise overflow
+    // without changing bar color to red.
+    final trackMax = goal * _scale;
 
-    // In "remaining" mode show how much is left (clamped to 0–1).
-    final fillPct = showRem
-        ? (goal > 0 ? ((goal - actual) / goal).clamp(0.0, 1.0) : 0.0)
-        : pct.clamp(0.0, 1.0);
+    double fillFrac;
+    if (showRemaining) {
+      // Remaining: shrinks toward 0 as the user eats more.
+      final remaining = (goal - actual).clamp(0.0, goal);
+      fillFrac = goal > 0 ? remaining / trackMax : 0.0;
+    } else {
+      // Consumed: grows upward; can exceed the goal line.
+      fillFrac = trackMax > 0
+          ? (actual / trackMax).clamp(0.0, 1.0)
+          : 0.0;
+    }
 
-    final barColor = over && !showRem ? AppColors.danger : color;
+    // Goal line sits at goal/trackMax from bottom (= 1/_scale ≈ 77%).
+    final goalLineFrac = goal > 0 ? 1.0 / _scale : 1.0;
 
     return SizedBox(
-      width: _barWidth,
-      height: _barRowHeight,
+      width: _barW,
+      height: _barRowH,
       child: CustomPaint(
         painter: _BarPainter(
-          fillPct  : fillPct,
-          barColor : barColor,
-          goalPct  : 1.0, // goal line always at 100% of the track
+          fillFrac    : fillFrac,
+          goalLineFrac: goalLineFrac,
+          color       : color,
         ),
       ),
     );
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Bar painter
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _BarPainter extends CustomPainter {
   const _BarPainter({
-    required this.fillPct,
-    required this.barColor,
-    required this.goalPct,
+    required this.fillFrac,
+    required this.goalLineFrac,
+    required this.color,
   });
 
-  final double fillPct;
-  final Color  barColor;
-  final double goalPct;
+  final double fillFrac;
+  final double goalLineFrac;
+  final Color  color;
 
   @override
   void paint(Canvas canvas, Size size) {
-    const radius = Radius.circular(7);
-    final rect   = Offset.zero & size;
-    final rRect  = RRect.fromRectAndRadius(rect, radius);
+    final rr = RRect.fromRectAndRadius(Offset.zero & size, _radius);
 
     // ── Background track ──────────────────────────────────────────────────
-    canvas.drawRRect(rRect,
-        Paint()..color = const Color(0xFF1E2235));
+    canvas.drawRRect(rr, Paint()..color = const Color(0xFF181B2A));
 
-    if (fillPct > 0) {
-      // ── Filled portion (from bottom) ────────────────────────────────────
-      final fillH  = size.height * fillPct;
+    // ── Filled portion (grows from bottom) ────────────────────────────────
+    if (fillFrac > 0) {
+      final fillH   = size.height * fillFrac;
       final fillTop = size.height - fillH;
       final fillRect = Rect.fromLTWH(0, fillTop, size.width, fillH);
-      canvas.clipRRect(rRect);
+
+      canvas.save();
+      canvas.clipRRect(rr);
       canvas.drawRect(
         fillRect,
         Paint()
           ..shader = LinearGradient(
             begin: Alignment.bottomCenter,
             end: Alignment.topCenter,
-            colors: [barColor, barColor.withValues(alpha: 0.6)],
+            colors: [
+              color.withValues(alpha: 1.0),
+              color.withValues(alpha: 0.55),
+            ],
           ).createShader(fillRect),
       );
-      // Reset clip
-      canvas.clipRect(rect);
+      canvas.restore();
     }
 
-    // ── Goal tick line ───────────────────────────────────────────────────
-    final goalY = size.height * (1 - goalPct);
+    // ── Goal-line tick ────────────────────────────────────────────────────
+    // Drawn AFTER the fill so it's always visible.
+    final goalY = size.height * (1 - goalLineFrac);
+    final tickPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.55)
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
     canvas.drawLine(
-      Offset(2, goalY),
-      Offset(size.width - 2, goalY),
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.45)
-        ..strokeWidth = 1.5
-        ..strokeCap = StrokeCap.round,
+      Offset(3, goalY),
+      Offset(size.width - 3, goalY),
+      tickPaint,
     );
   }
 
   @override
   bool shouldRepaint(_BarPainter old) =>
-      old.fillPct != fillPct || old.barColor != barColor;
+      old.fillFrac != fillFrac ||
+      old.goalLineFrac != goalLineFrac ||
+      old.color != color;
 }
 
-// ── Toggle button ─────────────────────────────────────────────────────────────
-class _ToggleBtn extends StatelessWidget {
-  const _ToggleBtn(this.label, this.selected, this.onTap);
-  final String label;
-  final bool   selected;
-  final VoidCallback onTap;
+// ─────────────────────────────────────────────────────────────────────────────
+// KPI cell — one per macro row in the right panel
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _KpiCell extends StatelessWidget {
+  const _KpiCell({
+    required this.macroKey,
+    required this.actual,
+    required this.goal,
+    required this.color,
+    required this.showRem,
+    required this.height,
+  });
+
+  final String macroKey;
+  final double actual;
+  final double goal;
+  final Color  color;
+  final bool   showRem;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(22),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: selected ? Colors.black : AppColors.textMuted,
+    final displayVal = showRem
+        ? (goal - actual).clamp(0.0, double.infinity)
+        : actual;
+    final unit = _units[macroKey]!;
+
+    return SizedBox(
+      height: height,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: formatNum(displayVal, decimals: macroKey == 'kcal' ? 0 : 1),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
+                ),
+                TextSpan(
+                  text: ' ${unit.toUpperCase()}',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    color: color.withValues(alpha: 0.7),
+                    letterSpacing: 0.4,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+          const SizedBox(height: 2),
+          Text(
+            'goal ${goal.round()} $unit',
+            style: const TextStyle(
+                fontSize: 9, color: AppColors.textMuted),
+          ),
+        ],
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Nav button (< >)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _NavBtn extends StatelessWidget {
+  const _NavBtn({required this.icon, this.onPressed});
+  final IconData     icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    icon: Icon(icon, size: 18),
+    padding: EdgeInsets.zero,
+    constraints: const BoxConstraints(),
+    onPressed: onPressed,
+    color: onPressed == null ? AppColors.textMuted : AppColors.textPrimary,
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Toggle button (Consumed / Remaining)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ToggleBtn extends StatelessWidget {
+  const _ToggleBtn(this.label, this.active, this.onTap);
+  final String       label;
+  final bool         active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      decoration: BoxDecoration(
+        color: active ? Colors.white : Colors.transparent,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: active ? Colors.black : AppColors.textMuted,
+        ),
+      ),
+    ),
+  );
 }

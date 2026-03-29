@@ -5,7 +5,9 @@ import '../core/constants.dart';
 import '../models/food.dart';
 import '../providers/foods_provider.dart';
 import '../theme.dart';
+import 'add_entry_sheet.dart';
 import 'barcode_scanner_sheet.dart';
+import 'food_saved_sheet.dart';
 
 void showAddFoodSheet(BuildContext context, WidgetRef ref, {Food? existing}) {
   showModalBottomSheet(
@@ -17,14 +19,24 @@ void showAddFoodSheet(BuildContext context, WidgetRef ref, {Food? existing}) {
     ),
     builder: (ctx) => ProviderScope(
       parent: ProviderScope.containerOf(context),
-      child: _AddFoodSheet(existing: existing),
+      child: _AddFoodSheet(
+        existing: existing,
+        parentContext: context,
+        parentRef: ref,
+      ),
     ),
   );
 }
 
 class _AddFoodSheet extends ConsumerStatefulWidget {
-  const _AddFoodSheet({this.existing});
+  const _AddFoodSheet({
+    this.existing,
+    required this.parentContext,
+    required this.parentRef,
+  });
   final Food? existing;
+  final BuildContext parentContext;
+  final WidgetRef parentRef;
 
   @override
   ConsumerState<_AddFoodSheet> createState() => _AddFoodSheetState();
@@ -41,6 +53,7 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
   late String _unit;
   late String? _category;
   bool _saving = false;
+  bool _scanned = false; // true after a successful barcode scan
 
   @override
   void initState() {
@@ -82,19 +95,37 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
       'category': _category,
     };
 
-    bool ok;
-    if (widget.existing != null) {
-      ok = await ref.read(foodsProvider.notifier).updateFood(widget.existing!.id, data);
-    } else {
-      ok = await ref.read(foodsProvider.notifier).addFood(data) != null;
-    }
+    final parentCtx = widget.parentContext;
+    final parentRef = widget.parentRef;
 
-    if (mounted) {
-      Navigator.pop(context);
-      if (!ok) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to save food')),
-        );
+    if (widget.existing != null) {
+      final ok = await ref.read(foodsProvider.notifier).updateFood(widget.existing!.id, data);
+      if (mounted) {
+        Navigator.pop(context);
+        if (!ok) {
+          ScaffoldMessenger.of(parentCtx).showSnackBar(
+            const SnackBar(content: Text('Failed to save food')),
+          );
+        }
+      }
+    } else {
+      final newFood = await ref.read(foodsProvider.notifier).addFood(data);
+      if (mounted) {
+        Navigator.pop(context);
+        if (newFood == null) {
+          ScaffoldMessenger.of(parentCtx).showSnackBar(
+            const SnackBar(content: Text('Failed to save food')),
+          );
+        } else {
+          // Show animated confirmation sheet with Log Now option
+          final logNow = await showFoodSavedSheet(parentCtx, newFood);
+          if (logNow) {
+            final today = DateTime.now();
+            final date =
+                '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+            showAddEntrySheet(parentCtx, parentRef, date, preselectedFood: newFood);
+          }
+        }
       }
     }
   }
@@ -115,6 +146,7 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
       _carbsCtrl.text   = (result['carbs'] as num?)?.round().toString() ?? '';
       _fatCtrl.text     = (result['fat'] as num?)?.round().toString() ?? '';
       _unit             = (result['unit'] as String?) ?? 'per100g';
+      _scanned          = true;
     });
   }
 
@@ -142,8 +174,9 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
                 ),
               ),
             ),
+            // Header
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
               child: Row(
                 children: [
                   Text(
@@ -152,13 +185,10 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
                         ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                   const Spacer(),
-                  if (!isEdit)
-                    IconButton(
-                      tooltip: 'Scan barcode',
-                      icon: const Icon(Icons.qr_code_scanner, color: AppColors.protein),
-                      onPressed: _scanBarcode,
-                    ),
-                  TextButton(onPressed: Navigator.of(context).pop, child: const Text('Cancel')),
+                  TextButton(
+                    onPressed: Navigator.of(context).pop,
+                    child: const Text('Cancel'),
+                  ),
                 ],
               ),
             ),
@@ -167,12 +197,35 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
                 controller: scrollCtrl,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
-                  _field('Name *', _nameCtrl, autofocus: !isEdit),
+                  // ── Barcode hero (new food only) ──────────────────────
+                  if (!isEdit) ...[
+                    _BarcodeScanHero(
+                      scanned: _scanned,
+                      onTap: _scanBarcode,
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        const Expanded(child: Divider(endIndent: 12)),
+                        Text(
+                          _scanned ? 'Review & save' : 'or enter manually',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                        const Expanded(child: Divider(indent: 12)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // ── Manual form ───────────────────────────────────────
+                  _field('Name *', _nameCtrl),
                   const SizedBox(height: 12),
                   _field('Brand (optional)', _brandCtrl),
                   const SizedBox(height: 12),
 
-                  // Unit toggle
                   SegmentedButton<String>(
                     segments: const [
                       ButtonSegment(value: 'per100g',    label: Text('Per 100 g')),
@@ -183,11 +236,11 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
                   ),
                   if (_unit == 'perServing') ...[
                     const SizedBox(height: 12),
-                    _field('Serving size (g)', _servingCtrl, keyboardType: TextInputType.number),
+                    _field('Serving size (g)', _servingCtrl,
+                        keyboardType: TextInputType.number),
                   ],
                   const SizedBox(height: 16),
 
-                  // Macros row
                   Row(
                     children: [
                       Expanded(child: _macroField('Calories', _kcalCtrl, AppColors.kcal, 'kcal')),
@@ -205,7 +258,6 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Category dropdown
                   DropdownButtonFormField<String>(
                     value: _category,
                     decoration: const InputDecoration(labelText: 'Category (optional)'),
@@ -228,7 +280,7 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
                     child: _saving
                         ? const SizedBox(height: 20, width: 20,
                             child: CircularProgressIndicator(strokeWidth: 2))
-                        : Text(isEdit ? 'Save Changes' : 'Add Food'),
+                        : Text(isEdit ? 'Save Changes' : 'Save Food'),
                   ),
                   const SizedBox(height: 24),
                 ],
@@ -243,12 +295,10 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
   Widget _field(
     String label,
     TextEditingController ctrl, {
-    bool autofocus = false,
     TextInputType keyboardType = TextInputType.text,
   }) {
     return TextField(
       controller: ctrl,
-      autofocus: autofocus,
       keyboardType: keyboardType,
       decoration: InputDecoration(labelText: label),
     );
@@ -261,6 +311,91 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
       decoration: InputDecoration(
         labelText: '$label ($unit)',
         labelStyle: TextStyle(color: color.withValues(alpha: 0.8)),
+      ),
+    );
+  }
+}
+
+// ── Barcode hero button ────────────────────────────────────────────────────────
+
+class _BarcodeScanHero extends StatelessWidget {
+  const _BarcodeScanHero({required this.scanned, required this.onTap});
+  final bool scanned;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              AppColors.protein.withValues(alpha: 0.18),
+              AppColors.protein.withValues(alpha: 0.06),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: scanned
+                ? AppColors.protein.withValues(alpha: 0.6)
+                : AppColors.protein.withValues(alpha: 0.35),
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 56, height: 56,
+              decoration: BoxDecoration(
+                color: AppColors.protein.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                scanned ? Icons.check_circle_rounded : Icons.qr_code_scanner_rounded,
+                color: AppColors.protein,
+                size: 30,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    scanned ? 'Scanned successfully' : 'Scan Barcode',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: scanned ? AppColors.protein : AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    scanned
+                        ? 'Review the details below, then save'
+                        : 'Point your camera at a product barcode\nfor instant nutrition data',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (!scanned)
+              Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.protein.withValues(alpha: 0.7),
+                size: 22,
+              ),
+          ],
+        ),
       ),
     );
   }

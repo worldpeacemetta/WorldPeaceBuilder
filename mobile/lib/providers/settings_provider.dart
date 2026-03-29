@@ -96,12 +96,14 @@ class WeightEntry {
 
   factory WeightEntry.fromJson(Map<String, dynamic> j) => WeightEntry(
     date:    j['date'] as String,
-    weight:  (j['weight'] as num).toDouble(),
-    bodyFat: (j['bodyFat'] as num?)?.toDouble(),
+    // Accept both 'weightKg' (web app schema) and legacy 'weight' (old mobile schema).
+    weight:  ((j['weightKg'] ?? j['weight']) as num).toDouble(),
+    // Accept both 'bodyFatPct' (web app schema) and legacy 'bodyFat'.
+    bodyFat: ((j['bodyFatPct'] ?? j['bodyFat']) as num?)?.toDouble(),
   );
 
   Map<String, dynamic> toJson() =>
-      {'date': date, 'weight': weight, 'bodyFat': bodyFat};
+      {'date': date, 'weightKg': weight, 'bodyFatPct': bodyFat};
 }
 
 // ---------------------------------------------------------------------------
