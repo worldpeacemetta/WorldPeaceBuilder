@@ -9,7 +9,12 @@ import 'add_entry_sheet.dart';
 import 'barcode_scanner_sheet.dart';
 import 'food_saved_sheet.dart';
 
-void showAddFoodSheet(BuildContext context, WidgetRef ref, {Food? existing}) {
+void showAddFoodSheet(
+  BuildContext context,
+  WidgetRef ref, {
+  Food? existing,
+  Map<String, dynamic>? scannedData,
+}) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -21,6 +26,7 @@ void showAddFoodSheet(BuildContext context, WidgetRef ref, {Food? existing}) {
       parent: ProviderScope.containerOf(context),
       child: _AddFoodSheet(
         existing: existing,
+        scannedData: scannedData,
         parentContext: context,
         parentRef: ref,
       ),
@@ -31,10 +37,12 @@ void showAddFoodSheet(BuildContext context, WidgetRef ref, {Food? existing}) {
 class _AddFoodSheet extends ConsumerStatefulWidget {
   const _AddFoodSheet({
     this.existing,
+    this.scannedData,
     required this.parentContext,
     required this.parentRef,
   });
   final Food? existing;
+  final Map<String, dynamic>? scannedData;
   final BuildContext parentContext;
   final WidgetRef parentRef;
 
@@ -59,15 +67,17 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
   void initState() {
     super.initState();
     final f = widget.existing;
-    _nameCtrl    = TextEditingController(text: f?.name ?? '');
-    _brandCtrl   = TextEditingController(text: f?.brand ?? '');
-    _kcalCtrl    = TextEditingController(text: f != null ? f.kcal.round().toString() : '');
-    _proteinCtrl = TextEditingController(text: f != null ? f.protein.round().toString() : '');
-    _carbsCtrl   = TextEditingController(text: f != null ? f.carbs.round().toString() : '');
-    _fatCtrl     = TextEditingController(text: f != null ? f.fat.round().toString() : '');
+    final s = widget.scannedData;
+    _nameCtrl    = TextEditingController(text: f?.name    ?? (s?['name']    as String?) ?? '');
+    _brandCtrl   = TextEditingController(text: f?.brand   ?? (s?['brand']   as String?) ?? '');
+    _kcalCtrl    = TextEditingController(text: f != null ? f.kcal.round().toString()    : ((s?['kcal']    as num?)?.round().toString() ?? ''));
+    _proteinCtrl = TextEditingController(text: f != null ? f.protein.round().toString() : ((s?['protein'] as num?)?.round().toString() ?? ''));
+    _carbsCtrl   = TextEditingController(text: f != null ? f.carbs.round().toString()   : ((s?['carbs']   as num?)?.round().toString() ?? ''));
+    _fatCtrl     = TextEditingController(text: f != null ? f.fat.round().toString()     : ((s?['fat']     as num?)?.round().toString() ?? ''));
     _servingCtrl = TextEditingController(text: f?.servingSize?.toString() ?? '');
     _unit     = f?.unit ?? 'per100g';
     _category = f?.category;
+    if (s != null) _scanned = true;
   }
 
   @override
