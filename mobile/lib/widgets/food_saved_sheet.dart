@@ -268,13 +268,13 @@ class _CheckPainter extends CustomPainter {
 
     // Background circle
     final bgPaint = Paint()
-      ..color = const Color(0xFF4ADE80).withValues(alpha: 0.12 * circleFade)
+      ..color = AppColors.protein.withValues(alpha: 0.12 * circleFade)
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, radius * circleFade, bgPaint);
 
     // Circle stroke
     final circlePaint = Paint()
-      ..color = const Color(0xFF4ADE80).withValues(alpha: circleFade)
+      ..color = AppColors.protein.withValues(alpha: circleFade)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
       ..strokeCap = StrokeCap.round;
@@ -293,7 +293,7 @@ class _CheckPainter extends CustomPainter {
     // Total path length (approximate) split 40/60
     const seg1Frac = 0.38;
     final checkPaint = Paint()
-      ..color = const Color(0xFF4ADE80)
+      ..color = AppColors.protein
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.5
       ..strokeCap = StrokeCap.round
