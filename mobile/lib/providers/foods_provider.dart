@@ -19,7 +19,7 @@ class FoodsNotifier extends StateNotifier<AsyncValue<List<Food>>> {
       final data = await _supabase
           .from('foods')
           .select()
-          .order('name');
+          .order('created_at', ascending: false);
       state = AsyncValue.data(
         (data as List).map((j) => Food.fromJson(j as Map<String, dynamic>)).toList(),
       );
@@ -38,8 +38,8 @@ class FoodsNotifier extends StateNotifier<AsyncValue<List<Food>>> {
           .select()
           .single();
       final food = Food.fromJson(row as Map<String, dynamic>);
-      state = state.whenData((list) => [...list, food]
-        ..sort((a, b) => a.name.compareTo(b.name)));
+      // Newest first — prepend to list
+      state = state.whenData((list) => [food, ...list]);
       return food;
     } catch (_) {
       return null;
