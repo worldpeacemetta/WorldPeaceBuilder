@@ -4,10 +4,12 @@ import 'package:go_router/go_router.dart';
 import '../../core/utils.dart';
 import '../../models/entry.dart';
 import '../../models/food.dart';
+import '../../providers/badges_provider.dart';
 import '../../providers/entries_provider.dart';
 import '../../providers/log_history_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../theme.dart';
+import '../../widgets/badge_widget.dart';
 import '../../widgets/mode_pill.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -259,37 +261,59 @@ class _StatCell extends StatelessWidget {
   }
 }
 
-class _BadgesCell extends StatelessWidget {
+class _BadgesCell extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        const Text(
-          'BADGES',
-          style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textMuted,
-            letterSpacing: 0.6,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(3, (i) => Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 2),
-            child: Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                color: AppColors.border,
-                borderRadius: BorderRadius.circular(4),
-              ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final recent = ref.watch(recentBadgesProvider);
+    final count  = ref.watch(earnedBadgeCountProvider);
+
+    return GestureDetector(
+      onTap: () => context.push('/badges'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            count > 0 ? 'BADGES · $count' : 'BADGES',
+            style: const TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textMuted,
+              letterSpacing: 0.6,
             ),
-          )),
-        ),
-      ],
+          ),
+          const SizedBox(height: 6),
+          recent.isEmpty
+              ? Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    3,
+                    (i) => Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          color: AppColors.border,
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: const Icon(Icons.lock_outline,
+                            size: 12, color: AppColors.textMuted),
+                      ),
+                    ),
+                  ),
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: recent
+                      .map((b) => Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 2),
+                            child: BadgeWidget(def: b, size: 22),
+                          ))
+                      .toList(),
+                ),
+        ],
+      ),
     );
   }
 }
