@@ -7,6 +7,7 @@ import '../providers/foods_provider.dart';
 import '../theme.dart';
 import 'add_entry_sheet.dart';
 import 'barcode_scanner_sheet.dart';
+import 'food_saved_sheet.dart';
 
 void showAddFoodSheet(BuildContext context, WidgetRef ref, {Food? existing}) {
   showModalBottomSheet(
@@ -116,25 +117,14 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
             const SnackBar(content: Text('Failed to save food')),
           );
         } else {
-          // Offer to log the newly added food immediately
-          final today = DateTime.now();
-          final date =
-              '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-          ScaffoldMessenger.of(parentCtx).showSnackBar(
-            SnackBar(
-              content: const Text('Food added to library'),
-              duration: const Duration(seconds: 5),
-              action: SnackBarAction(
-                label: 'Log Now',
-                onPressed: () => showAddEntrySheet(
-                  parentCtx,
-                  parentRef,
-                  date,
-                  preselectedFood: newFood,
-                ),
-              ),
-            ),
-          );
+          // Show animated confirmation sheet with Log Now option
+          final logNow = await showFoodSavedSheet(parentCtx, newFood);
+          if (logNow) {
+            final today = DateTime.now();
+            final date =
+                '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+            showAddEntrySheet(parentCtx, parentRef, date, preselectedFood: newFood);
+          }
         }
       }
     }

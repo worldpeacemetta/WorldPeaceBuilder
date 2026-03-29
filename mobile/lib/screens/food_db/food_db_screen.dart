@@ -184,77 +184,183 @@ class _CategoryChip extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Food tile with edit / delete long press
+// Food tile with swipe-to-reveal Edit / Delete
 // ---------------------------------------------------------------------------
-class _FoodTile extends ConsumerWidget {
+class _FoodTile extends ConsumerStatefulWidget {
   const _FoodTile({required this.food});
   final Food food;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      title: Text(
-        food.displayName,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: Text(
-        '${food.kcal.round()} kcal · P ${food.protein.round()}g · C ${food.carbs.round()}g · F ${food.fat.round()}g'
-        '  |  per ${food.unit == 'per100g' ? '100 g' : 'serving'}',
-        style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-      ),
-      trailing: Text(
-        categoryEmojis[food.category] ?? '🍽️',
-        style: const TextStyle(fontSize: 18),
-      ),
-      onTap: () => _showActions(context, ref),
-      onLongPress: () => _showActions(context, ref),
+  ConsumerState<_FoodTile> createState() => _FoodTileState();
+}
+
+class _FoodTileState extends ConsumerState<_FoodTile>
+    with SingleTickerProviderStateMixin {
+  static const _revealWidth = 144.0; // total width of action buttons
+  late final AnimationController _ctrl;
+  late final Animation<double> _slideAnim;
+  bool _open = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
     );
+    _slideAnim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
   }
 
-  void _showActions(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    if (_open) {
+      _ctrl.reverse();
+    } else {
+      _ctrl.forward();
+    }
+    _open = !_open;
+  }
+
+  void _close() {
+    if (_open) {
+      _ctrl.reverse();
+      _open = false;
+    }
+  }
+
+  Future<void> _delete() async {
+    _close();
+    final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.edit_outlined),
-              title: const Text('Edit'),
-              onTap: () {
-                Navigator.pop(ctx);
-                showAddFoodSheet(context, ref, existing: food);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete_outline, color: AppColors.danger),
-              title: const Text('Delete', style: TextStyle(color: AppColors.danger)),
-              onTap: () async {
-                Navigator.pop(ctx);
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (d) => AlertDialog(
-                    title: const Text('Delete food?'),
-                    content: Text('Remove "${food.name}" from your database?'),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Cancel')),
-                      TextButton(
-                        onPressed: () => Navigator.pop(d, true),
-                        child: const Text('Delete', style: TextStyle(color: AppColors.danger)),
+      builder: (d) => AlertDialog(
+        title: const Text('Delete food?'),
+        content: Text('Remove "${widget.food.name}" from your database?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(d, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(d, true),
+            child: const Text('Delete',
+                style: TextStyle(color: AppColors.danger)),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true && mounted) {
+      await ref.read(foodsProvider.notifier).deleteFood(widget.food.id);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      // Swipe left → reveal; swipe right or tap outside → close
+      onHorizontalDragUpdate: (d) {
+        if (d.delta.dx < -4 && !_open) _toggle();
+        if (d.delta.dx > 4 && _open) _toggle();
+      },
+      onTap: _close,
+      child: AnimatedBuilder(
+        animation: _slideAnim,
+        builder: (_, __) {
+          final offset = -_revealWidth * _slideAnim.value;
+          return Stack(
+            children: [
+              // Action buttons (revealed behind)
+              Positioned.fill(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    // Edit
+                    GestureDetector(
+                      onTap: () {
+                        _close();
+                        showAddFoodSheet(context, ref, existing: widget.food);
+                      },
+                      child: Container(
+                        width: 72,
+                        color: const Color(0xFF2563EB),
+                        child: const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.edit_outlined,
+                                color: Colors.white, size: 20),
+                            SizedBox(height: 4),
+                            Text('Edit',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600)),
+                          ],
+                        ),
                       ),
-                    ],
+                    ),
+                    // Delete
+                    GestureDetector(
+                      onTap: _delete,
+                      child: Container(
+                        width: 72,
+                        decoration: const BoxDecoration(
+                          color: AppColors.danger,
+                          borderRadius:
+                              BorderRadius.only(topRight: Radius.zero),
+                        ),
+                        child: const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.delete_outline,
+                                color: Colors.white, size: 20),
+                            SizedBox(height: 4),
+                            Text('Delete',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Tile (slides left to reveal actions)
+              Transform.translate(
+                offset: Offset(offset, 0),
+                child: Container(
+                  color: AppColors.card,
+                  child: ListTile(
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    title: Text(
+                      widget.food.displayName,
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w500),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      '${widget.food.kcal.round()} kcal · P ${widget.food.protein.round()}g · C ${widget.food.carbs.round()}g · F ${widget.food.fat.round()}g'
+                      '  |  per ${widget.food.unit == 'per100g' ? '100 g' : 'serving'}',
+                      style: const TextStyle(
+                          fontSize: 12, color: AppColors.textMuted),
+                    ),
+                    trailing: Text(
+                      categoryEmojis[widget.food.category] ?? '🍽️',
+                      style: const TextStyle(fontSize: 18),
+                    ),
                   ),
-                );
-                if (confirm == true) {
-                  await ref.read(foodsProvider.notifier).deleteFood(food.id);
-                }
-              },
-            ),
-          ],
-        ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
