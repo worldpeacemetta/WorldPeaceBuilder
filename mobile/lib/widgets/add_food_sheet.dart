@@ -5,6 +5,7 @@ import '../core/constants.dart';
 import '../models/food.dart';
 import '../providers/foods_provider.dart';
 import '../theme.dart';
+import 'add_entry_sheet.dart';
 import 'barcode_scanner_sheet.dart';
 
 void showAddFoodSheet(BuildContext context, WidgetRef ref, {Food? existing}) {
@@ -17,14 +18,24 @@ void showAddFoodSheet(BuildContext context, WidgetRef ref, {Food? existing}) {
     ),
     builder: (ctx) => ProviderScope(
       parent: ProviderScope.containerOf(context),
-      child: _AddFoodSheet(existing: existing),
+      child: _AddFoodSheet(
+        existing: existing,
+        parentContext: context,
+        parentRef: ref,
+      ),
     ),
   );
 }
 
 class _AddFoodSheet extends ConsumerStatefulWidget {
-  const _AddFoodSheet({this.existing});
+  const _AddFoodSheet({
+    this.existing,
+    required this.parentContext,
+    required this.parentRef,
+  });
   final Food? existing;
+  final BuildContext parentContext;
+  final WidgetRef parentRef;
 
   @override
   ConsumerState<_AddFoodSheet> createState() => _AddFoodSheetState();
@@ -83,19 +94,48 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
       'category': _category,
     };
 
-    bool ok;
-    if (widget.existing != null) {
-      ok = await ref.read(foodsProvider.notifier).updateFood(widget.existing!.id, data);
-    } else {
-      ok = await ref.read(foodsProvider.notifier).addFood(data) != null;
-    }
+    final parentCtx = widget.parentContext;
+    final parentRef = widget.parentRef;
 
-    if (mounted) {
-      Navigator.pop(context);
-      if (!ok) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to save food')),
-        );
+    if (widget.existing != null) {
+      final ok = await ref.read(foodsProvider.notifier).updateFood(widget.existing!.id, data);
+      if (mounted) {
+        Navigator.pop(context);
+        if (!ok) {
+          ScaffoldMessenger.of(parentCtx).showSnackBar(
+            const SnackBar(content: Text('Failed to save food')),
+          );
+        }
+      }
+    } else {
+      final newFood = await ref.read(foodsProvider.notifier).addFood(data);
+      if (mounted) {
+        Navigator.pop(context);
+        if (newFood == null) {
+          ScaffoldMessenger.of(parentCtx).showSnackBar(
+            const SnackBar(content: Text('Failed to save food')),
+          );
+        } else {
+          // Offer to log the newly added food immediately
+          final today = DateTime.now();
+          final date =
+              '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+          ScaffoldMessenger.of(parentCtx).showSnackBar(
+            SnackBar(
+              content: const Text('Food added to library'),
+              duration: const Duration(seconds: 5),
+              action: SnackBarAction(
+                label: 'Log Now',
+                onPressed: () => showAddEntrySheet(
+                  parentCtx,
+                  parentRef,
+                  date,
+                  preselectedFood: newFood,
+                ),
+              ),
+            ),
+          );
+        }
       }
     }
   }

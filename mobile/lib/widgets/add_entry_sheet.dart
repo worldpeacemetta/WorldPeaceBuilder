@@ -18,7 +18,12 @@ String _suggestMeal() {
   return 'snack';
 }
 
-void showAddEntrySheet(BuildContext context, WidgetRef ref, String date) {
+void showAddEntrySheet(
+  BuildContext context,
+  WidgetRef ref,
+  String date, {
+  Food? preselectedFood,
+}) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -28,7 +33,12 @@ void showAddEntrySheet(BuildContext context, WidgetRef ref, String date) {
     ),
     builder: (ctx) => ProviderScope(
       parent: ProviderScope.containerOf(context),
-      child: _AddEntrySheet(date: date, parentContext: context, parentRef: ref),
+      child: _AddEntrySheet(
+        date: date,
+        parentContext: context,
+        parentRef: ref,
+        preselectedFood: preselectedFood,
+      ),
     ),
   );
 }
@@ -38,22 +48,32 @@ class _AddEntrySheet extends ConsumerStatefulWidget {
     required this.date,
     required this.parentContext,
     required this.parentRef,
+    this.preselectedFood,
   });
   final String date;
   final BuildContext parentContext;
   final WidgetRef parentRef;
+  final Food? preselectedFood;
 
   @override
   ConsumerState<_AddEntrySheet> createState() => _AddEntrySheetState();
 }
 
 class _AddEntrySheetState extends ConsumerState<_AddEntrySheet> {
-  Food? _selectedFood;
+  late Food? _selectedFood;
   String _meal = _suggestMeal();
-  final _qtyCtrl = TextEditingController(text: '100');
+  late final TextEditingController _qtyCtrl;
   final _searchCtrl = TextEditingController();
   String _search = '';
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedFood = widget.preselectedFood;
+    final defaultQty = widget.preselectedFood?.unit == 'perServing' ? '1' : '100';
+    _qtyCtrl = TextEditingController(text: defaultQty);
+  }
 
   @override
   void dispose() {
