@@ -26,6 +26,7 @@ void showAddEntrySheet(
 }) {
   showModalBottomSheet(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: AppColors.card,
     shape: const RoundedRectangleBorder(
