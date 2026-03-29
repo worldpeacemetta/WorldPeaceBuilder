@@ -341,7 +341,7 @@ class _BarcodeScanHero extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: scanned ? AppColors.protein : AppColors.text,
+                      color: scanned ? AppColors.protein : AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 3),
