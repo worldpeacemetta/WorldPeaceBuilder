@@ -600,7 +600,7 @@ class _DetailEntryTileState extends ConsumerState<_DetailEntryTile>
                       },
                       child: Container(
                         width: 72,
-                        color: const Color(0xFF2563EB),
+                        color: AppColors.protein,
                         child: const Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [

@@ -286,7 +286,7 @@ class _FoodTileState extends ConsumerState<_FoodTile>
                       },
                       child: Container(
                         width: 72,
-                        color: const Color(0xFF2563EB),
+                        color: AppColors.protein,
                         child: const Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
