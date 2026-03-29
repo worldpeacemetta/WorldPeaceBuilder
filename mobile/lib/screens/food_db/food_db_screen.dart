@@ -622,11 +622,8 @@ class _FoodTileState extends ConsumerState<_FoodTile>
             context, ref, widget.logDate,
             preselectedFood: widget.food,
           ),
-          child: Container(
-            width: 48,
-            height: double.infinity,
-            constraints: const BoxConstraints(minHeight: 56),
-            alignment: Alignment.center,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
             child: Container(
               width: 28,
               height: 28,
