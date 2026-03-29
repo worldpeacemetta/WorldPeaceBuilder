@@ -344,15 +344,15 @@ class _MorphButtons extends StatelessWidget {
     final radius = _lerp(circleD / 2, 5.0, progress);
     final labelOpacity = ((progress - 0.6) / 0.4).clamp(0.0, 1.0);
 
+    final pad = _lerp(8.0, 0.0, progress);
+
     return Opacity(
       opacity: progress.clamp(0.0, 1.0),
       child: Padding(
-        padding: EdgeInsets.symmetric(
-          vertical: 8,
-          horizontal: _lerp(8.0, 0.0, progress),
-        ),
+        padding: EdgeInsets.all(pad),
         child: Row(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _MorphBtn(
               width: btnW,
