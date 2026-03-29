@@ -273,61 +273,16 @@ class _FoodTileState extends ConsumerState<_FoodTile>
           final offset = -_revealWidth * _slideAnim.value;
           return Stack(
             children: [
-              // Action buttons (revealed behind)
-              Positioned.fill(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    // Edit
-                    GestureDetector(
-                      onTap: () {
-                        _close();
-                        showAddFoodSheet(context, ref, existing: widget.food);
-                      },
-                      child: Container(
-                        width: 72,
-                        color: AppColors.protein,
-                        child: const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.edit_outlined,
-                                color: Colors.white, size: 20),
-                            SizedBox(height: 4),
-                            Text('Edit',
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    // Delete
-                    GestureDetector(
-                      onTap: _delete,
-                      child: Container(
-                        width: 72,
-                        decoration: const BoxDecoration(
-                          color: AppColors.danger,
-                          borderRadius:
-                              BorderRadius.only(topRight: Radius.zero),
-                        ),
-                        child: const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.delete_outline,
-                                color: Colors.white, size: 20),
-                            SizedBox(height: 4),
-                            Text('Delete',
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+              // Morphing action buttons (circle → rectangle as swipe progresses)
+              Positioned(
+                right: 0, top: 0, bottom: 0,
+                child: _MorphButtons(
+                  progress: _slideAnim.value,
+                  onEdit: () {
+                    _close();
+                    showAddFoodSheet(context, ref, existing: widget.food);
+                  },
+                  onDelete: _delete,
                 ),
               ),
               // Tile (slides left to reveal actions)
@@ -361,6 +316,119 @@ class _FoodTileState extends ConsumerState<_FoodTile>
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+// ── Morph buttons (circle → rectangle) ───────────────────────────────────────
+
+class _MorphButtons extends StatelessWidget {
+  const _MorphButtons({
+    required this.progress,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final double progress;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  static double _lerp(double a, double b, double t) => a + (b - a) * t;
+
+  @override
+  Widget build(BuildContext context) {
+    const fullW = 72.0;
+    const circleD = 44.0;
+    final btnW   = _lerp(circleD, fullW, progress);
+    final radius = _lerp(circleD / 2, 5.0, progress);
+    final labelOpacity = ((progress - 0.6) / 0.4).clamp(0.0, 1.0);
+
+    return Opacity(
+      opacity: progress.clamp(0.0, 1.0),
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          vertical: 8,
+          horizontal: _lerp(8.0, 0.0, progress),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _MorphBtn(
+              width: btnW,
+              radius: radius,
+              color: AppColors.protein,
+              icon: Icons.edit_outlined,
+              label: 'Edit',
+              labelOpacity: labelOpacity,
+              onTap: onEdit,
+            ),
+            SizedBox(width: _lerp(6.0, 0.0, progress)),
+            _MorphBtn(
+              width: btnW,
+              radius: radius,
+              color: AppColors.danger,
+              icon: Icons.delete_outline,
+              label: 'Delete',
+              labelOpacity: labelOpacity,
+              onTap: onDelete,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MorphBtn extends StatelessWidget {
+  const _MorphBtn({
+    required this.width,
+    required this.radius,
+    required this.color,
+    required this.icon,
+    required this.label,
+    required this.labelOpacity,
+    required this.onTap,
+  });
+
+  final double width;
+  final double radius;
+  final Color color;
+  final IconData icon;
+  final String label;
+  final double labelOpacity;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: width,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(radius),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.white, size: 20),
+            if (labelOpacity > 0) ...[
+              const SizedBox(height: 3),
+              Opacity(
+                opacity: labelOpacity,
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
