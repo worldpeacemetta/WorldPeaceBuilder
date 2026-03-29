@@ -6,6 +6,7 @@ import '../../core/constants.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../theme.dart';
+import '../../widgets/badges_preview_card.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -107,6 +108,11 @@ class ProfileScreen extends ConsumerWidget {
           // Body Stats
           _SectionHeader('Body Stats'),
           _BodyStatsEditor(settings: settings),
+          const SizedBox(height: 16),
+
+          // Achievements
+          _SectionHeader('Achievements'),
+          const BadgesPreviewCard(),
           const SizedBox(height: 16),
 
           // Appearance
