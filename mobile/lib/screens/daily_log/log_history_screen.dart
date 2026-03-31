@@ -525,9 +525,9 @@ class _DayCard extends ConsumerWidget {
 
     // Goal achievements
     final proteinHit = totals.protein >= goals.protein;
-    final kcalOk = totals.kcal <= goals.kcal * 1.05;
-    final carbsOk = totals.carbs <= goals.carbs * 1.05;
-    final fatOk = totals.fat <= goals.fat * 1.05;
+    final kcalOk = goals.kcal > 0 && totals.kcal >= goals.kcal * 0.95 && totals.kcal <= goals.kcal;
+    final carbsOk = goals.carbs > 0 && totals.carbs >= goals.carbs * 0.95 && totals.carbs <= goals.carbs;
+    final fatOk = goals.fat > 0 && totals.fat >= goals.fat * 0.95 && totals.fat <= goals.fat;
     final perfectDay = proteinHit && kcalOk && carbsOk && fatOk;
 
     // Kcal progress (0.0–1.0)
