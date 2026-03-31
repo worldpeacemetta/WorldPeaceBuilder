@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/entry.dart';
 import '../models/food.dart';
 import 'date_provider.dart';
+import 'log_history_provider.dart';
 
 final _supabase = Supabase.instance.client;
 
@@ -11,11 +12,12 @@ final _supabase = Supabase.instance.client;
 // Entries for a specific date.
 // ---------------------------------------------------------------------------
 class EntriesNotifier extends StateNotifier<AsyncValue<List<Entry>>> {
-  EntriesNotifier(this._date) : super(const AsyncValue.loading()) {
+  EntriesNotifier(this._date, this._ref) : super(const AsyncValue.loading()) {
     fetch();
   }
 
   final String _date;
+  final Ref _ref;
 
   Future<void> fetch() async {
     state = const AsyncValue.loading();
@@ -54,6 +56,7 @@ class EntriesNotifier extends StateNotifier<AsyncValue<List<Entry>>> {
           .single();
       final entry = Entry.fromJson(row as Map<String, dynamic>);
       state = state.whenData((list) => [...list, entry]);
+      _ref.invalidate(loggedDatesProvider);
       return true;
     } catch (_) {
       return false;
@@ -86,6 +89,7 @@ class EntriesNotifier extends StateNotifier<AsyncValue<List<Entry>>> {
     try {
       await _supabase.from('entries').delete().eq('id', id);
       state = state.whenData((list) => list.where((e) => e.id != id).toList());
+      _ref.invalidate(loggedDatesProvider);
       return true;
     } catch (_) {
       return false;
@@ -95,7 +99,7 @@ class EntriesNotifier extends StateNotifier<AsyncValue<List<Entry>>> {
 
 final entriesProvider = StateNotifierProvider.family<
     EntriesNotifier, AsyncValue<List<Entry>>, String>(
-  (ref, date) => EntriesNotifier(date),
+  (ref, date) => EntriesNotifier(date, ref),
 );
 
 // ---------------------------------------------------------------------------
