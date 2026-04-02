@@ -1,3 +1,7 @@
+import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -52,38 +56,40 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     final XFile? file = await _picker.pickImage(
       source: source,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 85,
+      imageQuality: 90,
     );
-    if (file == null) return;
+    if (file == null || !mounted) return;
+
+    // Show crop/zoom screen — returns PNG bytes of the cropped circle
+    final Uint8List? croppedBytes = await Navigator.push<Uint8List>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _AvatarCropScreen(imageFile: file),
+        fullscreenDialog: true,
+      ),
+    );
+    if (croppedBytes == null || !mounted) return;
 
     setState(() => _uploading = true);
     try {
-      final bytes = await file.readAsBytes();
-      final ext = file.name.split('.').last.toLowerCase();
-      final mime = ext == 'png' ? 'image/png' : 'image/jpeg';
-
-      // Fixed path with upsert — append cache-buster to displayed URL
       final storagePath = '$userId/avatar';
       await _supabase.storage.from('avatars').uploadBinary(
         storagePath,
-        bytes,
-        fileOptions: FileOptions(contentType: mime, upsert: true),
+        croppedBytes,
+        fileOptions: const FileOptions(contentType: 'image/png', upsert: true),
       );
 
       final publicUrl =
           _supabase.storage.from('avatars').getPublicUrl(storagePath);
 
-      // Save to profiles table (matches web app schema)
       await _supabase
           .from('profiles')
           .update({'avatar_url': publicUrl})
           .eq('id', userId);
 
       if (mounted) {
-        // Append timestamp so Image.network re-fetches the new file
-        setState(() => _avatarUrl = '$publicUrl?v=${DateTime.now().millisecondsSinceEpoch}');
+        setState(() => _avatarUrl =
+            '$publicUrl?v=${DateTime.now().millisecondsSinceEpoch}');
       }
     } catch (e) {
       if (mounted) {
@@ -432,6 +438,270 @@ class _CategoryCard extends StatelessWidget {
       child: Column(children: rows),
     );
   }
+}
+
+// ── Avatar crop / zoom screen ─────────────────────────────────────────────────
+
+class _AvatarCropScreen extends StatefulWidget {
+  const _AvatarCropScreen({required this.imageFile});
+  final XFile imageFile;
+
+  @override
+  State<_AvatarCropScreen> createState() => _AvatarCropScreenState();
+}
+
+class _AvatarCropScreenState extends State<_AvatarCropScreen> {
+  static const double _cropDiameter = 280.0;
+
+  ui.Image? _image;
+  double _scale = 1.0;
+  double _minScale = 1.0;
+  Offset _offset = Offset.zero;
+
+  // Gesture tracking
+  double _gestureStartScale = 1.0;
+  Offset _gestureStartOffset = Offset.zero;
+  Offset _gestureStartFocal = Offset.zero;
+
+  final _cropKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImage();
+  }
+
+  Future<void> _loadImage() async {
+    final bytes = await widget.imageFile.readAsBytes();
+    final codec = await ui.instantiateImageCodec(bytes);
+    final frame = await codec.getNextFrame();
+    final img = frame.image;
+
+    // Scale to fill the crop circle (cover fit)
+    final minS = math.max(
+      _cropDiameter / img.width,
+      _cropDiameter / img.height,
+    );
+
+    if (mounted) {
+      setState(() {
+        _image = img;
+        _scale = minS;
+        _minScale = minS;
+        _offset = Offset.zero;
+      });
+    }
+  }
+
+  void _onScaleStart(ScaleStartDetails d) {
+    _gestureStartScale = _scale;
+    _gestureStartOffset = _offset;
+    _gestureStartFocal = d.focalPoint;
+  }
+
+  void _onScaleUpdate(ScaleUpdateDetails d) {
+    final newScale =
+        (_gestureStartScale * d.scale).clamp(_minScale, _minScale * 6);
+    final translation = d.focalPoint - _gestureStartFocal;
+    setState(() {
+      _scale = newScale;
+      _offset = _clampOffset(_gestureStartOffset + translation, newScale);
+    });
+  }
+
+  Offset _clampOffset(Offset o, double scale) {
+    if (_image == null) return Offset.zero;
+    final maxDx = math.max(0.0, (_image!.width * scale - _cropDiameter) / 2);
+    final maxDy = math.max(0.0, (_image!.height * scale - _cropDiameter) / 2);
+    return Offset(
+      o.dx.clamp(-maxDx, maxDx),
+      o.dy.clamp(-maxDy, maxDy),
+    );
+  }
+
+  Future<void> _confirm() async {
+    final boundary =
+        _cropKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+    if (boundary == null) return;
+    // Render at 2× for a 560×560 PNG
+    final img = await boundary.toImage(pixelRatio: 2.0);
+    final data = await img.toByteData(format: ui.ImageByteFormat.png);
+    if (!mounted) return;
+    Navigator.pop(context, data?.buffer.asUint8List());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const r = _cropDiameter / 2;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // ── Crop area (captured by RepaintBoundary) ─────────────────────
+          Center(
+            child: RepaintBoundary(
+              key: _cropKey,
+              child: SizedBox(
+                width: _cropDiameter,
+                height: _cropDiameter,
+                child: ClipRect(
+                  child: CustomPaint(
+                    painter: _CropImagePainter(
+                      image: _image,
+                      offset: _offset,
+                      scale: _scale,
+                      cropSize: _cropDiameter,
+                    ),
+                    size: const Size(_cropDiameter, _cropDiameter),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // ── Dark scrim with circular window ─────────────────────────────
+          IgnorePointer(
+            child: CustomPaint(
+              painter: _CropScrimPainter(cropRadius: r),
+            ),
+          ),
+
+          // ── Circle border ────────────────────────────────────────────────
+          IgnorePointer(
+            child: Center(
+              child: Container(
+                width: _cropDiameter,
+                height: _cropDiameter,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+              ),
+            ),
+          ),
+
+          // ── Full-screen gesture layer (below buttons) ────────────────────
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onScaleStart: _onScaleStart,
+            onScaleUpdate: _onScaleUpdate,
+            child: const SizedBox.expand(),
+          ),
+
+          // ── Cancel (top-left) ────────────────────────────────────────────
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
+              ),
+            ),
+          ),
+
+          // ── Bottom hint + Use Photo button ────────────────────────────────
+          if (_image != null)
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 36),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Pinch to zoom  •  Drag to reposition',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: 200,
+                        child: ElevatedButton(
+                          onPressed: _confirm,
+                          style: ElevatedButton.styleFrom(
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 14),
+                            textStyle: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          child: const Text('Use Photo'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else
+            const Center(child: CircularProgressIndicator()),
+        ],
+      ),
+    );
+  }
+}
+
+class _CropImagePainter extends CustomPainter {
+  const _CropImagePainter({
+    required this.image,
+    required this.offset,
+    required this.scale,
+    required this.cropSize,
+  });
+
+  final ui.Image? image;
+  final Offset offset;
+  final double scale;
+  final double cropSize;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (image == null) return;
+    final imgW = image!.width * scale;
+    final imgH = image!.height * scale;
+    final dx = (cropSize - imgW) / 2 + offset.dx;
+    final dy = (cropSize - imgH) / 2 + offset.dy;
+    canvas.drawImageRect(
+      image!,
+      Rect.fromLTWH(0, 0, image!.width.toDouble(), image!.height.toDouble()),
+      Rect.fromLTWH(dx, dy, imgW, imgH),
+      Paint(),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_CropImagePainter old) =>
+      old.image != image || old.offset != offset || old.scale != scale;
+}
+
+class _CropScrimPainter extends CustomPainter {
+  const _CropScrimPainter({required this.cropRadius});
+  final double cropRadius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final path = Path()
+      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..addOval(Rect.fromCircle(center: center, radius: cropRadius))
+      ..fillType = PathFillType.evenOdd;
+    canvas.drawPath(
+      path,
+      Paint()..color = Colors.black.withValues(alpha: 0.6),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_CropScrimPainter old) => old.cropRadius != cropRadius;
 }
 
 // ── Single nav row ─────────────────────────────────────────────────────────────
