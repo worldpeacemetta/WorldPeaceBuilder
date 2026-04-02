@@ -146,7 +146,7 @@ class _FoodSavedSheetState extends State<_FoodSavedSheet>
                               const SizedBox(height: 8),
                               Text(
                                 widget.food.displayName,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 15,
                                   color: cs.textMuted,
                                 ),
@@ -203,7 +203,7 @@ class _FoodSavedSheetState extends State<_FoodSavedSheet>
                               // Done
                               TextButton(
                                 onPressed: () => Navigator.pop(context, false),
-                                child: const Text(
+                                child: Text(
                                   'Done',
                                   style: TextStyle(
                                     color: cs.textMuted,

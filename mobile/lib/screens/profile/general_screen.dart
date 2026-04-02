@@ -206,7 +206,7 @@ class _GeneralScreenState extends ConsumerState<GeneralScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Username',
                     style: TextStyle(fontSize: 12, color: cs.textMuted),
                   ),
@@ -267,7 +267,7 @@ class _GeneralScreenState extends ConsumerState<GeneralScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Email',
                     style: TextStyle(fontSize: 12, color: cs.textMuted),
                   ),

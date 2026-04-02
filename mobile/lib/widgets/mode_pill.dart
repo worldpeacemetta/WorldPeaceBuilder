@@ -146,7 +146,7 @@ class _ModeSheetState extends ConsumerState<_ModeSheet> {
           ),
           const SizedBox(height: 4),
           if (!isToday)
-            const Text(
+            Text(
               'Sets the goal mode for this day only',
               style: TextStyle(fontSize: 12, color: cs.textMuted),
             ),

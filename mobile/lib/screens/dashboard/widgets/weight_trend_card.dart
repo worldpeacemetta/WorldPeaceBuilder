@@ -209,7 +209,7 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
 
             if (recent.isEmpty) ...[
               const SizedBox(height: 16),
-              const Center(
+              Center(
                 child: Text(
                   'No weight data yet.\nTap Log to add your first entry.',
                   textAlign: TextAlign.center,
@@ -224,7 +224,7 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                 children: [
                   Container(width: 16, height: 2, color: _kWeightColor),
                   const SizedBox(width: 4),
-                  const Text('Weight',
+                  Text('Weight',
                       style: TextStyle(fontSize: 11, color: cs.textMuted)),
                   if (hasBF) ...[
                     const SizedBox(width: 12),
@@ -235,7 +235,7 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                           painter: _DashLinePainter(color: _kBFColor)),
                     ),
                     const SizedBox(width: 4),
-                    const Text('Body Fat',
+                    Text('Body Fat',
                         style: TextStyle(fontSize: 11, color: cs.textMuted)),
                   ],
                 ],
@@ -256,14 +256,14 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                     const SizedBox(width: 10),
                     Text(
                       '${latest.bodyFat!.toStringAsFixed(1)}% BF',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 13, color: cs.textMuted),
                     ),
                   ],
                   const Spacer(),
                   Text(
                     formatDateDisplay(latest.date),
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12, color: cs.textMuted),
                   ),
                 ],
@@ -297,7 +297,7 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                             padding: const EdgeInsets.only(right: 4),
                             child: Text(
                               '${v.toStringAsFixed(1)} kg',
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 9, color: cs.textMuted),
                             ),
                           ),
@@ -338,7 +338,7 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                             return Text(
                               DateFormat('M/d')
                                   .format(DateTime.parse(recent[i].date)),
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 9, color: cs.textMuted),
                             );
                           },

@@ -220,7 +220,7 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
                         const Expanded(child: Divider(endIndent: 12)),
                         Text(
                           _scanned ? 'Review & save' : 'or enter manually',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             color: cs.textMuted,
                           ),
@@ -391,7 +391,7 @@ class _BarcodeScanHero extends StatelessWidget {
                     scanned
                         ? 'Review the details below, then save'
                         : 'Point your camera at a product barcode\nfor instant nutrition data',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       color: cs.textMuted,
                       height: 1.4,

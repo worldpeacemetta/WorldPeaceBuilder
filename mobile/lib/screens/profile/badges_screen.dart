@@ -231,7 +231,7 @@ class _BadgeRow extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   def.desc,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: cs.textMuted,
                     fontSize: 12,
                   ),
