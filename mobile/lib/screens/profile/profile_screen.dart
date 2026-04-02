@@ -1,15 +1,190 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../theme.dart';
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  final _supabase = Supabase.instance.client;
+  final _picker = ImagePicker();
+
+  String? _avatarUrl;
+  bool _uploading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAvatar();
+  }
+
+  // ── Load ──────────────────────────────────────────────────────────────────
+
+  Future<void> _loadAvatar() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return;
+    try {
+      final row = await _supabase
+          .from('profiles')
+          .select('avatar_url')
+          .eq('id', userId)
+          .maybeSingle();
+      if (mounted) {
+        setState(() => _avatarUrl = row?['avatar_url'] as String?);
+      }
+    } catch (_) {}
+  }
+
+  // ── Upload ────────────────────────────────────────────────────────────────
+
+  Future<void> _pickAndUpload(ImageSource source) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    final XFile? file = await _picker.pickImage(
+      source: source,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
+    if (file == null) return;
+
+    setState(() => _uploading = true);
+    try {
+      final bytes = await file.readAsBytes();
+      final ext = file.name.split('.').last.toLowerCase();
+      final mime = ext == 'png' ? 'image/png' : 'image/jpeg';
+
+      // Fixed path with upsert — append cache-buster to displayed URL
+      final storagePath = '$userId/avatar';
+      await _supabase.storage.from('avatars').uploadBinary(
+        storagePath,
+        bytes,
+        fileOptions: FileOptions(contentType: mime, upsert: true),
+      );
+
+      final publicUrl =
+          _supabase.storage.from('avatars').getPublicUrl(storagePath);
+
+      // Save to profiles table (matches web app schema)
+      await _supabase
+          .from('profiles')
+          .update({'avatar_url': publicUrl})
+          .eq('id', userId);
+
+      if (mounted) {
+        // Append timestamp so Image.network re-fetches the new file
+        setState(() => _avatarUrl = '$publicUrl?v=${DateTime.now().millisecondsSinceEpoch}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  // ── Remove ────────────────────────────────────────────────────────────────
+
+  Future<void> _removeAvatar() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    setState(() => _uploading = true);
+    try {
+      await _supabase.storage.from('avatars').remove(['$userId/avatar']);
+      await _supabase
+          .from('profiles')
+          .update({'avatar_url': null})
+          .eq('id', userId);
+      if (mounted) setState(() => _avatarUrl = null);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to remove photo: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  // ── Bottom sheet ──────────────────────────────────────────────────────────
+
+  void _showAvatarSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              _SheetOption(
+                icon: Icons.camera_alt_outlined,
+                label: 'Take Photo',
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAndUpload(ImageSource.camera);
+                },
+              ),
+              _SheetOption(
+                icon: Icons.photo_library_outlined,
+                label: 'Choose from Gallery',
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAndUpload(ImageSource.gallery);
+                },
+              ),
+              if (_avatarUrl != null) ...[
+                const Divider(indent: 16, endIndent: 16),
+                _SheetOption(
+                  icon: Icons.delete_outline,
+                  label: 'Remove Photo',
+                  color: AppColors.danger,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _removeAvatar();
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
 
     final displayName = user?.userMetadata?['display_username'] as String? ??
@@ -26,30 +201,71 @@ class ProfileScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         children: [
-          // ── Avatar + name ─────────────────────────────────────────────────
+          // ── Avatar + name ────────────────────────────────────────────────
           Center(
             child: Column(
               children: [
-                Container(
-                  width: 88,
-                  height: 88,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.protein.withValues(alpha: 0.15),
-                    border: Border.all(
-                      color: AppColors.protein.withValues(alpha: 0.4),
-                      width: 2,
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      initial,
-                      style: const TextStyle(
-                        fontSize: 34,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.protein,
+                GestureDetector(
+                  onTap: _uploading ? null : _showAvatarSheet,
+                  child: Stack(
+                    children: [
+                      // Avatar circle
+                      Container(
+                        width: 88,
+                        height: 88,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.protein.withValues(alpha: 0.15),
+                          border: Border.all(
+                            color: AppColors.protein.withValues(alpha: 0.4),
+                            width: 2,
+                          ),
+                        ),
+                        child: ClipOval(
+                          child: _uploading
+                              ? const Center(
+                                  child: SizedBox(
+                                    width: 28,
+                                    height: 28,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      color: AppColors.protein,
+                                    ),
+                                  ),
+                                )
+                              : _avatarUrl != null
+                                  ? Image.network(
+                                      _avatarUrl!,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) =>
+                                          _initialsWidget(initial),
+                                    )
+                                  : _initialsWidget(initial),
+                        ),
                       ),
-                    ),
+                      // Camera badge
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          width: 26,
+                          height: 26,
+                          decoration: BoxDecoration(
+                            color: AppColors.protein,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.bg,
+                              width: 2,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.camera_alt_rounded,
+                            size: 13,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -116,7 +332,7 @@ class ProfileScreen extends ConsumerWidget {
 
           const SizedBox(height: 28),
 
-          // ── Sign out ───────────────────────────────────────────────────────
+          // ── Sign out ──────────────────────────────────────────────────────
           OutlinedButton.icon(
             onPressed: () => _confirmSignOut(context),
             icon: const Icon(Icons.logout, color: AppColors.danger),
@@ -134,6 +350,17 @@ class ProfileScreen extends ConsumerWidget {
       ),
     );
   }
+
+  Widget _initialsWidget(String initial) => Center(
+        child: Text(
+          initial,
+          style: const TextStyle(
+            fontSize: 34,
+            fontWeight: FontWeight.w700,
+            color: AppColors.protein,
+          ),
+        ),
+      );
 
   Future<void> _confirmSignOut(BuildContext context) async {
     final ok = await showDialog<bool>(
@@ -156,6 +383,32 @@ class ProfileScreen extends ConsumerWidget {
       ),
     );
     if (ok == true) await signOut();
+  }
+}
+
+// ── Bottom sheet option row ────────────────────────────────────────────────────
+
+class _SheetOption extends StatelessWidget {
+  const _SheetOption({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = color ?? AppColors.textPrimary;
+    return ListTile(
+      leading: Icon(icon, color: c),
+      title: Text(label, style: TextStyle(color: c, fontWeight: FontWeight.w500)),
+      onTap: onTap,
+    );
   }
 }
 
@@ -206,7 +459,6 @@ class _CategoryRow extends StatelessWidget {
         InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.vertical(
-            top: isLast ? Radius.zero : Radius.zero,
             bottom: isLast ? const Radius.circular(16) : Radius.zero,
           ),
           child: Padding(
@@ -255,8 +507,7 @@ class _CategoryRow extends StatelessWidget {
             ),
           ),
         ),
-        if (!isLast)
-          const Divider(height: 1, indent: 72),
+        if (!isLast) const Divider(height: 1, indent: 72),
       ],
     );
   }
