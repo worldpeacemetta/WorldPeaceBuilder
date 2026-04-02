@@ -75,6 +75,7 @@ class _ArchNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     final bottomPad = MediaQuery.of(context).padding.bottom;
     // Total arch-bar height: rise + content + safe-area
     final archBarH = _archRise + _barH + bottomPad;
@@ -93,7 +94,7 @@ class _ArchNavBar extends StatelessWidget {
             right: 0,
             height: archBarH,
             child: CustomPaint(
-              painter: _ArchPainter(archRise: _archRise),
+              painter: _ArchPainter(archRise: _archRise, cardColor: cs.card),
               child: Padding(
                 padding: EdgeInsets.only(
                   top: _archRise,
@@ -173,7 +174,8 @@ class _NavBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? AppColors.textPrimary : AppColors.textMuted;
+    final cs = AppColorScheme.of(context);
+    final color = selected ? cs.textPrimary : cs.textMuted;
     return InkWell(
       onTap: onTap,
       splashColor: Colors.transparent,
@@ -200,8 +202,9 @@ class _NavBtn extends StatelessWidget {
 // ── Arch painter ──────────────────────────────────────────────────────────────
 
 class _ArchPainter extends CustomPainter {
-  const _ArchPainter({required this.archRise});
+  const _ArchPainter({required this.archRise, required this.cardColor});
   final double archRise;
+  final Color cardColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -226,11 +229,11 @@ class _ArchPainter extends CustomPainter {
     canvas.drawPath(
       path,
       Paint()
-        ..color = AppColors.card
+        ..color = cardColor
         ..style = PaintingStyle.fill,
     );
   }
 
   @override
-  bool shouldRepaint(_ArchPainter old) => old.archRise != archRise;
+  bool shouldRepaint(_ArchPainter old) => old.archRise != archRise || old.cardColor != cardColor;
 }

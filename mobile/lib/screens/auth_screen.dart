@@ -59,6 +59,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     final isSignIn = _mode == _AuthMode.signIn;
 
     return Scaffold(
@@ -78,14 +79,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                    color: cs.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   isSignIn ? 'Sign in to continue' : 'Create your account',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppColors.textMuted, fontSize: 14),
+                  style: TextStyle(color: cs.textMuted, fontSize: 14),
                 ),
                 const SizedBox(height: 36),
 
@@ -173,7 +174,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     isSignIn
                         ? "Don't have an account? Sign up"
                         : 'Already have an account? Sign in',
-                    style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                    style: TextStyle(color: cs.textMuted, fontSize: 13),
                   ),
                 ),
               ],
