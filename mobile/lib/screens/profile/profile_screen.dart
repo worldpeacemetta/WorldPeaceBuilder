@@ -124,9 +124,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   // ── Bottom sheet ──────────────────────────────────────────────────────────
 
   void _showAvatarSheet() {
+    final cs = Theme.of(context).extension<AppColorScheme>()!;
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.card,
+      backgroundColor: cs.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -142,7 +143,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  color: AppColors.border,
+                  color: cs.border,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -185,6 +186,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     final user = ref.watch(currentUserProvider);
 
     final displayName = user?.userMetadata?['display_username'] as String? ??
@@ -254,7 +256,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             color: AppColors.protein,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: AppColors.bg,
+                              color: cs.bg,
                               width: 2,
                             ),
                           ),
@@ -271,18 +273,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 const SizedBox(height: 12),
                 Text(
                   displayName,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                    color: cs.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   email,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: AppColors.textMuted,
+                    color: cs.textMuted,
                   ),
                 ),
               ],
@@ -296,8 +298,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             rows: [
               _CategoryRow(
                 icon: Icons.settings_outlined,
-                iconColor: const Color(0xFF94A3B8),
-                iconBg: const Color(0xFF1E2330),
+                iconColor: cs.textMuted,
+                iconBg: cs.border,
                 title: 'General',
                 subtitle: 'Account, appearance & language',
                 onTap: () => context.push('/profile/general'),
@@ -403,7 +405,7 @@ class _SheetOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = color ?? AppColors.textPrimary;
+    final c = color ?? AppColorScheme.of(context).textPrimary;
     return ListTile(
       leading: Icon(icon, color: c),
       title: Text(label, style: TextStyle(color: c, fontWeight: FontWeight.w500)),
@@ -420,11 +422,12 @@ class _CategoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: cs.card,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: cs.border),
       ),
       child: Column(children: rows),
     );
@@ -481,26 +484,26 @@ class _CategoryRow extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
+                          color: AppColorScheme.of(context).textPrimary,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         subtitle,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.textMuted,
+                          color: AppColorScheme.of(context).textMuted,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const Icon(
+                Icon(
                   Icons.chevron_right_rounded,
-                  color: AppColors.textMuted,
+                  color: AppColorScheme.of(context).textMuted,
                   size: 22,
                 ),
               ],

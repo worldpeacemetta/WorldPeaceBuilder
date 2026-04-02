@@ -67,7 +67,7 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.card,
+      backgroundColor: Theme.of(context).extension<AppColorScheme>()!.card,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => Padding(
@@ -148,6 +148,7 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     final history = ref.watch(settingsProvider).weightHistory;
     final recent  = history.length > 30
         ? history.sublist(history.length - 30)
@@ -212,7 +213,7 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                 child: Text(
                   'No weight data yet.\nTap Log to add your first entry.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                  style: TextStyle(color: cs.textMuted, fontSize: 13),
                 ),
               ),
               const SizedBox(height: 8),
@@ -224,7 +225,7 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                   Container(width: 16, height: 2, color: _kWeightColor),
                   const SizedBox(width: 4),
                   const Text('Weight',
-                      style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                      style: TextStyle(fontSize: 11, color: cs.textMuted)),
                   if (hasBF) ...[
                     const SizedBox(width: 12),
                     SizedBox(
@@ -235,7 +236,7 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                     ),
                     const SizedBox(width: 4),
                     const Text('Body Fat',
-                        style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                        style: TextStyle(fontSize: 11, color: cs.textMuted)),
                   ],
                 ],
               ),
@@ -256,14 +257,14 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                     Text(
                       '${latest.bodyFat!.toStringAsFixed(1)}% BF',
                       style: const TextStyle(
-                          fontSize: 13, color: AppColors.textMuted),
+                          fontSize: 13, color: cs.textMuted),
                     ),
                   ],
                   const Spacer(),
                   Text(
                     formatDateDisplay(latest.date),
                     style: const TextStyle(
-                        fontSize: 12, color: AppColors.textMuted),
+                        fontSize: 12, color: cs.textMuted),
                   ),
                 ],
               ),
@@ -280,7 +281,7 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                       show: true,
                       drawVerticalLine: false,
                       getDrawingHorizontalLine: (_) =>
-                          FlLine(color: AppColors.border, strokeWidth: 1),
+                          FlLine(color: cs.border, strokeWidth: 1),
                     ),
                     borderData: FlBorderData(show: false),
                     titlesData: FlTitlesData(
@@ -297,7 +298,7 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                             child: Text(
                               '${v.toStringAsFixed(1)} kg',
                               style: const TextStyle(
-                                  fontSize: 9, color: AppColors.textMuted),
+                                  fontSize: 9, color: cs.textMuted),
                             ),
                           ),
                         ),
@@ -338,7 +339,7 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                               DateFormat('M/d')
                                   .format(DateTime.parse(recent[i].date)),
                               style: const TextStyle(
-                                  fontSize: 9, color: AppColors.textMuted),
+                                  fontSize: 9, color: cs.textMuted),
                             );
                           },
                         ),

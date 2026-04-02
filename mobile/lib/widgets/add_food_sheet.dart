@@ -18,7 +18,7 @@ void showAddFoodSheet(
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: AppColors.card,
+    backgroundColor: Theme.of(context).extension<AppColorScheme>()!.card,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
@@ -162,6 +162,7 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     final bottom = MediaQuery.of(context).viewInsets.bottom;
     final isEdit = widget.existing != null;
 
@@ -179,7 +180,7 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
                 margin: const EdgeInsets.only(top: 10, bottom: 4),
                 width: 40, height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.border,
+                  color: cs.border,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -221,7 +222,7 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
                           _scanned ? 'Review & save' : 'or enter manually',
                           style: const TextStyle(
                             fontSize: 12,
-                            color: AppColors.textMuted,
+                            color: cs.textMuted,
                           ),
                         ),
                         const Expanded(child: Divider(indent: 12)),
@@ -335,6 +336,7 @@ class _BarcodeScanHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -381,7 +383,7 @@ class _BarcodeScanHero extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: scanned ? AppColors.protein : AppColors.textPrimary,
+                      color: scanned ? AppColors.protein : cs.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -391,7 +393,7 @@ class _BarcodeScanHero extends StatelessWidget {
                         : 'Point your camera at a product barcode\nfor instant nutrition data',
                     style: const TextStyle(
                       fontSize: 12,
-                      color: AppColors.textMuted,
+                      color: cs.textMuted,
                       height: 1.4,
                     ),
                   ),

@@ -186,6 +186,7 @@ class _GeneralScreenState extends ConsumerState<GeneralScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     final settings = ref.watch(settingsProvider);
 
     return Scaffold(
@@ -207,7 +208,7 @@ class _GeneralScreenState extends ConsumerState<GeneralScreen> {
                 children: [
                   const Text(
                     'Username',
-                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 12, color: cs.textMuted),
                   ),
                   const SizedBox(height: 6),
                   Row(
@@ -268,7 +269,7 @@ class _GeneralScreenState extends ConsumerState<GeneralScreen> {
                 children: [
                   const Text(
                     'Email',
-                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 12, color: cs.textMuted),
                   ),
                   const SizedBox(height: 6),
                   Row(
@@ -409,10 +410,10 @@ class _SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.only(left: 4, bottom: 8),
       child: Text(
         text.toUpperCase(),
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: AppColors.textMuted,
+          color: AppColorScheme.of(context).textMuted,
           letterSpacing: 0.8,
         ),
       ),
@@ -426,11 +427,12 @@ class _SettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: cs.card,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: cs.border),
       ),
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(children: children),
@@ -462,20 +464,20 @@ class _TappableRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
-            Icon(icon, color: AppColors.textMuted, size: 20),
+            Icon(icon, color: AppColorScheme.of(context).textMuted, size: 20),
             const SizedBox(width: 14),
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
-                  color: AppColors.textPrimary,
+                  color: AppColorScheme.of(context).textPrimary,
                 ),
               ),
             ),
-            const Icon(Icons.chevron_right_rounded,
-                color: AppColors.textMuted, size: 20),
+            Icon(Icons.chevron_right_rounded,
+                color: AppColorScheme.of(context).textMuted, size: 20),
           ],
         ),
       ),
@@ -502,6 +504,7 @@ class _ThemeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     final selected = current == value;
     return InkWell(
       onTap: onTap,
@@ -514,7 +517,7 @@ class _ThemeRow extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: selected ? AppColors.protein : AppColors.textMuted,
+              color: selected ? AppColors.protein : cs.textMuted,
               size: 20,
             ),
             const SizedBox(width: 14),
@@ -524,7 +527,7 @@ class _ThemeRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
-                  color: selected ? AppColors.protein : AppColors.textPrimary,
+                  color: selected ? AppColors.protein : cs.textPrimary,
                 ),
               ),
             ),
@@ -556,6 +559,7 @@ class _LanguageRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     final selected = current == code;
     return InkWell(
       onTap: onTap,
@@ -574,7 +578,7 @@ class _LanguageRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
-                  color: selected ? AppColors.protein : AppColors.textPrimary,
+                  color: selected ? AppColors.protein : cs.textPrimary,
                 ),
               ),
             ),

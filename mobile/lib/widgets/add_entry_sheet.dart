@@ -28,7 +28,7 @@ void showAddEntrySheet(
     context: context,
     useRootNavigator: true,
     isScrollControlled: true,
-    backgroundColor: AppColors.card,
+    backgroundColor: Theme.of(context).extension<AppColorScheme>()!.card,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
@@ -120,6 +120,7 @@ class _AddEntrySheetState extends ConsumerState<_AddEntrySheet> {
             (f.brand?.toLowerCase().contains(_search.toLowerCase()) ?? false)).toList();
     final bottom = MediaQuery.of(context).viewInsets.bottom;
 
+    final cs = AppColorScheme.of(context);
     return Padding(
       padding: EdgeInsets.only(bottom: bottom),
       child: Column(
@@ -132,7 +133,7 @@ class _AddEntrySheetState extends ConsumerState<_AddEntrySheet> {
               margin: const EdgeInsets.only(top: 10, bottom: 4),
               width: 40, height: 4,
               decoration: BoxDecoration(
-                color: AppColors.border,
+                color: cs.border,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -184,11 +185,11 @@ class _AddEntrySheetState extends ConsumerState<_AddEntrySheet> {
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 260),
               child: filtered.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.all(24),
+                  ? Padding(
+                      padding: const EdgeInsets.all(24),
                       child: Center(
                         child: Text('No foods found',
-                            style: TextStyle(color: AppColors.textMuted)),
+                            style: TextStyle(color: cs.textMuted)),
                       ),
                     )
                   : ListView.separated(
@@ -202,7 +203,7 @@ class _AddEntrySheetState extends ConsumerState<_AddEntrySheet> {
                           title: Text(f.displayName, style: const TextStyle(fontSize: 14)),
                           subtitle: Text(
                             '${f.kcal.round()} kcal · P ${f.protein.round()}g',
-                            style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                            style: TextStyle(fontSize: 11, color: cs.textMuted),
                           ),
                           onTap: () {
                             setState(() {
@@ -269,9 +270,9 @@ class _AddEntrySheetState extends ConsumerState<_AddEntrySheet> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color: AppColors.bg,
+                  color: cs.bg,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: cs.border),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -317,7 +318,7 @@ class _PreviewMacro extends StatelessWidget {
           value.round().toString(),
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: color),
         ),
-        Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+        Text(label, style: TextStyle(fontSize: 10, color: AppColorScheme.of(context).textMuted)),
       ],
     );
   }

@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../core/utils.dart';
+import '../theme.dart';
 
 /// Circular ring chart for a single macro.
 class MacroRingChart extends StatelessWidget {
@@ -88,11 +89,11 @@ class MacroRingChart extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           label,
-          style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+          style: TextStyle(fontSize: 11, color: AppColorScheme.of(context).textMuted),
         ),
         Text(
           '/ ${goal.round()} $unit',
-          style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+          style: TextStyle(fontSize: 10, color: AppColorScheme.of(context).textMuted),
         ),
       ],
     );

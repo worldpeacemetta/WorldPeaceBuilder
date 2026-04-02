@@ -25,6 +25,7 @@ class DashboardScreen extends ConsumerWidget {
     final goals = ref.watch(settingsProvider).goalsForDate(date);
     final isToday = date == todayISO();
 
+    final cs = AppColorScheme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -35,7 +36,7 @@ class DashboardScreen extends ConsumerWidget {
               children: [
                 Text(
                   formatDateFull(date),
-                  style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w400),
+                  style: TextStyle(fontSize: 12, color: cs.textMuted, fontWeight: FontWeight.w400),
                 ),
                 const SizedBox(width: 8),
                 ModePill(date: date),
@@ -199,12 +200,14 @@ class _MacroProgressCardState extends State<_MacroProgressCard>
                           displayPct = currPct * ((t - 0.5) / 0.5);
                           displayColor = _colors[_featured];
                         }
+                        final cs = AppColorScheme.of(context);
                         return CustomPaint(
                           size: const Size(148, 148),
                           painter: _DonutPainter(
                             progress: displayPct,
                             color: displayColor,
                             isOver: t >= 1.0 && isOver,
+                            borderColor: cs.border,
                           ),
                         );
                       },
@@ -278,6 +281,7 @@ class _DonutCenter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     final c = isOver ? AppColors.danger : color;
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -285,9 +289,9 @@ class _DonutCenter extends StatelessWidget {
         Text(actual.round().toString(),
             style: TextStyle(
                 fontSize: 28, fontWeight: FontWeight.w700,
-                color: isOver ? AppColors.danger : AppColors.textPrimary)),
+                color: isOver ? AppColors.danger : cs.textPrimary)),
         Text('/ ${goal.round()} $unit',
-            style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+            style: TextStyle(fontSize: 11, color: cs.textMuted)),
         const SizedBox(height: 2),
         Text('${(pct * 100).round()}%',
             style: TextStyle(
@@ -315,6 +319,7 @@ class _TappablePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     final over = goal > 0 && actual > goal;
     final c = over ? AppColors.danger : color;
     final pct = goal > 0 ? (actual / goal).clamp(0.0, 1.0) : 0.0;
@@ -347,14 +352,14 @@ class _TappablePill extends StatelessWidget {
                 style: TextStyle(
                     fontSize: 16, fontWeight: FontWeight.w700, color: c)),
             Text('/ ${goal.round()}$unit',
-                style: const TextStyle(
-                    fontSize: 10, color: AppColors.textMuted)),
+                style: TextStyle(
+                    fontSize: 10, color: cs.textMuted)),
             const SizedBox(height: 6),
             ClipRRect(
               borderRadius: BorderRadius.circular(2),
               child: LinearProgressIndicator(
                 value: pct,
-                backgroundColor: AppColors.border,
+                backgroundColor: cs.border,
                 valueColor: AlwaysStoppedAnimation(c),
                 minHeight: 3,
               ),
@@ -368,10 +373,12 @@ class _TappablePill extends StatelessWidget {
 
 class _DonutPainter extends CustomPainter {
   const _DonutPainter(
-      {required this.progress, required this.color, required this.isOver});
+      {required this.progress, required this.color, required this.isOver,
+       required this.borderColor});
   final double progress;
   final Color color;
   final bool isOver;
+  final Color borderColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -383,7 +390,7 @@ class _DonutPainter extends CustomPainter {
       Rect.fromCircle(center: center, radius: radius),
       -pi / 2, 2 * pi, false,
       Paint()
-        ..color = AppColors.border
+        ..color = borderColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = sw
         ..strokeCap = StrokeCap.round,
@@ -404,7 +411,8 @@ class _DonutPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DonutPainter old) =>
-      old.progress != progress || old.color != color || old.isOver != isOver;
+      old.progress != progress || old.color != color || old.isOver != isOver ||
+      old.borderColor != borderColor;
 }
 
 // ---------------------------------------------------------------------------
@@ -447,6 +455,7 @@ class _TopFoodsCardState extends ConsumerState<_TopFoodsCard> {
     final top5 = sorted.take(5).toList();
     final maxVal = _value(top5.first.macros);
 
+    final cs = AppColorScheme.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -499,7 +508,7 @@ class _TopFoodsCardState extends ConsumerState<_TopFoodsCard> {
                       child: LinearProgressIndicator(
                         value: pct.toDouble(),
                         minHeight: 3,
-                        backgroundColor: AppColors.border,
+                        backgroundColor: cs.border,
                         valueColor: AlwaysStoppedAnimation(_color()),
                       ),
                     ),
@@ -521,6 +530,7 @@ class _MacroToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     const macros = ['kcal', 'protein', 'carbs', 'fat'];
     const colors = {
       'kcal': AppColors.kcal, 'protein': AppColors.protein,
@@ -543,7 +553,7 @@ class _MacroToggle extends StatelessWidget {
               color: active ? color.withValues(alpha: 0.2) : Colors.transparent,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: active ? color : AppColors.border,
+                color: active ? color : cs.border,
                 width: active ? 1.2 : 1,
               ),
             ),
@@ -552,7 +562,7 @@ class _MacroToggle extends StatelessWidget {
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: active ? FontWeight.w700 : FontWeight.w400,
-                color: active ? color : AppColors.textMuted,
+                color: active ? color : cs.textMuted,
               ),
             ),
           ),

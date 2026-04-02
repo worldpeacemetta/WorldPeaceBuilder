@@ -168,10 +168,10 @@ class _SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.only(left: 4, bottom: 8),
       child: Text(
         text.toUpperCase(),
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: AppColors.textMuted,
+          color: AppColorScheme.of(context).textMuted,
           letterSpacing: 0.8,
         ),
       ),

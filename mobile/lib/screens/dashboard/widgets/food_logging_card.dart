@@ -58,7 +58,7 @@ class FoodLoggingCard extends ConsumerWidget {
                 const Text('Food Logging',
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                 Text('${totalKcal.round()} kcal total',
-                    style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                    style: TextStyle(fontSize: 12, color: AppColorScheme.of(context).textMuted)),
               ],
             ),
             const SizedBox(height: 12),
@@ -147,7 +147,7 @@ class _MealCard extends StatelessWidget {
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color),
           ),
           const SizedBox(width: 3),
-          const Text('kcal', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+          Text('kcal', style: TextStyle(fontSize: 11, color: AppColorScheme.of(context).textMuted)),
           const SizedBox(width: 10),
           // P / C / F chips
           _Chip('P', macros.protein.round(), AppColors.protein),

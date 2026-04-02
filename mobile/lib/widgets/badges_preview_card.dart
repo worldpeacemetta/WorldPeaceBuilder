@@ -23,11 +23,12 @@ class BadgesPreviewCard extends ConsumerWidget {
     final earnedCount  = ref.watch(earnedBadgeCountProvider);
     final total        = kBadges.length;
 
+    final cs = AppColorScheme.of(context);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: cs.card,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
@@ -39,7 +40,7 @@ class BadgesPreviewCard extends ConsumerWidget {
               const Text(
                 'Achievements',
                 style: TextStyle(
-                  color: AppColors.textPrimary,
+                  color: cs.textPrimary,
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                 ),
@@ -50,7 +51,7 @@ class BadgesPreviewCard extends ConsumerWidget {
                 child: const Text(
                   'See all →',
                   style: TextStyle(
-                    color: AppColors.textMuted,
+                    color: cs.textMuted,
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
@@ -66,7 +67,7 @@ class BadgesPreviewCard extends ConsumerWidget {
             child: LinearProgressIndicator(
               value: total > 0 ? earnedCount / total : 0,
               minHeight: 5,
-              backgroundColor: AppColors.border,
+              backgroundColor: cs.border,
               valueColor: const AlwaysStoppedAnimation<Color>(AppColors.protein),
             ),
           ),
@@ -74,7 +75,7 @@ class BadgesPreviewCard extends ConsumerWidget {
           Text(
             '$earnedCount / $total unlocked',
             style: const TextStyle(
-              color: AppColors.textMuted,
+              color: cs.textMuted,
               fontSize: 11,
             ),
           ),
@@ -109,6 +110,7 @@ class _BadgeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     return Row(
       children: badges
           .map((b) => Padding(
@@ -123,7 +125,7 @@ class _BadgeRow extends StatelessWidget {
                       child: Text(
                         b.name,
                         style: const TextStyle(
-                          color: AppColors.textMuted,
+                          color: cs.textMuted,
                           fontSize: 9,
                           fontWeight: FontWeight.w500,
                         ),
@@ -144,14 +146,15 @@ class _BadgeRow extends StatelessWidget {
 class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    final cs = AppColorScheme.of(context);
+    return Row(
       children: [
-        Icon(Icons.emoji_events_outlined, color: AppColors.textMuted, size: 28),
-        SizedBox(width: 12),
+        Icon(Icons.emoji_events_outlined, color: cs.textMuted, size: 28),
+        const SizedBox(width: 12),
         Expanded(
           child: Text(
             'Log meals to start earning badges',
-            style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+            style: TextStyle(color: cs.textMuted, fontSize: 12),
           ),
         ),
       ],

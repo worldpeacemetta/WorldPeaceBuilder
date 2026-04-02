@@ -72,10 +72,12 @@ class _FoodSavedSheetState extends State<_FoodSavedSheet>
       minChildSize: 0.5,
       maxChildSize: 0.9,
       expand: false,
-      builder: (ctx, scrollCtrl) => Container(
-        decoration: const BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      builder: (ctx, scrollCtrl) {
+        final cs = AppColorScheme.of(ctx);
+        return Container(
+        decoration: BoxDecoration(
+          color: cs.card,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
           children: [
@@ -85,7 +87,7 @@ class _FoodSavedSheetState extends State<_FoodSavedSheet>
                 margin: const EdgeInsets.only(top: 10, bottom: 4),
                 width: 40, height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.border,
+                  color: cs.border,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -94,7 +96,7 @@ class _FoodSavedSheetState extends State<_FoodSavedSheet>
             Align(
               alignment: Alignment.centerRight,
               child: IconButton(
-                icon: const Icon(Icons.close, size: 20, color: AppColors.textMuted),
+                icon: Icon(Icons.close, size: 20, color: cs.textMuted),
                 onPressed: () => Navigator.pop(context, false),
               ),
             ),
@@ -138,7 +140,7 @@ class _FoodSavedSheetState extends State<_FoodSavedSheet>
                                 'Added to Library',
                                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                   fontWeight: FontWeight.w700,
-                                  color: AppColors.textPrimary,
+                                  color: cs.textPrimary,
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -146,7 +148,7 @@ class _FoodSavedSheetState extends State<_FoodSavedSheet>
                                 widget.food.displayName,
                                 style: const TextStyle(
                                   fontSize: 15,
-                                  color: AppColors.textMuted,
+                                  color: cs.textMuted,
                                 ),
                                 textAlign: TextAlign.center,
                               ),
@@ -157,9 +159,9 @@ class _FoodSavedSheetState extends State<_FoodSavedSheet>
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 16, vertical: 10),
                                 decoration: BoxDecoration(
-                                  color: AppColors.bg,
+                                  color: cs.bg,
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: AppColors.border),
+                                  border: Border.all(color: cs.border),
                                 ),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -204,7 +206,7 @@ class _FoodSavedSheetState extends State<_FoodSavedSheet>
                                 child: const Text(
                                   'Done',
                                   style: TextStyle(
-                                    color: AppColors.textMuted,
+                                    color: cs.textMuted,
                                     fontSize: 14,
                                   ),
                                 ),
@@ -221,7 +223,8 @@ class _FoodSavedSheetState extends State<_FoodSavedSheet>
             ),
           ],
         ),
-      ),
+      );
+      },
     );
   }
 }
@@ -244,7 +247,7 @@ class _MacroChip extends StatelessWidget {
         const SizedBox(height: 2),
         Text(label,
             style:
-                const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                TextStyle(fontSize: 10, color: AppColorScheme.of(context).textMuted)),
       ],
     );
   }

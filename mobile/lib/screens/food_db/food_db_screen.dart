@@ -173,8 +173,8 @@ class _FoodDbScreenState extends ConsumerState<FoodDbScreen> {
                         color: AppColors.danger, size: 40),
                     const SizedBox(height: 8),
                     Text('$e',
-                        style: const TextStyle(
-                            color: AppColors.textMuted, fontSize: 13)),
+                        style: TextStyle(
+                            color: AppColorScheme.of(context).textMuted, fontSize: 13)),
                     const SizedBox(height: 12),
                     ElevatedButton(
                       onPressed: () => ref.read(foodsProvider.notifier).fetch(),
@@ -203,8 +203,8 @@ class _FoodDbScreenState extends ConsumerState<FoodDbScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.no_food_outlined,
-                            size: 48, color: AppColors.textMuted),
+                        Icon(Icons.no_food_outlined,
+                            size: 48, color: AppColorScheme.of(context).textMuted),
                         const SizedBox(height: 10),
                         Text(
                           foods.isEmpty
@@ -212,8 +212,8 @@ class _FoodDbScreenState extends ConsumerState<FoodDbScreen> {
                               : _search.isNotEmpty
                                   ? 'No results for "$_search"'
                                   : 'No foods in ${categoryLabels[_categoryFilter] ?? _categoryFilter}',
-                          style: const TextStyle(
-                              color: AppColors.textMuted, fontSize: 14),
+                          style: TextStyle(
+                              color: AppColorScheme.of(context).textMuted, fontSize: 14),
                         ),
                       ],
                     ),
@@ -277,8 +277,9 @@ class _PillArc extends StatelessWidget {
   Widget build(BuildContext context) {
     final progress = goal > 0 ? (actual / goal).clamp(0.0, 1.0) : 0.0;
     final c = (goal > 0 && actual > goal) ? AppColors.danger : color;
+    final cs = AppColorScheme.of(context);
     return CustomPaint(
-      painter: _PillArcPainter(progress: progress, color: c),
+      painter: _PillArcPainter(progress: progress, color: c, borderColor: cs.border),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 8),
         child: Column(
@@ -294,8 +295,8 @@ class _PillArc extends StatelessWidget {
                 style: TextStyle(
                     fontSize: 15, fontWeight: FontWeight.w700, color: c)),
             Text('/ ${goal.round()} $unit',
-                style: const TextStyle(
-                    fontSize: 9, color: AppColors.textMuted)),
+                style: TextStyle(
+                    fontSize: 9, color: cs.textMuted)),
           ],
         ),
       ),
@@ -304,9 +305,10 @@ class _PillArc extends StatelessWidget {
 }
 
 class _PillArcPainter extends CustomPainter {
-  const _PillArcPainter({required this.progress, required this.color});
+  const _PillArcPainter({required this.progress, required this.color, required this.borderColor});
   final double progress;
   final Color color;
+  final Color borderColor;
 
   static const _sw = 2.5;
   static const _r  = 8.0;
@@ -323,7 +325,7 @@ class _PillArcPainter extends CustomPainter {
     canvas.drawRRect(
       rrect,
       Paint()
-        ..color = AppColors.border
+        ..color = borderColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = _sw,
     );
@@ -345,7 +347,7 @@ class _PillArcPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_PillArcPainter old) =>
-      old.progress != progress || old.color != color;
+      old.progress != progress || old.color != color || old.borderColor != borderColor;
 }
 
 // ---------------------------------------------------------------------------
@@ -359,23 +361,24 @@ class _ActionBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: AppColors.card,
+          color: cs.card,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: cs.border),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 20, color: AppColors.textPrimary),
+            Icon(icon, size: 20, color: cs.textPrimary),
             const SizedBox(height: 3),
             Text(label,
-                style: const TextStyle(
-                    fontSize: 11, color: AppColors.textMuted)),
+                style: TextStyle(
+                    fontSize: 11, color: cs.textMuted)),
           ],
         ),
       ),
@@ -514,7 +517,7 @@ class _FoodTileState extends ConsumerState<_FoodTile>
                     Transform.translate(
                       offset: Offset(offset, 0),
                       child: Container(
-                        color: AppColors.card,
+                        color: AppColorScheme.of(context).card,
                         child: ListTile(
                           contentPadding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 4),
@@ -533,8 +536,8 @@ class _FoodTileState extends ConsumerState<_FoodTile>
                           subtitle: Text(
                             '${widget.food.kcal.round()} kcal · P ${widget.food.protein.round()}g · C ${widget.food.carbs.round()}g · F ${widget.food.fat.round()}g'
                             '  ·  per ${widget.food.unit == 'per100g' ? '100 g' : 'serving'}',
-                            style: const TextStyle(
-                                fontSize: 12, color: AppColors.textMuted),
+                            style: TextStyle(
+                                fontSize: 12, color: AppColorScheme.of(context).textMuted),
                           ),
                         ),
                       ),

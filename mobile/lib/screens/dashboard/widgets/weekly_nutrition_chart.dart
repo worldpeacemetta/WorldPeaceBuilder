@@ -77,6 +77,7 @@ class _WeeklyNutritionChartState
 
   @override
   Widget build(BuildContext context) {
+    final cs       = AppColorScheme.of(context);
     final days     = weekDates(widget.date);
     final settings = ref.watch(settingsProvider);
     final totals   = days.map((d) => ref.watch(macroTotalsProvider(d))).toList();
@@ -114,8 +115,8 @@ class _WeeklyNutritionChartState
                 ),
                 const SizedBox(width: 4),
                 Text(weekRangeLabel(widget.date),
-                    style: const TextStyle(
-                        fontSize: 11, color: AppColors.textMuted)),
+                    style: TextStyle(
+                        fontSize: 11, color: AppColorScheme.of(context).textMuted)),
                 const SizedBox(width: 4),
                 _NavBtn(
                   icon: Icons.chevron_right,
@@ -181,9 +182,9 @@ class _WeeklyNutritionChartState
             Center(
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppColors.bg,
+                  color: cs.bg,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: cs.border),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -244,7 +245,7 @@ class _Grid extends StatelessWidget {
               decoration: isSel
                   ? BoxDecoration(
                       border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.55),
+                          color: AppColorScheme.of(context).textMuted.withValues(alpha: 0.6),
                           width: 1.5),
                       borderRadius: BorderRadius.circular(14),
                     )
@@ -268,17 +269,20 @@ class _Grid extends StatelessWidget {
                   ],
                   const SizedBox(height: 6),
                   // Day letter
-                  Text(
-                    DateFormat('E').format(dt).substring(0, 1),
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight:
-                          isToday ? FontWeight.w700 : FontWeight.w400,
-                      color: isToday
-                          ? Colors.white
-                          : AppColors.textMuted,
-                    ),
-                  ),
+                  Builder(builder: (ctx) {
+                    final cs = AppColorScheme.of(ctx);
+                    return Text(
+                      DateFormat('E').format(dt).substring(0, 1),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight:
+                            isToday ? FontWeight.w700 : FontWeight.w400,
+                        color: isToday
+                            ? cs.textPrimary
+                            : cs.textMuted,
+                      ),
+                    );
+                  }),
                   const SizedBox(height: 3),
                   // Mode-color dot
                   Container(
@@ -336,6 +340,7 @@ class _BarCell extends StatelessWidget {
     // Goal line sits at goal/trackMax from bottom (= 1/_scale ≈ 77%).
     final goalLineFrac = goal > 0 ? 1.0 / _scale : 1.0;
 
+    final cs = AppColorScheme.of(context);
     return SizedBox(
       width: _barW,
       height: _barRowH,
@@ -344,6 +349,7 @@ class _BarCell extends StatelessWidget {
           fillFrac    : fillFrac,
           goalLineFrac: goalLineFrac,
           color       : color,
+          trackColor  : cs.card,
         ),
       ),
     );
@@ -359,18 +365,20 @@ class _BarPainter extends CustomPainter {
     required this.fillFrac,
     required this.goalLineFrac,
     required this.color,
+    required this.trackColor,
   });
 
   final double fillFrac;
   final double goalLineFrac;
   final Color  color;
+  final Color  trackColor;
 
   @override
   void paint(Canvas canvas, Size size) {
     final rr = RRect.fromRectAndRadius(Offset.zero & size, _radius);
 
     // ── Background track ──────────────────────────────────────────────────
-    canvas.drawRRect(rr, Paint()..color = const Color(0xFF181B2A));
+    canvas.drawRRect(rr, Paint()..color = trackColor);
 
     // ── Filled portion (grows from bottom) ────────────────────────────────
     if (fillFrac > 0) {
@@ -413,7 +421,8 @@ class _BarPainter extends CustomPainter {
   bool shouldRepaint(_BarPainter old) =>
       old.fillFrac != fillFrac ||
       old.goalLineFrac != goalLineFrac ||
-      old.color != color;
+      old.color != color ||
+      old.trackColor != trackColor;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -476,8 +485,8 @@ class _KpiCell extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             'goal ${goal.round()} $unit',
-            style: const TextStyle(
-                fontSize: 9, color: AppColors.textMuted),
+            style: TextStyle(
+                fontSize: 9, color: AppColorScheme.of(context).textMuted),
           ),
         ],
       ),
@@ -495,13 +504,16 @@ class _NavBtn extends StatelessWidget {
   final VoidCallback? onPressed;
 
   @override
-  Widget build(BuildContext context) => IconButton(
-    icon: Icon(icon, size: 18),
-    padding: EdgeInsets.zero,
-    constraints: const BoxConstraints(),
-    onPressed: onPressed,
-    color: onPressed == null ? AppColors.textMuted : AppColors.textPrimary,
-  );
+  Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
+    return IconButton(
+      icon: Icon(icon, size: 18),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(),
+      onPressed: onPressed,
+      color: onPressed == null ? cs.textMuted : cs.textPrimary,
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -515,23 +527,26 @@ class _ToggleBtn extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      decoration: BoxDecoration(
-        color: active ? Colors.white : Colors.transparent,
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: active ? Colors.black : AppColors.textMuted,
+  Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? cs.card : Colors.transparent,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: active ? cs.textPrimary : cs.textMuted,
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

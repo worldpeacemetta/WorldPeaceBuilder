@@ -74,7 +74,7 @@ void _showModeSheet(
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: AppColors.card,
+    backgroundColor: Theme.of(context).extension<AppColorScheme>()!.card,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
@@ -118,6 +118,7 @@ class _ModeSheetState extends ConsumerState<_ModeSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     final settings = ref.watch(settingsProvider);
     final hasOverride = settings.hasDateOverride(widget.date);
     final isToday = widget.date == todayISO();
@@ -134,7 +135,7 @@ class _ModeSheetState extends ConsumerState<_ModeSheet> {
               margin: const EdgeInsets.only(bottom: 16),
               width: 40, height: 4,
               decoration: BoxDecoration(
-                color: AppColors.border,
+                color: cs.border,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -147,7 +148,7 @@ class _ModeSheetState extends ConsumerState<_ModeSheet> {
           if (!isToday)
             const Text(
               'Sets the goal mode for this day only',
-              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+              style: TextStyle(fontSize: 12, color: cs.textMuted),
             ),
           const SizedBox(height: 16),
 
@@ -164,16 +165,16 @@ class _ModeSheetState extends ConsumerState<_ModeSheet> {
                 decoration: BoxDecoration(
                   color: _setup == mode
                       ? color.withValues(alpha: 0.12)
-                      : AppColors.bg,
+                      : cs.bg,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: _setup == mode ? color : AppColors.border,
+                    color: _setup == mode ? color : cs.border,
                     width: _setup == mode ? 1.5 : 1,
                   ),
                 ),
                 child: Row(
                   children: [
-                    Icon(modeIcon(label), size: 16, color: _setup == mode ? color : AppColors.textMuted),
+                    Icon(modeIcon(label), size: 16, color: _setup == mode ? color : cs.textMuted),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -181,7 +182,7 @@ class _ModeSheetState extends ConsumerState<_ModeSheet> {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: _setup == mode ? FontWeight.w600 : FontWeight.w400,
-                          color: _setup == mode ? color : AppColors.textPrimary,
+                          color: _setup == mode ? color : cs.textPrimary,
                         ),
                       ),
                     ),
@@ -221,7 +222,7 @@ class _ModeSheetState extends ConsumerState<_ModeSheet> {
               onPressed: _clear,
               child: Text(
                 'Clear override (use default)',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                style: TextStyle(color: cs.textMuted, fontSize: 13),
               ),
             ),
           ],

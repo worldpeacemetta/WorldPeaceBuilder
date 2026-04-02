@@ -23,18 +23,19 @@ class BadgesScreen extends ConsumerWidget {
       categories.putIfAbsent(b.category, () => []).add(b);
     }
 
+    final cs = AppColorScheme.of(context);
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: cs.bg,
       appBar: AppBar(
-        backgroundColor: AppColors.card,
+        backgroundColor: cs.card,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: cs.textPrimary),
           onPressed: () => context.pop(),
         ),
-        title: const Text(
+        title: Text(
           'Achievements',
           style: TextStyle(
-            color: AppColors.textPrimary,
+            color: cs.textPrimary,
             fontSize: 16,
             fontWeight: FontWeight.w700,
           ),
@@ -45,8 +46,8 @@ class BadgesScreen extends ConsumerWidget {
             child: Center(
               child: Text(
                 '$count / $total',
-                style: const TextStyle(
-                  color: AppColors.textMuted,
+                style: TextStyle(
+                  color: cs.textMuted,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
@@ -87,6 +88,7 @@ class _ProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     final pct = total > 0 ? count / total : 0.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -96,16 +98,16 @@ class _ProgressBar extends StatelessWidget {
           children: [
             Text(
               '$count unlocked',
-              style: const TextStyle(
-                color: AppColors.textPrimary,
+              style: TextStyle(
+                color: cs.textPrimary,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
             ),
             Text(
               '${(pct * 100).round()}%',
-              style: const TextStyle(
-                color: AppColors.textMuted,
+              style: TextStyle(
+                color: cs.textMuted,
                 fontSize: 12,
               ),
             ),
@@ -117,7 +119,7 @@ class _ProgressBar extends StatelessWidget {
           child: LinearProgressIndicator(
             value: pct,
             minHeight: 6,
-            backgroundColor: AppColors.border,
+            backgroundColor: cs.border,
             valueColor: const AlwaysStoppedAnimation<Color>(AppColors.protein),
           ),
         ),
@@ -147,8 +149,8 @@ class _CategorySection extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
           child: Text(
             category.toUpperCase(),
-            style: const TextStyle(
-              color: AppColors.textMuted,
+            style: TextStyle(
+              color: AppColorScheme.of(context).textMuted,
               fontSize: 10,
               fontWeight: FontWeight.w700,
               letterSpacing: 1.0,
@@ -171,11 +173,12 @@ class _BadgeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: cs.card,
         borderRadius: BorderRadius.circular(12),
         border: unlocked
             ? Border.all(
@@ -199,8 +202,8 @@ class _BadgeRow extends StatelessWidget {
                         def.name,
                         style: TextStyle(
                           color: unlocked
-                              ? AppColors.textPrimary
-                              : AppColors.textMuted,
+                              ? cs.textPrimary
+                              : cs.textMuted,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
@@ -229,7 +232,7 @@ class _BadgeRow extends StatelessWidget {
                 Text(
                   def.desc,
                   style: const TextStyle(
-                    color: AppColors.textMuted,
+                    color: cs.textMuted,
                     fontSize: 12,
                   ),
                 ),

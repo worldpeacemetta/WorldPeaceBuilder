@@ -137,9 +137,9 @@ class _DayDetailScreenState extends ConsumerState<DayDetailScreen> {
 
           // ── Meal tables ──────────────────────────────────────────────────
           if (entries.isEmpty)
-            const SliverToBoxAdapter(
+            SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.all(32),
+                padding: const EdgeInsets.all(32),
                 child: Center(
                   child: Text('No entries for this day',
                       style: TextStyle(color: cs.textMuted)),
@@ -172,7 +172,7 @@ class _DayDetailScreenState extends ConsumerState<DayDetailScreen> {
                           children: [
                             Text(
                               '${_mealEmoji(meal)}  ${(mealLabels[meal] ?? meal).toUpperCase()}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: cs.textMuted,
                                 fontSize: 11,
                                 letterSpacing: 0.8,
@@ -298,11 +298,11 @@ class _ActivityRingsPanel extends StatelessWidget {
                       const SizedBox(width: 6),
                       Text(it.label,
                           style: TextStyle(
-                              fontSize: 10, color: AppColors.textMuted)),
+                              fontSize: 10, color: cs.textMuted)),
                       const Spacer(),
                       Text('${it.actual.round()} / ${it.goal.round()} ${it.unit}',
-                          style: const TextStyle(
-                              fontSize: 10, color: AppColors.textMuted)),
+                          style: TextStyle(
+                              fontSize: 10, color: cs.textMuted)),
                       const SizedBox(width: 6),
                       SizedBox(
                         width: 30,
@@ -397,6 +397,7 @@ class _MealBreakdownPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     final mealTotals = <String, MacroValues>{};
     for (final meal in mealOrder) {
       final items = entries.where((e) => e.meal == meal).toList();
@@ -404,14 +405,14 @@ class _MealBreakdownPanel extends StatelessWidget {
       mealTotals[meal] = MacroValues.sum(items.map((e) => e.macros));
     }
     if (mealTotals.isEmpty) {
-      return const Center(
+      return Center(
           child: Text('No meals logged',
-              style: TextStyle(color: AppColors.textMuted)));
+              style: TextStyle(color: cs.textMuted)));
     }
     final totalKcal = mealTotals.values.fold(0.0, (s, m) => s + m.kcal);
 
     return Container(
-      color: AppColors.card,
+      color: cs.card,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -461,14 +462,14 @@ class _MealBreakdownPanel extends StatelessWidget {
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: color)),
-                  const Text(' kcal',
+                  Text(' kcal',
                       style:
-                          TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                          TextStyle(fontSize: 11, color: cs.textMuted)),
                   const SizedBox(width: 8),
                   Text(
                       'P${e.value.protein.round()} C${e.value.carbs.round()} F${e.value.fat.round()}',
-                      style: const TextStyle(
-                          fontSize: 10, color: AppColors.textMuted)),
+                      style: TextStyle(
+                          fontSize: 10, color: cs.textMuted)),
                 ],
               ),
             );
@@ -521,8 +522,10 @@ class _TopFoodsPanel extends StatelessWidget {
       AppColors.kcal, AppColors.protein, AppColors.carbs, AppColors.fat
     ];
 
+    final cs = AppColorScheme.of(context);
+
     return Container(
-      color: AppColors.card,
+      color: cs.card,
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       child: Column(
         children: [
@@ -543,11 +546,11 @@ class _TopFoodsPanel extends StatelessWidget {
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                        color: sel ? colors[i] : AppColors.border),
+                        color: sel ? colors[i] : cs.border),
                   ),
                   child: Text(labels[i],
                       style: TextStyle(
-                        color: sel ? colors[i] : AppColors.textMuted,
+                        color: sel ? colors[i] : cs.textMuted,
                         fontSize: 11,
                         fontWeight: sel
                             ? FontWeight.w600
@@ -571,8 +574,8 @@ class _TopFoodsPanel extends StatelessWidget {
                       Expanded(
                         child: Text(
                           entry.food?.name ?? entry.foodId,
-                          style: const TextStyle(
-                              color: AppColors.textPrimary,
+                          style: TextStyle(
+                              color: cs.textPrimary,
                               fontSize: 12),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -590,7 +593,7 @@ class _TopFoodsPanel extends StatelessWidget {
                     child: LinearProgressIndicator(
                       value: share,
                       minHeight: 3,
-                      backgroundColor: AppColors.border,
+                      backgroundColor: cs.border,
                       valueColor: AlwaysStoppedAnimation<Color>(_color),
                     ),
                   ),
@@ -648,34 +651,36 @@ class _MacroSplitPanel extends StatelessWidget {
           ),
         );
 
+    final cs = AppColorScheme.of(context);
+
     return Container(
-      color: AppColors.card,
+      color: cs.card,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Macro Split  ·  % of calories',
+          Text('Macro Split  ·  % of calories',
               style:
-                  TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                  TextStyle(fontSize: 11, color: cs.textMuted)),
           const SizedBox(height: 10),
           Row(
             children: [
-              const SizedBox(
+              SizedBox(
                   width: 46,
                   child: Text('Today',
                       style: TextStyle(
-                          fontSize: 10, color: AppColors.textMuted))),
+                          fontSize: 10, color: cs.textMuted))),
               Expanded(child: bar(actual)),
             ],
           ),
           const SizedBox(height: 6),
           Row(
             children: [
-              const SizedBox(
+              SizedBox(
                   width: 46,
                   child: Text('Target',
                       style: TextStyle(
-                          fontSize: 10, color: AppColors.textMuted))),
+                          fontSize: 10, color: cs.textMuted))),
               Expanded(child: bar(target)),
             ],
           ),
@@ -689,7 +694,7 @@ class _MacroSplitPanel extends StatelessWidget {
               final diffStr =
                   diff == 0 ? '=' : (diff > 0 ? '+$diff%' : '$diff%');
               final diffColor = diff == 0
-                  ? AppColors.textMuted
+                  ? cs.textMuted
                   : (diff > 0 ? AppColors.protein : AppColors.carbs);
               return Expanded(
                 child: Column(
@@ -703,9 +708,9 @@ class _MacroSplitPanel extends StatelessWidget {
                               shape: BoxShape.circle)),
                       const SizedBox(width: 4),
                       Text(names[i],
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 9,
-                              color: AppColors.textMuted)),
+                              color: cs.textMuted)),
                     ]),
                     const SizedBox(height: 2),
                     Text('$aPct% today',
@@ -774,19 +779,20 @@ class _DetailEntryTileState extends ConsumerState<_DetailEntryTile>
 
   Future<void> _delete() async {
     _close();
+    final cs = AppColorScheme.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.card,
-        title: const Text('Delete Entry',
-            style: TextStyle(color: AppColors.textPrimary)),
-        content: const Text('Remove this food from the log?',
-            style: TextStyle(color: AppColors.textMuted)),
+        backgroundColor: cs.card,
+        title: Text('Delete Entry',
+            style: TextStyle(color: cs.textPrimary)),
+        content: Text('Remove this food from the log?',
+            style: TextStyle(color: cs.textMuted)),
         actions: [
           TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel',
-                  style: TextStyle(color: AppColors.textMuted))),
+              child: Text('Cancel',
+                  style: TextStyle(color: cs.textMuted))),
           TextButton(
               onPressed: () => Navigator.of(ctx).pop(true),
               child: const Text('Delete',
@@ -812,6 +818,7 @@ class _DetailEntryTileState extends ConsumerState<_DetailEntryTile>
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     final macros = widget.entry.macros;
     final food = widget.entry.food;
     final emoji = categoryEmojis[food?.category] ?? '🍽️';
@@ -843,7 +850,7 @@ class _DetailEntryTileState extends ConsumerState<_DetailEntryTile>
               Transform.translate(
                 offset: Offset(offset, 0),
                 child: Container(
-                  color: AppColors.card,
+                  color: cs.card,
                   padding: const EdgeInsets.symmetric(
                       horizontal: 16, vertical: 10),
                   child: Row(
@@ -860,8 +867,8 @@ class _DetailEntryTileState extends ConsumerState<_DetailEntryTile>
                           children: [
                             Text(
                               food?.name ?? widget.entry.foodId,
-                              style: const TextStyle(
-                                  color: AppColors.textPrimary,
+                              style: TextStyle(
+                                  color: cs.textPrimary,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500),
                               maxLines: 1,
@@ -871,13 +878,13 @@ class _DetailEntryTileState extends ConsumerState<_DetailEntryTile>
                             Row(
                               children: [
                                 Text(_fmtQty(),
-                                    style: const TextStyle(
-                                        fontSize: 10,
-                                        color: AppColors.textMuted)),
-                                const Text('  ·  ',
                                     style: TextStyle(
                                         fontSize: 10,
-                                        color: AppColors.textMuted)),
+                                        color: cs.textMuted)),
+                                Text('  ·  ',
+                                    style: TextStyle(
+                                        fontSize: 10,
+                                        color: cs.textMuted)),
                                 _MC('K', macros.kcal.round(),
                                     AppColors.kcal),
                                 const SizedBox(width: 5),

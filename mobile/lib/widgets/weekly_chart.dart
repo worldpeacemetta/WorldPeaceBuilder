@@ -26,6 +26,7 @@ class WeeklyChartCard extends ConsumerWidget {
 
     final maxY = ([...dayData, goal]).reduce((a, b) => a > b ? a : b) * 1.15;
 
+    final cs = AppColorScheme.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
@@ -38,7 +39,7 @@ class WeeklyChartCard extends ConsumerWidget {
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                 const Spacer(),
                 Text(weekRangeLabel(date),
-                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                    style: TextStyle(fontSize: 11, color: cs.textMuted)),
               ],
             ),
             const SizedBox(height: 16),
@@ -52,7 +53,7 @@ class WeeklyChartCard extends ConsumerWidget {
                     show: true,
                     drawVerticalLine: false,
                     getDrawingHorizontalLine: (_) => FlLine(
-                      color: AppColors.border,
+                      color: cs.border,
                       strokeWidth: 1,
                     ),
                   ),
@@ -71,7 +72,7 @@ class WeeklyChartCard extends ConsumerWidget {
                           final dt = DateTime.parse(days[i]);
                           return Text(
                             DateFormat('E').format(dt).substring(0, 2),
-                            style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                            style: TextStyle(fontSize: 10, color: cs.textMuted),
                           );
                         },
                       ),
@@ -118,7 +119,7 @@ class WeeklyChartCard extends ConsumerWidget {
                         return LineTooltipItem(
                           '${s.y.round()} kcal',
                           const TextStyle(
-                            color: AppColors.textPrimary,
+                            color: cs.textPrimary,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),

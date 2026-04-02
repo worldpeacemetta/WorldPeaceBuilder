@@ -12,8 +12,9 @@ class MacroSummaryBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     return Container(
-      color: AppColors.card,
+      color: cs.card,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
@@ -58,12 +59,12 @@ class _MacroKpi extends StatelessWidget {
                 : '${remaining.round()} left',
             style: TextStyle(
               fontSize: 10,
-              color: over ? AppColors.danger : AppColors.textMuted,
+              color: over ? AppColors.danger : AppColorScheme.of(context).textMuted,
             ),
           ),
           Text(
             label,
-            style: const TextStyle(fontSize: 9, color: AppColors.textMuted),
+            style: TextStyle(fontSize: 9, color: AppColorScheme.of(context).textMuted),
           ),
         ],
       ),
