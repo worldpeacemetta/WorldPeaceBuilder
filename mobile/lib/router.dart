@@ -12,6 +12,9 @@ import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/food_db/food_db_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/profile/badges_screen.dart';
+import 'screens/profile/general_screen.dart';
+import 'screens/profile/daily_goals_screen.dart';
+import 'screens/profile/body_stats_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authNotifier = ref.watch(authStateProvider.notifier);
@@ -37,6 +40,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/badges',
         builder: (context, state) => const BadgesScreen(),
+      ),
+      // Profile sub-screens — above shell so they have no nav bar
+      GoRoute(
+        path: '/profile/general',
+        builder: (context, state) => const GeneralScreen(),
+      ),
+      GoRoute(
+        path: '/profile/goals',
+        builder: (context, state) => const DailyGoalsScreen(),
+      ),
+      GoRoute(
+        path: '/profile/stats',
+        builder: (context, state) => const BodyStatsScreen(),
       ),
       // Full-screen day detail — must be above StatefulShellRoute so it has no nav bar
       GoRoute(
