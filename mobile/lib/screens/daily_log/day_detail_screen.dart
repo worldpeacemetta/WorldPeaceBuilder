@@ -52,21 +52,22 @@ class _DayDetailScreenState extends ConsumerState<DayDetailScreen> {
       if (list.isNotEmpty) entriesByMeal[meal] = list;
     }
 
+    final cs = AppColorScheme.of(context);
     return Scaffold(
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
             pinned: true,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+              icon: Icon(Icons.arrow_back, color: cs.textPrimary),
               onPressed: () => context.pop(),
             ),
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(formatDateFull(widget.date),
-                    style: const TextStyle(
-                        color: AppColors.textPrimary,
+                    style: TextStyle(
+                        color: cs.textPrimary,
                         fontSize: 14,
                         fontWeight: FontWeight.bold)),
                 ModePill(date: widget.date),
@@ -74,8 +75,7 @@ class _DayDetailScreenState extends ConsumerState<DayDetailScreen> {
             ),
             actions: [
               IconButton(
-                icon:
-                    const Icon(Icons.add_outlined, color: AppColors.textPrimary),
+                icon: Icon(Icons.add_outlined, color: cs.textPrimary),
                 onPressed: () =>
                     showAddEntrySheet(context, ref, widget.date),
               ),
@@ -123,8 +123,8 @@ class _DayDetailScreenState extends ConsumerState<DayDetailScreen> {
                       height: 6,
                       decoration: BoxDecoration(
                         color: i == _currentPage
-                            ? AppColors.textPrimary
-                            : AppColors.border,
+                            ? cs.textPrimary
+                            : cs.border,
                         borderRadius: BorderRadius.circular(3),
                       ),
                     );
@@ -142,7 +142,7 @@ class _DayDetailScreenState extends ConsumerState<DayDetailScreen> {
                 padding: EdgeInsets.all(32),
                 child: Center(
                   child: Text('No entries for this day',
-                      style: TextStyle(color: AppColors.textMuted)),
+                      style: TextStyle(color: cs.textMuted)),
                 ),
               ),
             )
@@ -165,7 +165,7 @@ class _DayDetailScreenState extends ConsumerState<DayDetailScreen> {
                         decoration: BoxDecoration(
                           border: Border(
                             bottom: BorderSide(
-                                color: AppColors.border.withValues(alpha: 0.5)),
+                                color: cs.border.withValues(alpha: 0.5)),
                           ),
                         ),
                         child: Row(
@@ -173,7 +173,7 @@ class _DayDetailScreenState extends ConsumerState<DayDetailScreen> {
                             Text(
                               '${_mealEmoji(meal)}  ${(mealLabels[meal] ?? meal).toUpperCase()}',
                               style: const TextStyle(
-                                color: AppColors.textMuted,
+                                color: cs.textMuted,
                                 fontSize: 11,
                                 letterSpacing: 0.8,
                                 fontWeight: FontWeight.w600,
@@ -187,7 +187,7 @@ class _DayDetailScreenState extends ConsumerState<DayDetailScreen> {
                       ),
                       ...mealEntries.map((entry) =>
                           _DetailEntryTile(entry: entry, date: widget.date)),
-                      const Divider(height: 1, color: AppColors.border),
+                      Divider(height: 1, color: cs.border),
                     ],
                   );
                 },
@@ -249,6 +249,7 @@ class _ActivityRingsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     final items = [
       _RingItem('Calories', totals.kcal, goals.kcal, AppColors.kcal, 'kcal'),
       _RingItem('Protein', totals.protein, goals.protein, AppColors.protein, 'g'),
@@ -260,7 +261,7 @@ class _ActivityRingsPanel extends StatelessWidget {
         items.map((it) => it.goal > 0 ? (it.actual / it.goal).clamp(0.0, 1.0) : 0.0).toList();
 
     return Container(
-      color: AppColors.card,
+      color: cs.card,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [

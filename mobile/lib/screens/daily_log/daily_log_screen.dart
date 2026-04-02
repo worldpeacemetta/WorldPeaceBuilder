@@ -24,6 +24,7 @@ class DailyLogScreen extends ConsumerWidget {
     final goals = ref.watch(settingsProvider).goalsForDate(logDate);
     final isToday = logDate == todayISO();
 
+    final cs = AppColorScheme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -34,7 +35,7 @@ class DailyLogScreen extends ConsumerWidget {
               children: [
                 Text(
                   formatDateFull(logDate),
-                  style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w400),
+                  style: TextStyle(fontSize: 12, color: cs.textMuted, fontWeight: FontWeight.w400),
                 ),
                 const SizedBox(width: 8),
                 ModePill(date: logDate),
@@ -89,14 +90,14 @@ class DailyLogScreen extends ConsumerWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.restaurant_outlined, size: 48, color: AppColors.textMuted),
+                        Icon(Icons.restaurant_outlined, size: 48, color: cs.textMuted),
                         const SizedBox(height: 12),
-                        const Text('No food logged yet',
-                            style: TextStyle(color: AppColors.textMuted, fontSize: 15)),
+                        Text('No food logged yet',
+                            style: TextStyle(color: cs.textMuted, fontSize: 15)),
                         const SizedBox(height: 6),
                         Text(
                           isToday ? 'Tap + to add your first meal' : 'Nothing logged on this day',
-                          style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                          style: TextStyle(color: cs.textMuted, fontSize: 13),
                         ),
                       ],
                     ),
@@ -141,6 +142,7 @@ class _MealSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = AppColorScheme.of(context);
     final mealTotals = entries.fold<MacroValues>(
       const MacroValues(),
       (acc, e) => acc + e.macros,
@@ -156,17 +158,17 @@ class _MealSection extends ConsumerWidget {
             children: [
               Text(
                 mealLabels[meal] ?? meal,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
-                  color: AppColors.textMuted,
+                  color: cs.textMuted,
                   letterSpacing: 0.5,
                 ),
               ),
               const Spacer(),
               Text(
                 '${mealTotals.kcal.round()} kcal',
-                style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                style: TextStyle(fontSize: 12, color: cs.textMuted),
               ),
             ],
           ),
@@ -232,7 +234,7 @@ class _EntryTile extends ConsumerWidget {
           '${entry.qty.toStringAsFixed(food?.unit == 'per100g' ? 0 : 1)} '
           '${food?.unit == 'per100g' ? 'g' : 'srv'}'
           '  ·  P ${macros.protein.round()}g  C ${macros.carbs.round()}g  F ${macros.fat.round()}g',
-          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+          style: TextStyle(fontSize: 12, color: AppColorScheme.of(context).textMuted),
         ),
         trailing: Text(
           '${macros.kcal.round()}\nkcal',
@@ -258,7 +260,7 @@ void showEditEntrySheet(
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: AppColors.card,
+    backgroundColor: Theme.of(context).extension<AppColorScheme>()!.card,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
@@ -340,7 +342,7 @@ class _EditEntrySheetState extends ConsumerState<_EditEntrySheet> {
               margin: const EdgeInsets.only(bottom: 12),
               width: 40, height: 4,
               decoration: BoxDecoration(
-                color: AppColors.border,
+                color: AppColorScheme.of(context).border,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -382,9 +384,9 @@ class _EditEntrySheetState extends ConsumerState<_EditEntrySheet> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: AppColors.bg,
+              color: AppColorScheme.of(context).bg,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: AppColorScheme.of(context).border),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -424,7 +426,7 @@ class _MacroPreview extends StatelessWidget {
           value.round().toString(),
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: color),
         ),
-        Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+        Text(label, style: TextStyle(fontSize: 10, color: AppColorScheme.of(context).textMuted)),
       ],
     );
   }

@@ -100,11 +100,6 @@ class _LogHistoryScreenState extends ConsumerState<LogHistoryScreen> {
         elevation: 0,
         title: const Text(
           'Log',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-          ),
         ),
       ),
       body: Column(
@@ -132,15 +127,15 @@ class _LogHistoryScreenState extends ConsumerState<LogHistoryScreen> {
               loading: () => const Center(
                 child: CircularProgressIndicator(color: AppColors.protein),
               ),
-              error: (_, __) => const Center(
+              error: (_, __) => Center(
                 child: Text('Failed to load history',
-                    style: TextStyle(color: AppColors.textMuted)),
+                    style: TextStyle(color: AppColorScheme.of(context).textMuted)),
               ),
               data: (dates) {
                 if (dates.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Text('No logged days yet',
-                        style: TextStyle(color: AppColors.textMuted)),
+                        style: TextStyle(color: AppColorScheme.of(context).textMuted)),
                   );
                 }
                 return ListView.builder(
@@ -168,12 +163,13 @@ class _StatsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     final streak = _computeStreak(dates);
     final weekCount = _thisWeekCount(dates);
     final daysThisWeekSoFar = DateTime.now().weekday; // 1=Mon … 7=Sun
 
     return Container(
-      color: AppColors.card,
+      color: cs.card,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       child: Row(
         children: [
@@ -221,15 +217,16 @@ class _StatCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 9,
             fontWeight: FontWeight.w600,
-            color: AppColors.textMuted,
+            color: cs.textMuted,
             letterSpacing: 0.6,
           ),
         ),
@@ -239,18 +236,18 @@ class _StatCell extends StatelessWidget {
             children: [
               TextSpan(
                 text: value,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+                  color: cs.textPrimary,
                 ),
               ),
               if (unit != null)
                 TextSpan(
                   text: ' $unit',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10,
-                    color: AppColors.textMuted,
+                    color: cs.textMuted,
                   ),
                 ),
             ],
@@ -264,6 +261,7 @@ class _StatCell extends StatelessWidget {
 class _BadgesCell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = AppColorScheme.of(context);
     final recent = ref.watch(recentBadgesProvider);
     final count  = ref.watch(earnedBadgeCountProvider);
 
@@ -274,10 +272,10 @@ class _BadgesCell extends ConsumerWidget {
         children: [
           Text(
             count > 0 ? 'BADGES · $count' : 'BADGES',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 9,
               fontWeight: FontWeight.w600,
-              color: AppColors.textMuted,
+              color: cs.textMuted,
               letterSpacing: 0.6,
             ),
           ),
@@ -293,11 +291,11 @@ class _BadgesCell extends ConsumerWidget {
                         width: 22,
                         height: 22,
                         decoration: BoxDecoration(
-                          color: AppColors.border,
+                          color: cs.border,
                           borderRadius: BorderRadius.circular(5),
                         ),
-                        child: const Icon(Icons.lock_outline,
-                            size: 12, color: AppColors.textMuted),
+                        child: Icon(Icons.lock_outline,
+                            size: 12, color: cs.textMuted),
                       ),
                     ),
                   ),
@@ -324,7 +322,7 @@ class _Divider extends StatelessWidget {
     return Container(
       width: 1,
       height: 36,
-      color: AppColors.border,
+      color: AppColorScheme.of(context).border,
       margin: const EdgeInsets.symmetric(horizontal: 4),
     );
   }
@@ -355,11 +353,12 @@ class _WeekStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     const dayLetters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
     final loggedSet = loggedDates.toSet();
 
     return Container(
-      color: AppColors.card,
+      color: cs.card,
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       child: Column(
         children: [
@@ -367,7 +366,7 @@ class _WeekStrip extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(
-                icon: const Icon(Icons.chevron_left, color: AppColors.textMuted),
+                icon: Icon(Icons.chevron_left, color: cs.textMuted),
                 onPressed: onPrev,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -375,14 +374,14 @@ class _WeekStrip extends StatelessWidget {
               ),
               Text(
                 weekLabel,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
+                style: TextStyle(
+                  color: cs.textPrimary,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.chevron_right, color: AppColors.textMuted),
+                icon: Icon(Icons.chevron_right, color: cs.textMuted),
                 onPressed: onNext,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -407,8 +406,8 @@ class _WeekStrip extends StatelessWidget {
                       dayLetters[i],
                       style: TextStyle(
                         color: isToday
-                            ? AppColors.textPrimary
-                            : AppColors.textMuted,
+                            ? cs.textPrimary
+                            : cs.textMuted,
                         fontSize: 11,
                         fontWeight:
                             isToday ? FontWeight.w600 : FontWeight.normal,
@@ -426,7 +425,7 @@ class _WeekStrip extends StatelessWidget {
                       child: Text(
                         '${day.day}',
                         style: TextStyle(
-                          color: isToday ? AppColors.bg : AppColors.textPrimary,
+                          color: isToday ? cs.bg : cs.textPrimary,
                           fontSize: 13,
                           fontWeight:
                               isToday ? FontWeight.w700 : FontWeight.normal,
@@ -487,7 +486,7 @@ class _TimelineDayCard extends StatelessWidget {
                     child: Center(
                       child: Container(
                         width: 2,
-                        color: AppColors.border,
+                        color: AppColorScheme.of(context).border,
                       ),
                     ),
                   ),
@@ -513,6 +512,7 @@ class _DayCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = AppColorScheme.of(context);
     final entries = ref.watch(entriesProvider(date)).valueOrNull ?? [];
     if (entries.isEmpty) return const SizedBox.shrink();
 
@@ -539,7 +539,7 @@ class _DayCard extends ConsumerWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: AppColors.card,
+          color: cs.card,
           borderRadius: BorderRadius.circular(12),
           border: Border(
             left: BorderSide(color: borderColor, width: 3),
@@ -556,8 +556,8 @@ class _DayCard extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       formatDateFull(date),
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
+                      style: TextStyle(
+                        color: cs.textPrimary,
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
@@ -570,8 +570,8 @@ class _DayCard extends ConsumerWidget {
                   ],
                   ModePill(date: date),
                   const SizedBox(width: 4),
-                  const Icon(Icons.chevron_right,
-                      size: 16, color: AppColors.textMuted),
+                  Icon(Icons.chevron_right,
+                      size: 16, color: cs.textMuted),
                 ],
               ),
             ),
@@ -612,8 +612,8 @@ class _DayCard extends ConsumerWidget {
                   const Spacer(),
                   Text(
                     '$mealCount meal${mealCount == 1 ? '' : 's'}',
-                    style: const TextStyle(
-                        fontSize: 11, color: AppColors.textMuted),
+                    style: TextStyle(
+                        fontSize: 11, color: cs.textMuted),
                   ),
                 ],
               ),
@@ -630,7 +630,7 @@ class _DayCard extends ConsumerWidget {
               child: LinearProgressIndicator(
                 value: kcalFrac,
                 minHeight: 3,
-                backgroundColor: AppColors.border,
+                backgroundColor: cs.border,
                 valueColor: AlwaysStoppedAnimation<Color>(
                   kcalOk ? AppColors.protein : AppColors.kcal,
                 ),
@@ -659,6 +659,7 @@ class _MacroStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -666,10 +667,10 @@ class _MacroStat extends StatelessWidget {
           children: [
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 9,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textMuted,
+                color: cs.textMuted,
                 letterSpacing: 0.5,
               ),
             ),
