@@ -44,17 +44,36 @@ class _GeneralScreenState extends ConsumerState<GeneralScreen> {
   }
 
   Future<void> _saveUsername() async {
-    final value = _usernameCtrl.text.trim();
-    if (value.isEmpty) return;
+    final displayValue = _usernameCtrl.text.trim();
+    if (displayValue.isEmpty) return;
+    final lowerValue = displayValue.toLowerCase();
+
     setState(() { _savingUsername = true; _usernameError = null; _usernameSuccess = null; });
     try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('Not signed in');
+
+      // Update profiles table — this is what get_email_by_username RPC queries,
+      // so it must be updated for login and web-app display to stay in sync.
+      await _supabase
+          .from('profiles')
+          .update({'username': lowerValue, 'display_username': displayValue})
+          .eq('id', userId);
+
+      // Also update auth user metadata for in-app display consistency.
       await _supabase.auth.updateUser(
         UserAttributes(data: {
-          'display_username': value,
-          'username': value.toLowerCase(),
+          'display_username': displayValue,
+          'username': lowerValue,
         }),
       );
+
       if (mounted) setState(() => _usernameSuccess = 'Username updated');
+    } on PostgrestException catch (e) {
+      final msg = (e.message.contains('duplicate') || e.message.contains('unique'))
+          ? 'That username is already taken'
+          : e.message;
+      if (mounted) setState(() => _usernameError = msg);
     } on AuthException catch (e) {
       if (mounted) setState(() => _usernameError = e.message);
     } catch (e) {
