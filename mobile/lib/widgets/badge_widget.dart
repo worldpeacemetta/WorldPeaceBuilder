@@ -621,8 +621,8 @@ class _BadgePainter extends CustomPainter {
     _poly(canvas, [[60,42],[80,42],[70,78]], _f(const Color(0xFFFFE082), op*0.2));
     canvas.drawLine(const Offset(40,42), const Offset(80,42), _s(_W, op*0.4, 1.5));
     for (final pts in [
-      [60.0,14,60.0,8], [36.0,28,30.0,24], [84.0,28,90.0,24],
-      [28.0,48,22.0,48], [92.0,48,98.0,48],
+      [60.0,14.0,60.0,8.0], [36.0,28.0,30.0,24.0], [84.0,28.0,90.0,24.0],
+      [28.0,48.0,22.0,48.0], [92.0,48.0,98.0,48.0],
     ]) {
       canvas.drawLine(Offset(pts[0],pts[1]), Offset(pts[2],pts[3]),
           _s(const Color(0xFFFFD600), op*0.6, 2, cap: StrokeCap.round));
