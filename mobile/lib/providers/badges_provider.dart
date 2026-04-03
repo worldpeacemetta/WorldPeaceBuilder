@@ -12,12 +12,24 @@ class BadgesState {
   /// String IDs of all badges earned so far (write-once, never removed).
   final Set<String> earned;
   final bool loading;
+  /// Queue of newly-earned badge stringIds waiting to be shown as popups.
+  final List<String> newlyEarnedQueue;
 
-  const BadgesState({this.earned = const {}, this.loading = true});
+  const BadgesState({
+    this.earned = const {},
+    this.loading = true,
+    this.newlyEarnedQueue = const [],
+  });
 
-  BadgesState copyWith({Set<String>? earned, bool? loading}) => BadgesState(
+  BadgesState copyWith({
+    Set<String>? earned,
+    bool? loading,
+    List<String>? newlyEarnedQueue,
+  }) =>
+      BadgesState(
         earned: earned ?? this.earned,
         loading: loading ?? this.loading,
+        newlyEarnedQueue: newlyEarnedQueue ?? this.newlyEarnedQueue,
       );
 }
 
@@ -125,7 +137,14 @@ class BadgesNotifier extends StateNotifier<BadgesState> {
     if (newlyEarned.isEmpty) return;
 
     final merged = {...state.earned, ...newlyEarned};
-    state = state.copyWith(earned: merged);
+    // Sort newly earned by badge id so popups appear in logical order.
+    final queue = [
+      ...state.newlyEarnedQueue,
+      ...kBadges
+          .where((b) => newlyEarned.contains(b.stringId))
+          .map((b) => b.stringId),
+    ];
+    state = state.copyWith(earned: merged, newlyEarnedQueue: queue);
 
     try {
       final rows = newlyEarned
@@ -135,6 +154,14 @@ class BadgesNotifier extends StateNotifier<BadgesState> {
           .from('user_badges')
           .upsert(rows, onConflict: 'user_id,badge_id');
     } catch (_) {}
+  }
+
+  /// Removes the first badge from the popup queue (call after dialog is dismissed).
+  void popQueue() {
+    if (state.newlyEarnedQueue.isEmpty) return;
+    state = state.copyWith(
+      newlyEarnedQueue: state.newlyEarnedQueue.sublist(1),
+    );
   }
 
   /// Returns the 3 most recently earned badges (by kBadges list order, latest id first).
@@ -158,6 +185,17 @@ final badgesProvider =
 /// Convenience: how many badges have been earned.
 final earnedBadgeCountProvider = Provider<int>((ref) {
   return ref.watch(badgesProvider).earned.length;
+});
+
+/// First badge in the unlock popup queue (null when queue is empty).
+final badgeUnlockQueueProvider = Provider<BadgeDef?>((ref) {
+  final queue = ref.watch(badgesProvider).newlyEarnedQueue;
+  if (queue.isEmpty) return null;
+  try {
+    return kBadges.firstWhere((b) => b.stringId == queue.first);
+  } catch (_) {
+    return null;
+  }
 });
 
 /// Convenience: 3 most recently earned BadgeDefs.

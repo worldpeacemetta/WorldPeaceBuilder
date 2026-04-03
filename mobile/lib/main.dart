@@ -4,7 +4,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'router.dart';
 import 'theme.dart';
+import 'providers/badges_provider.dart';
 import 'providers/settings_provider.dart';
+import 'widgets/badge_unlock_dialog.dart';
 
 // Supabase credentials — anon key is safe to embed in client code.
 const _supabaseUrl = 'https://cyngucsrcouldnsrtvml.supabase.co';
@@ -54,6 +56,19 @@ class _MacroTrackerAppState extends ConsumerState<MacroTrackerApp>
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
+
+    // Show badge unlock popup whenever a new badge enters the queue.
+    ref.listen<dynamic>(badgeUnlockQueueProvider, (prev, next) {
+      if (next == null) return;
+      // Only trigger on a new item (prev was null or different badge).
+      if (prev == next) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final ctx = router.routerDelegate.navigatorKey.currentContext;
+        if (ctx != null && ctx.mounted) {
+          showBadgeUnlockDialog(ctx, next);
+        }
+      });
+    });
 
     return MaterialApp.router(
       title: 'MacroTracker',
