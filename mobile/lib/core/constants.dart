@@ -6,6 +6,7 @@ import '../theme.dart';
 // ---------------------------------------------------------------------------
 const foodCategories = [
   'fruit',
+  'vegetable',
   'meat',
   'eggProducts',
   'fish',
@@ -29,6 +30,7 @@ const foodCategories = [
 
 const categoryLabels = {
   'fruit'        : 'Fruit',
+  'vegetable'    : 'Vegetable',
   'meat'         : 'Meat',
   'eggProducts'  : 'Egg & Egg Products',
   'fish'         : 'Fish & Seafood',
@@ -52,6 +54,7 @@ const categoryLabels = {
 
 const categoryEmojis = {
   'fruit'        : '🍎',
+  'vegetable'    : '🥦',
   'meat'         : '🥩',
   'eggProducts'  : '🥚',
   'fish'         : '🐟',
