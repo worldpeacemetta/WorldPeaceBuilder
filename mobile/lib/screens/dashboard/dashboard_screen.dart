@@ -164,8 +164,11 @@ class _MacroProgressCardState extends State<_MacroProgressCard>
         ? _actual(_featured) / _goal(_featured)
         : 0.0;
     final currPct = currRaw.clamp(0.0, 1.0); // clamped for ring sweep only
-    final isOver =
-        _goal(_featured) > 0 && _actual(_featured) > _goal(_featured);
+    // Protein has no upper bound — never flag as over.
+    // Kcal/carbs/fat turn red only above 105% (matches tick-validation rule).
+    final isOver = _featured != 1 &&
+        _goal(_featured) > 0 &&
+        _actual(_featured) > _goal(_featured) * 1.05;
     final pillIndices =
         [0, 1, 2, 3].where((i) => i != _featured).toList();
 
@@ -255,6 +258,7 @@ class _MacroProgressCardState extends State<_MacroProgressCard>
                       unit: _units[pillIndices[k]],
                       color: _colors[pillIndices[k]],
                       onTap: () => _selectFeatured(pillIndices[k]),
+                      isProtein: pillIndices[k] == 1,
                     ),
                   ),
                 ],
@@ -312,16 +316,18 @@ class _TappablePill extends StatelessWidget {
   const _TappablePill({
     required this.label, required this.actual, required this.goal,
     required this.unit,  required this.color,  required this.onTap,
+    this.isProtein = false,
   });
   final String label, unit;
   final double actual, goal;
   final Color color;
   final VoidCallback onTap;
+  final bool isProtein;
 
   @override
   Widget build(BuildContext context) {
     final cs = AppColorScheme.of(context);
-    final over = goal > 0 && actual > goal;
+    final over = !isProtein && goal > 0 && actual > goal * 1.05;
     final c = over ? AppColors.danger : color;
     final pct = goal > 0 ? (actual / goal).clamp(0.0, 1.0) : 0.0;
     return GestureDetector(
