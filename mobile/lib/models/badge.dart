@@ -17,7 +17,8 @@ class BadgeDef {
   final BadgeShape shape;
   final Color colorStart;
   final Color colorEnd;
-  final String emoji;
+  /// Icon key matching the web app's BadgeIcon component (AchievementBadges.tsx)
+  final String icon;
   final Color accent;
 
   const BadgeDef({
@@ -29,7 +30,7 @@ class BadgeDef {
     required this.shape,
     required this.colorStart,
     required this.colorEnd,
-    required this.emoji,
+    required this.icon,
     required this.accent,
   });
 }
@@ -39,43 +40,43 @@ class BadgeDef {
 // ---------------------------------------------------------------------------
 const kBadges = <BadgeDef>[
   // Logging Streaks
-  BadgeDef(id: 1,  stringId: 'log_streak_7',   name: 'Week Logger',       desc: 'Log food 7 days in a row',              category: 'Logging Streaks',   shape: BadgeShape.rounded,  colorStart: Color(0xFFFF6B35), colorEnd: Color(0xFFFF9F1C), emoji: '🔥', accent: Color(0xFFFFF3E0)),
-  BadgeDef(id: 2,  stringId: 'log_streak_14',  name: 'Fortnight Logger',  desc: 'Log food 14 days in a row',             category: 'Logging Streaks',   shape: BadgeShape.rounded,  colorStart: Color(0xFFE8553D), colorEnd: Color(0xFFFF6B35), emoji: '🔥', accent: Color(0xFFFFE0D0)),
-  BadgeDef(id: 3,  stringId: 'log_streak_30',  name: 'Monthly Logger',    desc: 'Log food 30 days in a row',             category: 'Logging Streaks',   shape: BadgeShape.rounded,  colorStart: Color(0xFFC62828), colorEnd: Color(0xFFE53935), emoji: '🔥', accent: Color(0xFFFFCDD2)),
-  BadgeDef(id: 4,  stringId: 'log_streak_90',  name: 'Quarterly Logger',  desc: 'Log food 90 days in a row',             category: 'Logging Streaks',   shape: BadgeShape.rounded,  colorStart: Color(0xFF880E4F), colorEnd: Color(0xFFC2185B), emoji: '🔥', accent: Color(0xFFF8BBD0)),
+  BadgeDef(id: 1,  stringId: 'log_streak_7',   name: 'Week Logger',        desc: 'Log food 7 days in a row',              category: 'Logging Streaks',    shape: BadgeShape.rounded,  colorStart: Color(0xFFFF6B35), colorEnd: Color(0xFFFF9F1C), icon: 'calendar7',    accent: Color(0xFFFFF3E0)),
+  BadgeDef(id: 2,  stringId: 'log_streak_14',  name: 'Fortnight Logger',   desc: 'Log food 14 days in a row',             category: 'Logging Streaks',    shape: BadgeShape.rounded,  colorStart: Color(0xFFE8553D), colorEnd: Color(0xFFFF6B35), icon: 'calendar14',   accent: Color(0xFFFFE0D0)),
+  BadgeDef(id: 3,  stringId: 'log_streak_30',  name: 'Monthly Logger',     desc: 'Log food 30 days in a row',             category: 'Logging Streaks',    shape: BadgeShape.rounded,  colorStart: Color(0xFFC62828), colorEnd: Color(0xFFE53935), icon: 'calendar30',   accent: Color(0xFFFFCDD2)),
+  BadgeDef(id: 4,  stringId: 'log_streak_90',  name: 'Quarterly Logger',   desc: 'Log food 90 days in a row',             category: 'Logging Streaks',    shape: BadgeShape.rounded,  colorStart: Color(0xFF880E4F), colorEnd: Color(0xFFC2185B), icon: 'calendar90',   accent: Color(0xFFF8BBD0)),
   // Protein Streaks
-  BadgeDef(id: 5,  stringId: 'protein_streak_7',  name: 'Protein Week',      desc: 'Hit protein goal 7 days in a row',   category: 'Protein Streaks',   shape: BadgeShape.hexagon,  colorStart: Color(0xFF7B1FA2), colorEnd: Color(0xFFAB47BC), emoji: '💪', accent: Color(0xFFE1BEE7)),
-  BadgeDef(id: 6,  stringId: 'protein_streak_14', name: 'Protein Fortnight', desc: 'Hit protein goal 14 days in a row',  category: 'Protein Streaks',   shape: BadgeShape.hexagon,  colorStart: Color(0xFF6A1B9A), colorEnd: Color(0xFF8E24AA), emoji: '💪', accent: Color(0xFFCE93D8)),
-  BadgeDef(id: 7,  stringId: 'protein_streak_30', name: 'Protein Month',     desc: 'Hit protein goal 30 days in a row',  category: 'Protein Streaks',   shape: BadgeShape.hexagon,  colorStart: Color(0xFF4A148C), colorEnd: Color(0xFF7B1FA2), emoji: '💪', accent: Color(0xFFBA68C8)),
-  BadgeDef(id: 8,  stringId: 'protein_streak_90', name: 'Protein Quarter',   desc: 'Hit protein goal 90 days in a row',  category: 'Protein Streaks',   shape: BadgeShape.hexagon,  colorStart: Color(0xFF311B92), colorEnd: Color(0xFF5E35B1), emoji: '💪', accent: Color(0xFF9575CD)),
+  BadgeDef(id: 5,  stringId: 'protein_streak_7',  name: 'Protein Week',      desc: 'Hit protein goal 7 days in a row',   category: 'Protein Streaks',    shape: BadgeShape.hexagon,  colorStart: Color(0xFF7B1FA2), colorEnd: Color(0xFFAB47BC), icon: 'muscle7',      accent: Color(0xFFE1BEE7)),
+  BadgeDef(id: 6,  stringId: 'protein_streak_14', name: 'Protein Fortnight', desc: 'Hit protein goal 14 days in a row',  category: 'Protein Streaks',    shape: BadgeShape.hexagon,  colorStart: Color(0xFF6A1B9A), colorEnd: Color(0xFF8E24AA), icon: 'muscle14',     accent: Color(0xFFCE93D8)),
+  BadgeDef(id: 7,  stringId: 'protein_streak_30', name: 'Protein Month',     desc: 'Hit protein goal 30 days in a row',  category: 'Protein Streaks',    shape: BadgeShape.hexagon,  colorStart: Color(0xFF4A148C), colorEnd: Color(0xFF7B1FA2), icon: 'muscle30',     accent: Color(0xFFBA68C8)),
+  BadgeDef(id: 8,  stringId: 'protein_streak_90', name: 'Protein Quarter',   desc: 'Hit protein goal 90 days in a row',  category: 'Protein Streaks',    shape: BadgeShape.hexagon,  colorStart: Color(0xFF311B92), colorEnd: Color(0xFF5E35B1), icon: 'muscle90',     accent: Color(0xFF9575CD)),
   // Special
-  BadgeDef(id: 10, stringId: 'veggie_streak_7',   name: 'Green Week',        desc: 'Log a veggie & fruit daily, 7 days', category: 'Special',           shape: BadgeShape.shield,   colorStart: Color(0xFF2E7D32), colorEnd: Color(0xFF43A047), emoji: '🥦', accent: Color(0xFFC8E6C9)),
+  BadgeDef(id: 10, stringId: 'veggie_streak_7',   name: 'Green Week',        desc: 'Log a veggie & fruit daily, 7 days', category: 'Special',            shape: BadgeShape.shield,   colorStart: Color(0xFF2E7D32), colorEnd: Color(0xFF43A047), icon: 'greenweek',    accent: Color(0xFFC8E6C9)),
   // Logging Milestones
-  BadgeDef(id: 11, stringId: 'log_first',      name: 'First Step',        desc: 'Log your first food',                    category: 'Logging Milestones', shape: BadgeShape.circle,  colorStart: Color(0xFF00897B), colorEnd: Color(0xFF26A69A), emoji: '👣', accent: Color(0xFFB2DFDB)),
-  BadgeDef(id: 12, stringId: 'log_days_10',    name: '10 Days Logged',    desc: 'Log food on 10 different days',          category: 'Logging Milestones', shape: BadgeShape.circle,  colorStart: Color(0xFF00796B), colorEnd: Color(0xFF00897B), emoji: '📅', accent: Color(0xFFB2DFDB)),
-  BadgeDef(id: 13, stringId: 'log_days_30',    name: '30 Days Logged',    desc: 'Log food on 30 different days',          category: 'Logging Milestones', shape: BadgeShape.circle,  colorStart: Color(0xFF00695C), colorEnd: Color(0xFF00796B), emoji: '📅', accent: Color(0xFF80CBC4)),
-  BadgeDef(id: 14, stringId: 'log_days_100',   name: '100 Days Logged',   desc: 'Log food on 100 different days',         category: 'Logging Milestones', shape: BadgeShape.circle,  colorStart: Color(0xFF004D40), colorEnd: Color(0xFF00695C), emoji: '📅', accent: Color(0xFF4DB6AC)),
+  BadgeDef(id: 11, stringId: 'log_first',      name: 'First Step',        desc: 'Log your first food',                    category: 'Logging Milestones', shape: BadgeShape.circle,   colorStart: Color(0xFF00897B), colorEnd: Color(0xFF26A69A), icon: 'footprint',    accent: Color(0xFFB2DFDB)),
+  BadgeDef(id: 12, stringId: 'log_days_10',    name: '10 Days Logged',    desc: 'Log food on 10 different days',          category: 'Logging Milestones', shape: BadgeShape.circle,   colorStart: Color(0xFF00796B), colorEnd: Color(0xFF00897B), icon: 'num10',        accent: Color(0xFFB2DFDB)),
+  BadgeDef(id: 13, stringId: 'log_days_30',    name: '30 Days Logged',    desc: 'Log food on 30 different days',          category: 'Logging Milestones', shape: BadgeShape.circle,   colorStart: Color(0xFF00695C), colorEnd: Color(0xFF00796B), icon: 'num30',        accent: Color(0xFF80CBC4)),
+  BadgeDef(id: 14, stringId: 'log_days_100',   name: '100 Days Logged',   desc: 'Log food on 100 different days',         category: 'Logging Milestones', shape: BadgeShape.circle,   colorStart: Color(0xFF004D40), colorEnd: Color(0xFF00695C), icon: 'num100',       accent: Color(0xFF4DB6AC)),
   // Protein Milestones
-  BadgeDef(id: 15, stringId: 'protein_first',    name: 'Protein Hit',        desc: 'Reach protein goal for the first time', category: 'Protein Milestones', shape: BadgeShape.octagon, colorStart: Color(0xFF1565C0), colorEnd: Color(0xFF1E88E5), emoji: '🎯', accent: Color(0xFFBBDEFB)),
-  BadgeDef(id: 16, stringId: 'protein_hits_10',  name: '10 Protein Days',    desc: 'Hit protein goal on 10 days',          category: 'Protein Milestones', shape: BadgeShape.octagon, colorStart: Color(0xFF0D47A1), colorEnd: Color(0xFF1565C0), emoji: '🥩', accent: Color(0xFF90CAF9)),
-  BadgeDef(id: 17, stringId: 'protein_hits_20',  name: '20 Protein Days',    desc: 'Hit protein goal on 20 days',          category: 'Protein Milestones', shape: BadgeShape.octagon, colorStart: Color(0xFF0D47A1), colorEnd: Color(0xFF1565C0), emoji: '🥩', accent: Color(0xFF90CAF9)),
-  BadgeDef(id: 18, stringId: 'protein_hits_50',  name: '50 Protein Days',    desc: 'Hit protein goal on 50 days',          category: 'Protein Milestones', shape: BadgeShape.octagon, colorStart: Color(0xFF1A237E), colorEnd: Color(0xFF283593), emoji: '🥩', accent: Color(0xFF7986CB)),
-  BadgeDef(id: 19, stringId: 'protein_hits_100', name: '100 Protein Days',   desc: 'Hit protein goal on 100 days',         category: 'Protein Milestones', shape: BadgeShape.octagon, colorStart: Color(0xFF0D1B5E), colorEnd: Color(0xFF1A237E), emoji: '🥩', accent: Color(0xFF5C6BC0)),
+  BadgeDef(id: 15, stringId: 'protein_first',    name: 'Protein Hit',        desc: 'Reach protein goal for the first time', category: 'Protein Milestones', shape: BadgeShape.octagon, colorStart: Color(0xFF1565C0), colorEnd: Color(0xFF1E88E5), icon: 'proteinFirst', accent: Color(0xFFBBDEFB)),
+  BadgeDef(id: 16, stringId: 'protein_hits_10',  name: '10 Protein Days',    desc: 'Hit protein goal on 10 days',          category: 'Protein Milestones', shape: BadgeShape.octagon, colorStart: Color(0xFF0D47A1), colorEnd: Color(0xFF1565C0), icon: 'protein10',    accent: Color(0xFF90CAF9)),
+  BadgeDef(id: 17, stringId: 'protein_hits_20',  name: '20 Protein Days',    desc: 'Hit protein goal on 20 days',          category: 'Protein Milestones', shape: BadgeShape.octagon, colorStart: Color(0xFF0D47A1), colorEnd: Color(0xFF1565C0), icon: 'protein20',    accent: Color(0xFF90CAF9)),
+  BadgeDef(id: 18, stringId: 'protein_hits_50',  name: '50 Protein Days',    desc: 'Hit protein goal on 50 days',          category: 'Protein Milestones', shape: BadgeShape.octagon, colorStart: Color(0xFF1A237E), colorEnd: Color(0xFF283593), icon: 'protein50',    accent: Color(0xFF7986CB)),
+  BadgeDef(id: 19, stringId: 'protein_hits_100', name: '100 Protein Days',   desc: 'Hit protein goal on 100 days',         category: 'Protein Milestones', shape: BadgeShape.octagon, colorStart: Color(0xFF0D1B5E), colorEnd: Color(0xFF1A237E), icon: 'protein100',   accent: Color(0xFF5C6BC0)),
   // Perfect Days
-  BadgeDef(id: 20, stringId: 'perfect_day_1',  name: 'Perfect Day',    desc: 'All macros in range on the same day', category: 'Perfect Days', shape: BadgeShape.star, colorStart: Color(0xFFF9A825), colorEnd: Color(0xFFFDD835), emoji: '⭐', accent: Color(0xFFFFF9C4)),
-  BadgeDef(id: 21, stringId: 'perfect_day_3',  name: 'Hat Trick',      desc: '3 perfect days',                      category: 'Perfect Days', shape: BadgeShape.star, colorStart: Color(0xFFF57F17), colorEnd: Color(0xFFF9A825), emoji: '⭐', accent: Color(0xFFFFF176)),
-  BadgeDef(id: 22, stringId: 'perfect_day_7',  name: 'Perfect Week',   desc: '7 perfect days',                      category: 'Perfect Days', shape: BadgeShape.star, colorStart: Color(0xFFE65100), colorEnd: Color(0xFFEF6C00), emoji: '🌟', accent: Color(0xFFFFE0B2)),
-  BadgeDef(id: 23, stringId: 'perfect_day_30', name: 'Perfect Month',  desc: '30 perfect days',                     category: 'Perfect Days', shape: BadgeShape.star, colorStart: Color(0xFFBF360C), colorEnd: Color(0xFFD84315), emoji: '🏆', accent: Color(0xFFFFCCBC)),
+  BadgeDef(id: 20, stringId: 'perfect_day_1',  name: 'Perfect Day',    desc: 'All macros in range on the same day', category: 'Perfect Days', shape: BadgeShape.star, colorStart: Color(0xFFF9A825), colorEnd: Color(0xFFFDD835), icon: 'perfectStar',  accent: Color(0xFFFFF9C4)),
+  BadgeDef(id: 21, stringId: 'perfect_day_3',  name: 'Hat Trick',      desc: '3 perfect days',                      category: 'Perfect Days', shape: BadgeShape.star, colorStart: Color(0xFFF57F17), colorEnd: Color(0xFFF9A825), icon: 'hatTrick',     accent: Color(0xFFFFF176)),
+  BadgeDef(id: 22, stringId: 'perfect_day_7',  name: 'Perfect Week',   desc: '7 perfect days',                      category: 'Perfect Days', shape: BadgeShape.star, colorStart: Color(0xFFE65100), colorEnd: Color(0xFFEF6C00), icon: 'perfectWeek',  accent: Color(0xFFFFE0B2)),
+  BadgeDef(id: 23, stringId: 'perfect_day_30', name: 'Perfect Month',  desc: '30 perfect days',                     category: 'Perfect Days', shape: BadgeShape.star, colorStart: Color(0xFFBF360C), colorEnd: Color(0xFFD84315), icon: 'perfectMonth', accent: Color(0xFFFFCCBC)),
   // Special
-  BadgeDef(id: 24, stringId: 'veggie_day_1',   name: 'Eat the Rainbow', desc: 'Log a vegetable or fruit',           category: 'Special', shape: BadgeShape.rounded, colorStart: Color(0xFFE91E63), colorEnd: Color(0xFFFF5252), emoji: '🌈', accent: Color(0xFFFCE4EC)),
+  BadgeDef(id: 24, stringId: 'veggie_day_1',   name: 'Eat the Rainbow', desc: 'Log a vegetable or fruit',           category: 'Special',      shape: BadgeShape.rounded, colorStart: Color(0xFFE91E63), colorEnd: Color(0xFFFF5252), icon: 'rainbow',      accent: Color(0xFFFCE4EC)),
   // Food Database
-  BadgeDef(id: 25, stringId: 'foods_added_10',  name: 'Food Collector',    desc: 'Add 10 foods to your database',   category: 'Food Database', shape: BadgeShape.rounded, colorStart: Color(0xFF0288D1), colorEnd: Color(0xFF03A9F4), emoji: '📚', accent: Color(0xFFB3E5FC)),
-  BadgeDef(id: 26, stringId: 'foods_added_25',  name: 'Food Enthusiast',   desc: 'Add 25 foods to your database',  category: 'Food Database', shape: BadgeShape.rounded, colorStart: Color(0xFF0277BD), colorEnd: Color(0xFF0288D1), emoji: '📚', accent: Color(0xFF81D4FA)),
-  BadgeDef(id: 27, stringId: 'foods_added_50',  name: 'Food Expert',       desc: 'Add 50 foods to your database',  category: 'Food Database', shape: BadgeShape.rounded, colorStart: Color(0xFF01579B), colorEnd: Color(0xFF0277BD), emoji: '📚', accent: Color(0xFF4FC3F7)),
-  BadgeDef(id: 28, stringId: 'foods_added_100', name: 'Food Nerd',         desc: 'Add 100 foods to your database', category: 'Food Database', shape: BadgeShape.rounded, colorStart: Color(0xFF004C8C), colorEnd: Color(0xFF01579B), emoji: '📚', accent: Color(0xFF29B6F6)),
-  BadgeDef(id: 29, stringId: 'foods_added_200', name: 'Food Encyclopaedia', desc: 'Add 200 foods to your database', category: 'Food Database', shape: BadgeShape.rounded, colorStart: Color(0xFF002F6C), colorEnd: Color(0xFF004C8C), emoji: '📚', accent: Color(0xFF0288D1)),
+  BadgeDef(id: 25, stringId: 'foods_added_10',  name: 'Food Collector',     desc: 'Add 10 foods to your database',   category: 'Food Database', shape: BadgeShape.rounded, colorStart: Color(0xFF0288D1), colorEnd: Color(0xFF03A9F4), icon: 'book10',       accent: Color(0xFFB3E5FC)),
+  BadgeDef(id: 26, stringId: 'foods_added_25',  name: 'Food Enthusiast',    desc: 'Add 25 foods to your database',  category: 'Food Database', shape: BadgeShape.rounded, colorStart: Color(0xFF0277BD), colorEnd: Color(0xFF0288D1), icon: 'book25',       accent: Color(0xFF81D4FA)),
+  BadgeDef(id: 27, stringId: 'foods_added_50',  name: 'Food Expert',        desc: 'Add 50 foods to your database',  category: 'Food Database', shape: BadgeShape.rounded, colorStart: Color(0xFF01579B), colorEnd: Color(0xFF0277BD), icon: 'book50',       accent: Color(0xFF4FC3F7)),
+  BadgeDef(id: 28, stringId: 'foods_added_100', name: 'Food Nerd',          desc: 'Add 100 foods to your database', category: 'Food Database', shape: BadgeShape.rounded, colorStart: Color(0xFF004C8C), colorEnd: Color(0xFF01579B), icon: 'book100',      accent: Color(0xFF29B6F6)),
+  BadgeDef(id: 29, stringId: 'foods_added_200', name: 'Food Encyclopaedia', desc: 'Add 200 foods to your database', category: 'Food Database', shape: BadgeShape.rounded, colorStart: Color(0xFF002F6C), colorEnd: Color(0xFF004C8C), icon: 'book200',      accent: Color(0xFF0288D1)),
   // Special
-  BadgeDef(id: 30, stringId: 'recipe_first',   name: 'Home Chef',        desc: 'Create your first home recipe',    category: 'Special', shape: BadgeShape.shield, colorStart: Color(0xFFD84315), colorEnd: Color(0xFFFF5722), emoji: '👨‍🍳', accent: Color(0xFFFFCCBC)),
+  BadgeDef(id: 30, stringId: 'recipe_first',   name: 'Home Chef',        desc: 'Create your first home recipe',    category: 'Special',       shape: BadgeShape.shield,  colorStart: Color(0xFFD84315), colorEnd: Color(0xFFFF5722), icon: 'chef',         accent: Color(0xFFFFCCBC)),
 ];
 
 // ---------------------------------------------------------------------------
