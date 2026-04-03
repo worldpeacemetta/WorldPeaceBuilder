@@ -152,7 +152,7 @@ class _MacroProgressCardState extends State<_MacroProgressCard>
     if (index == _featured) return;
     _prev = _featured;
     _prevPct = _goal(_featured) > 0
-        ? (_actual(_featured) / _goal(_featured)).clamp(0.0, 1.0)
+        ? (_actual(_featured) / _goal(_featured)).clamp(0.0, 1.0) // ring only
         : 0.0;
     setState(() => _featured = index);
     _ctrl.forward(from: 0);
@@ -160,9 +160,10 @@ class _MacroProgressCardState extends State<_MacroProgressCard>
 
   @override
   Widget build(BuildContext context) {
-    final currPct = _goal(_featured) > 0
-        ? (_actual(_featured) / _goal(_featured)).clamp(0.0, 1.0)
+    final currRaw = _goal(_featured) > 0
+        ? _actual(_featured) / _goal(_featured)
         : 0.0;
+    final currPct = currRaw.clamp(0.0, 1.0); // clamped for ring sweep only
     final isOver =
         _goal(_featured) > 0 && _actual(_featured) > _goal(_featured);
     final pillIndices =
@@ -228,7 +229,7 @@ class _MacroProgressCardState extends State<_MacroProgressCard>
                         key: ValueKey(_featured),
                         actual: _actual(_featured),
                         goal: _goal(_featured),
-                        pct: currPct,
+                        pct: currRaw,
                         label: _labels[_featured],
                         unit: _units[_featured],
                         color: _colors[_featured],
