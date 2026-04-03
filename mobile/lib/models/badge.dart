@@ -161,10 +161,10 @@ Set<String> computeEarnedBadgeStringIds({
     if (g.protein > 0 && protein >= g.protein) proteinDates.add(date);
 
     if (g.kcal > 0 && g.protein > 0 && g.carbs > 0 && g.fat > 0 &&
-        kcal    >= g.kcal    * 0.95 && kcal    <= g.kcal &&
+        kcal    >= g.kcal    * 0.95 && kcal    <= g.kcal    * 1.05 &&
         protein >= g.protein &&
-        carbs   >= g.carbs   * 0.95 && carbs   <= g.carbs &&
-        fat     >= g.fat     * 0.95 && fat     <= g.fat) {
+        carbs   >= g.carbs   * 0.95 && carbs   <= g.carbs   * 1.05 &&
+        fat     >= g.fat     * 0.95 && fat     <= g.fat     * 1.05) {
       perfectDates.add(date);
     }
 
