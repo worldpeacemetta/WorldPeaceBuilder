@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  static const kcal    = Color(0xFF9F1D35); // burgundy
+  static const kcal    = Color(0xFFFFBBE7); // pink
   static const protein = Color(0xFF9CAF88); // sage green
   static const carbs   = Color(0xFF98C1D9); // steel blue
   static const fat     = Color(0xFFFDBA74); // orange
