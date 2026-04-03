@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/auth_provider.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/daily_log/log_history_screen.dart';
 import 'screens/daily_log/day_detail_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
@@ -26,15 +27,30 @@ final routerProvider = Provider<GoRouter>((ref) {
       final session = Supabase.instance.client.auth.currentSession;
       final isLoggedIn = session != null;
       final isAuthRoute = state.matchedLocation == '/auth';
+      final isOnboarding = state.matchedLocation == '/onboarding';
 
       if (!isLoggedIn && !isAuthRoute) return '/auth';
-      if (isLoggedIn && isAuthRoute) return '/log';
+      if (isLoggedIn && isAuthRoute) {
+        // New users (no display_username set yet) go to onboarding
+        final meta = Supabase.instance.client.auth.currentUser?.userMetadata;
+        final onboardingDone = meta?['onboarding_done'] == true;
+        return onboardingDone ? '/log' : '/onboarding';
+      }
+      if (isLoggedIn && !isOnboarding) {
+        final meta = Supabase.instance.client.auth.currentUser?.userMetadata;
+        final onboardingDone = meta?['onboarding_done'] == true;
+        if (!onboardingDone) return '/onboarding';
+      }
       return null;
     },
     routes: [
       GoRoute(
         path: '/auth',
         builder: (context, state) => const AuthScreen(),
+      ),
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const OnboardingScreen(),
       ),
       // Full-screen badges list — above shell so it has no nav bar
       GoRoute(
