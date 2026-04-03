@@ -253,7 +253,7 @@ class _FourMacroBar extends StatelessWidget {
         children: [
           Expanded(child: _PillArc(label: 'K', actual: totals.kcal,    goal: goals.kcal,    unit: 'kcal', color: AppColors.kcal)),
           const SizedBox(width: 8),
-          Expanded(child: _PillArc(label: 'P', actual: totals.protein, goal: goals.protein, unit: 'g',    color: AppColors.protein)),
+          Expanded(child: _PillArc(label: 'P', actual: totals.protein, goal: goals.protein, unit: 'g',    color: AppColors.protein, isProtein: true)),
           const SizedBox(width: 8),
           Expanded(child: _PillArc(label: 'C', actual: totals.carbs,   goal: goals.carbs,   unit: 'g',    color: AppColors.carbs)),
           const SizedBox(width: 8),
@@ -267,16 +267,19 @@ class _FourMacroBar extends StatelessWidget {
 class _PillArc extends StatelessWidget {
   const _PillArc({
     required this.label, required this.actual, required this.goal,
-    required this.unit,  required this.color,
+    required this.unit,  required this.color,  this.isProtein = false,
   });
   final String label, unit;
   final double actual, goal;
   final Color color;
+  final bool isProtein;
 
   @override
   Widget build(BuildContext context) {
     final progress = goal > 0 ? (actual / goal).clamp(0.0, 1.0) : 0.0;
-    final c = (goal > 0 && actual > goal) ? AppColors.danger : color;
+    final c = (!isProtein && goal > 0 && actual > goal * 1.05)
+        ? AppColors.danger
+        : color;
     final cs = AppColorScheme.of(context);
     return CustomPaint(
       painter: _PillArcPainter(progress: progress, color: c, borderColor: cs.border),

@@ -59,7 +59,7 @@ const categoryEmojis = {
   'eggProducts'  : '🥚',
   'fish'         : '🐟',
   'plantProtein' : '🌱',
-  'supplement'   : '🧴',
+  'supplement'   : '🧪',
   'breadBakery'  : '🥖',
   'cereals'      : '🥣',
   'grains'       : '🌾',
