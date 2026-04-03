@@ -162,5 +162,9 @@ final earnedBadgeCountProvider = Provider<int>((ref) {
 
 /// Convenience: 3 most recently earned BadgeDefs.
 final recentBadgesProvider = Provider<List<BadgeDef>>((ref) {
-  return ref.watch(badgesProvider.notifier).recentBadges;
+  final earned = ref.watch(badgesProvider).earned;
+  return (kBadges.where((b) => earned.contains(b.stringId)).toList()
+        ..sort((a, b) => b.id.compareTo(a.id)))
+      .take(3)
+      .toList();
 });
