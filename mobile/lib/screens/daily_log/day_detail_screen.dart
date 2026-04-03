@@ -281,8 +281,11 @@ class _ActivityRingsPanel extends StatelessWidget {
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: items.map((it) {
-                final over = it.goal > 0 && it.actual > it.goal;
+              children: items.asMap().entries.map((e) {
+                final it = e.value;
+                final isProtein = e.key == 1;
+                final over = !isProtein &&
+                    it.goal > 0 && it.actual > it.goal * 1.05;
                 final c = over ? AppColors.danger : it.color;
                 final pct = it.goal > 0
                     ? '${(it.actual / it.goal * 100).round()}%'
