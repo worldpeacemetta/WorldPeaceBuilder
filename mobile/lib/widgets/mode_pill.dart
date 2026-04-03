@@ -12,7 +12,7 @@ Color modeColor(String label) => switch (label) {
   'Train Day'   => AppColors.protein,
   'Rest Day'    => AppColors.kcal,
   'Bulking'     => const Color(0xFFFBBF24),
-  'Cutting'     => AppColors.danger,
+  'Cutting'     => AppColors.fat,
   _             => AppColors.textMuted,
 };
 
