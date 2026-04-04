@@ -32,7 +32,7 @@ double? _computeBMR(String sex, double? age, double? heightCm,
   return sex == 'female' ? base - 161 : base + 5;
 }
 
-Map<String, int>? _computeSingleMacros(String sex, double? age,
+Map<String, int?>? _computeSingleMacros(String sex, double? age,
     double? heightCm, double? weightKg, double? bodyFatPct,
     String activity, String goal, String aggressiveness) {
   final bmr = _computeBMR(sex, age, heightCm, weightKg, bodyFatPct);
@@ -203,7 +203,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     } else {
       final m = _computeSingleMacros(sex, age, heightCm, weightKg, bf,
               _activity, _goalMode, _aggressiveness)
-          ?? {'kcal': 2000, 'protein': 150, 'carbs': 200, 'fat': 65, 'tdee': null};
+          ?? <String, int?>{'kcal': 2000, 'protein': 150, 'carbs': 200, 'fat': 65, 'tdee': null};
       _kcalCtrl.text    = '${m['kcal']}';
       _proteinCtrl.text = '${m['protein']}';
       _carbsCtrl.text   = '${m['carbs']}';
