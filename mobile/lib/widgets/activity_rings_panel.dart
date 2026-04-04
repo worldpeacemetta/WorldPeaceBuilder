@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../models/food.dart';
 import '../providers/settings_provider.dart';
 import '../theme.dart';
 
