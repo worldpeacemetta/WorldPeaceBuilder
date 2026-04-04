@@ -736,11 +736,11 @@ class _MacroSplitPanelState extends State<_MacroSplitPanel> {
 
   String _insight(int i, int diff) {
     final n = _macroNames[i];
-    if (diff > 10)  return 'Well above your $n target — your ratio is shifted away from other macros.';
-    if (diff > 5)   return 'Slightly above your $n target, within a healthy margin.';
-    if (diff >= -5) return 'Your $n intake is right on target today.';
-    if (diff >= -10) return 'Slightly below your $n target — consider adding a source.';
-    return 'Significantly below your $n target today.';
+    if (diff > 10)  return '$n represents a larger share of your calories than targeted — likely because other macros are still under their goals.';
+    if (diff > 5)   return '$n\'s calorie share is slightly above your target ratio, but within a reasonable margin.';
+    if (diff >= -5) return '$n\'s contribution to your total calories is right on target.';
+    if (diff >= -10) return '$n is slightly under-represented in today\'s calorie mix.';
+    return '$n\'s calorie share is well below your target ratio today.';
   }
 
   Widget _bar(List<double> fracs, AppColorScheme cs) => ClipRRect(
