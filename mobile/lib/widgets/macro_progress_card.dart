@@ -74,10 +74,11 @@ class _MacroProgressCardState extends State<MacroProgressCard>
         _actual(_featured) > _goal(_featured) * 1.05;
     final pillIndices = [0, 1, 2, 3].where((i) => i != _featured).toList();
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    final cs = AppColorScheme.of(context);
+    return Container(
+      color: cs.card,
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Macro Breakdown',
@@ -161,7 +162,6 @@ class _MacroProgressCardState extends State<MacroProgressCard>
             ),
           ],
         ),
-      ),
     );
   }
 }

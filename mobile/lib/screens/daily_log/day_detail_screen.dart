@@ -105,6 +105,7 @@ class _DayDetailScreenState extends ConsumerState<DayDetailScreen> {
                       // 3 — Top foods by macro
                       _TopFoodsPanel(
                         entries: entries,
+                        goals: goals,
                         macro: _topFoodsMacro,
                         onMacroChanged: (m) =>
                             setState(() => _topFoodsMacro = m),
@@ -273,15 +274,14 @@ class _MealBreakdownPanel extends StatelessWidget {
 
     return Container(
       color: cs.card,
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // Title
           const Text('Meal Breakdown',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 10),
+          const Spacer(),
           // Stacked proportion bar
           ClipRRect(
             borderRadius: BorderRadius.circular(5),
@@ -302,6 +302,7 @@ class _MealBreakdownPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          const SizedBox(height: 10),
           // Meal rows
           ...mealTotals.entries.map((e) {
             final color = _mealColors[e.key] ?? AppColors.kcal;
@@ -367,12 +368,21 @@ class _MealBreakdownPanel extends StatelessWidget {
 class _TopFoodsPanel extends StatelessWidget {
   const _TopFoodsPanel({
     required this.entries,
+    required this.goals,
     required this.macro,
     required this.onMacroChanged,
   });
   final List<Entry> entries;
+  final MacroGoals goals;
   final String macro;
   final ValueChanged<String> onMacroChanged;
+
+  double _goalValue() => switch (macro) {
+        'protein' => goals.protein,
+        'carbs' => goals.carbs,
+        'fat' => goals.fat,
+        _ => goals.kcal.toDouble(),
+      };
 
   double _macroValue(MacroValues m) => switch (macro) {
         'protein' => m.protein,
@@ -400,12 +410,15 @@ class _TopFoodsPanel extends StatelessWidget {
     final totalVal = entries.fold(0.0, (s, e) => s + _macroValue(e.macros));
     final cs = AppColorScheme.of(context);
 
+    final goalVal = _goalValue();
+    final goalFrac = goalVal > 0 ? (totalVal / goalVal).clamp(0.0, 1.0) : 0.0;
+    final goalPct = goalVal > 0 ? (totalVal / goalVal * 100).round() : 0;
+
     return Container(
       color: cs.card,
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // Title + toggle row
           Row(
@@ -442,6 +455,27 @@ class _TopFoodsPanel extends StatelessWidget {
               }),
             ],
           ),
+          const SizedBox(height: 10),
+          // Day total vs goal summary
+          Row(
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: goalFrac,
+                    minHeight: 6,
+                    backgroundColor: cs.border,
+                    valueColor: AlwaysStoppedAnimation<Color>(_color),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text('${totalVal.round()} / ${goalVal.round()} $_unit  ·  $goalPct%',
+                  style: TextStyle(fontSize: 10, color: cs.textMuted)),
+            ],
+          ),
+          const SizedBox(height: 10),
           ...top5.map((entry) {
             final val = _macroValue(entry.macros);
             final share = maxVal > 0 ? (val / maxVal).clamp(0.0, 1.0) : 0.0;
@@ -520,20 +554,19 @@ class _MacroSplitPanel extends StatelessWidget {
     const colors = [AppColors.protein, AppColors.carbs, AppColors.fat];
     const names = ['Protein', 'Carbs', 'Fat'];
 
+    static const _kcalPerGram = [4.0, 4.0, 9.0]; // protein, carbs, fat
     final actualGrams = [totals.protein, totals.carbs, totals.fat];
-    final targetGrams = [goals.protein, goals.carbs, goals.fat];
-    final gramLabels = ['g protein', 'g carbs', 'g fat'];
+    final gramLabels = ['g', 'g', 'g'];
+    final macroNames = ['Protein', 'Carbs', 'Fat'];
 
-    Widget bar(List<double> fracs) => ClipRRect(
+    Widget bar(List<double> fracs, {double height = 18}) => ClipRRect(
           borderRadius: BorderRadius.circular(6),
           child: SizedBox(
-            height: 14,
+            height: height,
             child: Row(
               children: List.generate(3, (i) {
                 final flex = (fracs[i] * 1000).round();
-                return Flexible(
-                    flex: flex,
-                    child: Container(color: colors[i]));
+                return Flexible(flex: flex, child: Container(color: colors[i]));
               }),
             ),
           ),
@@ -543,39 +576,37 @@ class _MacroSplitPanel extends StatelessWidget {
 
     return Container(
       color: cs.card,
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // Title
           const Text('Macro Split',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
           const SizedBox(height: 2),
-          Text('% of calories from protein · carbs · fat',
+          Text('calorie contribution by macronutrient',
               style: TextStyle(fontSize: 10, color: cs.textMuted)),
-          const SizedBox(height: 14),
+          const Spacer(),
+          // Bars
           Row(
             children: [
-              SizedBox(
-                  width: 46,
+              SizedBox(width: 46,
                   child: Text('Today',
-                      style: TextStyle(fontSize: 10, color: cs.textMuted))),
+                      style: TextStyle(fontSize: 11, color: cs.textMuted))),
               Expanded(child: bar(actual)),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Row(
             children: [
-              SizedBox(
-                  width: 46,
+              SizedBox(width: 46,
                   child: Text('Target',
-                      style: TextStyle(fontSize: 10, color: cs.textMuted))),
+                      style: TextStyle(fontSize: 11, color: cs.textMuted))),
               Expanded(child: bar(target)),
             ],
           ),
           const SizedBox(height: 20),
-          // Legend row
+          // Legend row — grams, kcal from macro, % vs goal
           Row(
             children: List.generate(3, (i) {
               final aPct = (actual[i] * 100).round();
@@ -586,6 +617,8 @@ class _MacroSplitPanel extends StatelessWidget {
               final diffColor = diff == 0
                   ? cs.textMuted
                   : (diff > 0 ? AppColors.protein : AppColors.carbs);
+              final kcalFromMacro =
+                  (actualGrams[i] * _kcalPerGram[i]).round();
               return Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -596,21 +629,26 @@ class _MacroSplitPanel extends StatelessWidget {
                           decoration: BoxDecoration(
                               color: colors[i], shape: BoxShape.circle)),
                       const SizedBox(width: 4),
-                      Text(names[i],
-                          style: TextStyle(fontSize: 9, color: cs.textMuted)),
+                      Text(macroNames[i],
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: cs.textMuted)),
                     ]),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 4),
                     Text('${actualGrams[i].round()}${gramLabels[i]}',
                         style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: colors[i])),
-                    const SizedBox(height: 1),
+                    Text('$kcalFromMacro kcal',
+                        style: TextStyle(fontSize: 10, color: cs.textMuted)),
+                    const SizedBox(height: 2),
                     Text('$aPct% · goal $tPct%',
                         style: TextStyle(fontSize: 9, color: cs.textMuted)),
                     Text(diffStr,
                         style: TextStyle(
-                            fontSize: 9,
+                            fontSize: 10,
                             fontWeight: FontWeight.w600,
                             color: diffColor)),
                   ],
@@ -618,6 +656,7 @@ class _MacroSplitPanel extends StatelessWidget {
               );
             }),
           ),
+          const Spacer(),
         ],
       ),
     );
