@@ -31,15 +31,12 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       if (!isLoggedIn && !isAuthRoute) return '/auth';
       if (isLoggedIn && isAuthRoute) {
-        // New users (no display_username set yet) go to onboarding
         final meta = Supabase.instance.client.auth.currentUser?.userMetadata;
-        final onboardingDone = meta?['onboarding_done'] == true;
-        return onboardingDone ? '/log' : '/onboarding';
+        return _onboardingDone(meta) ? '/log' : '/onboarding';
       }
       if (isLoggedIn && !isOnboarding) {
         final meta = Supabase.instance.client.auth.currentUser?.userMetadata;
-        final onboardingDone = meta?['onboarding_done'] == true;
-        if (!onboardingDone) return '/onboarding';
+        if (!_onboardingDone(meta)) return '/onboarding';
       }
       return null;
     },
@@ -110,3 +107,12 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+// Existing users have display_username but no onboarding_done flag —
+// treat either signal as onboarding complete.
+bool _onboardingDone(Map<String, dynamic>? meta) {
+  if (meta == null) return false;
+  if (meta['onboarding_done'] == true) return true;
+  final name = meta['display_username'] as String?;
+  return name != null && name.isNotEmpty;
+}

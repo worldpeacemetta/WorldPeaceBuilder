@@ -2,6 +2,7 @@ import 'dart:math' show max;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../providers/settings_provider.dart';
@@ -281,7 +282,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         'activity_level': _activity,
       }).eq('user_id', user.id);
 
-      if (mounted) ref.invalidate(settingsProvider);
+      if (mounted) {
+        ref.invalidate(settingsProvider);
+        context.go('/log');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save: $e')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
