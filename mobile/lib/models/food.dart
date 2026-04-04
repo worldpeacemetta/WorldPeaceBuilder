@@ -1,3 +1,24 @@
+// ---------------------------------------------------------------------------
+// Ingredient — a component of a home recipe.
+// quantity is always stored in grams on mobile.
+// ---------------------------------------------------------------------------
+class Ingredient {
+  final String foodId;
+  final double quantity; // grams
+
+  const Ingredient({required this.foodId, required this.quantity});
+
+  factory Ingredient.fromJson(Map<String, dynamic> json) => Ingredient(
+        foodId: json['foodId'] as String,
+        quantity: (json['quantity'] as num).toDouble(),
+      );
+
+  Map<String, dynamic> toJson() => {'foodId': foodId, 'quantity': quantity};
+}
+
+// ---------------------------------------------------------------------------
+// Food
+// ---------------------------------------------------------------------------
 class Food {
   final String id;
   final String userId;
@@ -10,6 +31,7 @@ class Food {
   final double carbs;
   final double protein;
   final String? category;
+  final List<Ingredient> components; // non-empty for homeRecipe foods
 
   const Food({
     required this.id,
@@ -23,37 +45,50 @@ class Food {
     required this.carbs,
     required this.protein,
     this.category,
+    this.components = const [],
   });
 
-  factory Food.fromJson(Map<String, dynamic> json) => Food(
-    id: json['id'] as String,
-    userId: json['user_id'] as String,
-    name: json['name'] as String,
-    brand: json['brand'] as String?,
-    unit: (json['unit'] as String?) ?? 'per100g',
-    servingSize: (json['serving_size'] as num?)?.toDouble(),
-    kcal: (json['kcal'] as num?)?.toDouble() ?? 0,
-    fat: (json['fat'] as num?)?.toDouble() ?? 0,
-    carbs: (json['carbs'] as num?)?.toDouble() ?? 0,
-    protein: (json['protein'] as num?)?.toDouble() ?? 0,
-    category: json['category'] as String?,
-  );
+  factory Food.fromJson(Map<String, dynamic> json) {
+    final rawComponents = json['components'];
+    final components = (rawComponents is List)
+        ? rawComponents
+            .whereType<Map<String, dynamic>>()
+            .map(Ingredient.fromJson)
+            .toList()
+        : <Ingredient>[];
+    return Food(
+      id: json['id'] as String,
+      userId: json['user_id'] as String,
+      name: json['name'] as String,
+      brand: json['brand'] as String?,
+      unit: (json['unit'] as String?) ?? 'per100g',
+      servingSize: (json['serving_size'] as num?)?.toDouble(),
+      kcal: (json['kcal'] as num?)?.toDouble() ?? 0,
+      fat: (json['fat'] as num?)?.toDouble() ?? 0,
+      carbs: (json['carbs'] as num?)?.toDouble() ?? 0,
+      protein: (json['protein'] as num?)?.toDouble() ?? 0,
+      category: json['category'] as String?,
+      components: components,
+    );
+  }
 
   Map<String, dynamic> toInsertJson() => {
-    'name': name,
-    'brand': brand,
-    'unit': unit,
-    'serving_size': servingSize,
-    'kcal': kcal,
-    'fat': fat,
-    'carbs': carbs,
-    'protein': protein,
-    'category': category,
-  };
+        'name': name,
+        'brand': brand,
+        'unit': unit,
+        'serving_size': servingSize,
+        'kcal': kcal,
+        'fat': fat,
+        'carbs': carbs,
+        'protein': protein,
+        'category': category,
+        if (components.isNotEmpty)
+          'components': components.map((c) => c.toJson()).toList(),
+      };
 
   /// Scale macros by qty.
   /// per100g: factor = qty / 100
-  /// perServing: factor = qty
+  /// perServing: factor = qty (number of servings)
   MacroValues scaledMacros(double qty) {
     final factor = unit == 'per100g' ? qty / 100.0 : qty;
     return MacroValues(
@@ -64,8 +99,11 @@ class Food {
     );
   }
 
+  bool get isRecipe => category == 'homeRecipe';
+
   /// Label shown in lists (name + brand if available).
-  String get displayName => brand != null && brand!.isNotEmpty ? '$name · $brand' : name;
+  String get displayName =>
+      brand != null && brand!.isNotEmpty ? '$name · $brand' : name;
 
   Food copyWith({
     String? name,
@@ -77,20 +115,24 @@ class Food {
     double? carbs,
     double? protein,
     String? category,
-  }) => Food(
-    id: id,
-    userId: userId,
-    name: name ?? this.name,
-    brand: brand ?? this.brand,
-    unit: unit ?? this.unit,
-    servingSize: servingSize ?? this.servingSize,
-    kcal: kcal ?? this.kcal,
-    fat: fat ?? this.fat,
-    carbs: carbs ?? this.carbs,
-    protein: protein ?? this.protein,
-    category: category ?? this.category,
-  );
+    List<Ingredient>? components,
+  }) =>
+      Food(
+        id: id,
+        userId: userId,
+        name: name ?? this.name,
+        brand: brand ?? this.brand,
+        unit: unit ?? this.unit,
+        servingSize: servingSize ?? this.servingSize,
+        kcal: kcal ?? this.kcal,
+        fat: fat ?? this.fat,
+        carbs: carbs ?? this.carbs,
+        protein: protein ?? this.protein,
+        category: category ?? this.category,
+        components: components ?? this.components,
+      );
 }
+
 
 /// Aggregated macro totals.
 class MacroValues {

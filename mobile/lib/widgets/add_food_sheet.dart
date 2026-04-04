@@ -6,6 +6,7 @@ import '../models/food.dart';
 import '../providers/foods_provider.dart';
 import '../theme.dart';
 import 'add_entry_sheet.dart';
+import 'add_recipe_sheet.dart';
 import 'barcode_scanner_sheet.dart';
 import 'food_saved_sheet.dart';
 
@@ -62,6 +63,7 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
   late String? _category;
   bool _saving = false;
   bool _scanned = false; // true after a successful barcode scan
+  String _tab = 'food';  // 'food' | 'recipe'  (new-food mode only)
 
   @override
   void initState() {
@@ -192,7 +194,7 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
               child: Row(
                 children: [
                   Text(
-                    isEdit ? 'Edit Food' : 'New Food',
+                    isEdit ? 'Edit Food' : (_tab == 'recipe' ? 'New Recipe' : 'New Food'),
                     style: Theme.of(context).textTheme.titleMedium
                         ?.copyWith(fontWeight: FontWeight.w700),
                   ),
@@ -204,11 +206,42 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
                 ],
               ),
             ),
+            // Tab toggle (new food mode only)
+            if (!isEdit)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'food',   label: Text('New Food')),
+                    ButtonSegment(value: 'recipe', label: Text('New Recipe')),
+                  ],
+                  selected: {_tab},
+                  onSelectionChanged: (v) => setState(() => _tab = v.first),
+                ),
+              ),
             Expanded(
               child: ListView(
                 controller: scrollCtrl,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
+                  // ── Recipe form ───────────────────────────────────────
+                  if (!isEdit && _tab == 'recipe') ...[
+                    AddRecipeForm(
+                      onSaved: (food) async {
+                        Navigator.of(context).pop();
+                        final logNow = await showFoodSavedSheet(
+                            widget.parentContext, food);
+                        if (logNow) {
+                          final today = DateTime.now();
+                          final date =
+                              '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+                          showAddEntrySheet(
+                              widget.parentContext, widget.parentRef, date,
+                              preselectedFood: food);
+                        }
+                      },
+                    ),
+                  ] else ...[
                   // ── Barcode hero (new food only) ──────────────────────
                   if (!isEdit) ...[
                     _BarcodeScanHero(
@@ -295,6 +328,7 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
                         : Text(isEdit ? 'Save Changes' : 'Save Food'),
                   ),
                   const SizedBox(height: 24),
+                  ], // end else (food form)
                 ],
               ),
             ),
