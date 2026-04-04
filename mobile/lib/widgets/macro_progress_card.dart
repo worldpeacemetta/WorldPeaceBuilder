@@ -83,6 +83,12 @@ class _MacroProgressCardState extends State<MacroProgressCard>
           children: [
             const Text('Macro Breakdown',
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            const SizedBox(height: 3),
+            Text('Tap a pill to switch the active macro',
+                style: TextStyle(
+                    fontSize: 10,
+                    color: cs.textMuted,
+                    fontStyle: FontStyle.italic)),
             const SizedBox(height: 16),
             Center(
               child: SizedBox(
