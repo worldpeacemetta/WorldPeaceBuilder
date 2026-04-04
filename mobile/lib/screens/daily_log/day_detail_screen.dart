@@ -278,11 +278,15 @@ class _MealBreakdownPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // Title
+          const Text('Meal Breakdown',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 10),
           // Stacked proportion bar
           ClipRRect(
             borderRadius: BorderRadius.circular(5),
             child: SizedBox(
-              height: 7,
+              height: 10,
               child: Row(
                 children: mealTotals.entries.map((e) {
                   final flex = totalKcal > 0
@@ -297,40 +301,56 @@ class _MealBreakdownPanel extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           // Meal rows
           ...mealTotals.entries.map((e) {
             final color = _mealColors[e.key] ?? AppColors.kcal;
+            final share = totalKcal > 0
+                ? (e.value.kcal / totalKcal).clamp(0.0, 1.0)
+                : 0.0;
+            final pct = (share * 100).round();
             return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                      width: 5, height: 5,
-                      decoration:
-                          BoxDecoration(color: color, shape: BoxShape.circle)),
-                  const SizedBox(width: 7),
-                  Text(_mealEmoji(e.key),
-                      style: const TextStyle(fontSize: 14)),
-                  const SizedBox(width: 7),
-                  Expanded(
-                    child: Text(mealLabels[e.key] ?? e.key,
-                        style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w500)),
+                  Row(
+                    children: [
+                      Container(
+                          width: 5, height: 5,
+                          decoration: BoxDecoration(
+                              color: color, shape: BoxShape.circle)),
+                      const SizedBox(width: 7),
+                      Text(_mealEmoji(e.key),
+                          style: const TextStyle(fontSize: 13)),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Text(mealLabels[e.key] ?? e.key,
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w500)),
+                      ),
+                      Text('${e.value.kcal.round()}',
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: color)),
+                      Text(' kcal',
+                          style: TextStyle(fontSize: 11, color: cs.textMuted)),
+                      const SizedBox(width: 4),
+                      Text('· $pct%',
+                          style: TextStyle(fontSize: 10, color: cs.textMuted)),
+                    ],
                   ),
-                  Text('${e.value.kcal.round()}',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: color)),
-                  Text(' kcal',
-                      style:
-                          TextStyle(fontSize: 11, color: cs.textMuted)),
-                  const SizedBox(width: 8),
-                  Text(
-                      'P${e.value.protein.round()} C${e.value.carbs.round()} F${e.value.fat.round()}',
-                      style: TextStyle(
-                          fontSize: 10, color: cs.textMuted)),
+                  const SizedBox(height: 4),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: share,
+                      minHeight: 3,
+                      backgroundColor: cs.border,
+                      valueColor: AlwaysStoppedAnimation<Color>(color),
+                    ),
+                  ),
                 ],
               ),
             );
@@ -378,52 +398,50 @@ class _TopFoodsPanel extends StatelessWidget {
     final top5 = sorted.take(5).toList();
     final maxVal = top5.isNotEmpty ? _macroValue(top5.first.macros) : 1.0;
     final totalVal = entries.fold(0.0, (s, e) => s + _macroValue(e.macros));
-    const keys = ['kcal', 'protein', 'carbs', 'fat'];
-    const labels = ['Cal', 'Pro', 'Carb', 'Fat'];
-    const colors = <Color>[
-      AppColors.kcal, AppColors.protein, AppColors.carbs, AppColors.fat
-    ];
-
     final cs = AppColorScheme.of(context);
 
     return Container(
       color: cs.card,
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Toggle
+          // Title + toggle row
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(4, (i) {
-              final sel = keys[i] == macro;
-              return GestureDetector(
-                onTap: () => onMacroChanged(keys[i]),
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: sel
-                        ? colors[i].withValues(alpha: 0.15)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: sel ? colors[i] : cs.border),
+            children: [
+              const Expanded(
+                child: Text('Top Contributors',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+              ),
+              ...List.generate(4, (i) {
+                const keys = ['kcal', 'protein', 'carbs', 'fat'];
+                const labels = ['Cal', 'Pro', 'Carb', 'Fat'];
+                const colors = <Color>[
+                  AppColors.kcal, AppColors.protein, AppColors.carbs, AppColors.fat
+                ];
+                final sel = keys[i] == macro;
+                return GestureDetector(
+                  onTap: () => onMacroChanged(keys[i]),
+                  child: Container(
+                    margin: const EdgeInsets.only(left: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: sel ? colors[i].withValues(alpha: 0.15) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: sel ? colors[i] : cs.border),
+                    ),
+                    child: Text(labels[i],
+                        style: TextStyle(
+                          color: sel ? colors[i] : cs.textMuted,
+                          fontSize: 10,
+                          fontWeight: sel ? FontWeight.w600 : FontWeight.normal,
+                        )),
                   ),
-                  child: Text(labels[i],
-                      style: TextStyle(
-                        color: sel ? colors[i] : cs.textMuted,
-                        fontSize: 11,
-                        fontWeight: sel
-                            ? FontWeight.w600
-                            : FontWeight.normal,
-                      )),
-                ),
-              );
-            }),
+                );
+              }),
+            ],
           ),
-          const SizedBox(height: 12),
           ...top5.map((entry) {
             final val = _macroValue(entry.macros);
             final share = maxVal > 0 ? (val / maxVal).clamp(0.0, 1.0) : 0.0;
@@ -502,10 +520,14 @@ class _MacroSplitPanel extends StatelessWidget {
     const colors = [AppColors.protein, AppColors.carbs, AppColors.fat];
     const names = ['Protein', 'Carbs', 'Fat'];
 
+    final actualGrams = [totals.protein, totals.carbs, totals.fat];
+    final targetGrams = [goals.protein, goals.carbs, goals.fat];
+    final gramLabels = ['g protein', 'g carbs', 'g fat'];
+
     Widget bar(List<double> fracs) => ClipRRect(
-          borderRadius: BorderRadius.circular(5),
+          borderRadius: BorderRadius.circular(6),
           child: SizedBox(
-            height: 10,
+            height: 14,
             child: Row(
               children: List.generate(3, (i) {
                 final flex = (fracs[i] * 1000).round();
@@ -526,32 +548,33 @@ class _MacroSplitPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text('Macro Split  ·  % of calories',
-              style:
-                  TextStyle(fontSize: 11, color: cs.textMuted)),
-          const SizedBox(height: 16),
+          // Title
+          const Text('Macro Split',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 2),
+          Text('% of calories from protein · carbs · fat',
+              style: TextStyle(fontSize: 10, color: cs.textMuted)),
+          const SizedBox(height: 14),
           Row(
             children: [
               SizedBox(
                   width: 46,
                   child: Text('Today',
-                      style: TextStyle(
-                          fontSize: 10, color: cs.textMuted))),
+                      style: TextStyle(fontSize: 10, color: cs.textMuted))),
               Expanded(child: bar(actual)),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Row(
             children: [
               SizedBox(
                   width: 46,
                   child: Text('Target',
-                      style: TextStyle(
-                          fontSize: 10, color: cs.textMuted))),
+                      style: TextStyle(fontSize: 10, color: cs.textMuted))),
               Expanded(child: bar(target)),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           // Legend row
           Row(
             children: List.generate(3, (i) {
@@ -559,7 +582,7 @@ class _MacroSplitPanel extends StatelessWidget {
               final tPct = (target[i] * 100).round();
               final diff = aPct - tPct;
               final diffStr =
-                  diff == 0 ? '=' : (diff > 0 ? '+$diff%' : '$diff%');
+                  diff == 0 ? '±0%' : (diff > 0 ? '+$diff%' : '$diff%');
               final diffColor = diff == 0
                   ? cs.textMuted
                   : (diff > 0 ? AppColors.protein : AppColors.carbs);
@@ -571,23 +594,25 @@ class _MacroSplitPanel extends StatelessWidget {
                       Container(
                           width: 7, height: 7,
                           decoration: BoxDecoration(
-                              color: colors[i],
-                              shape: BoxShape.circle)),
+                              color: colors[i], shape: BoxShape.circle)),
                       const SizedBox(width: 4),
                       Text(names[i],
-                          style: TextStyle(
-                              fontSize: 9,
-                              color: cs.textMuted)),
+                          style: TextStyle(fontSize: 9, color: cs.textMuted)),
                     ]),
-                    const SizedBox(height: 2),
-                    Text('$aPct% today',
+                    const SizedBox(height: 3),
+                    Text('${actualGrams[i].round()}${gramLabels[i]}',
                         style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
                             color: colors[i])),
-                    Text('$tPct% goal  $diffStr',
+                    const SizedBox(height: 1),
+                    Text('$aPct% · goal $tPct%',
+                        style: TextStyle(fontSize: 9, color: cs.textMuted)),
+                    Text(diffStr,
                         style: TextStyle(
-                            fontSize: 9, color: diffColor)),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: diffColor)),
                   ],
                 ),
               );
