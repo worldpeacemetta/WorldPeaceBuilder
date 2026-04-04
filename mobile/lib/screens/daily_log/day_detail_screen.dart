@@ -63,14 +63,16 @@ class _DayDetailScreenState extends ConsumerState<DayDetailScreen> {
               icon: Icon(Icons.arrow_back, color: cs.textPrimary),
               onPressed: () => context.pop(),
             ),
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(formatDateFull(widget.date),
                     style: TextStyle(
                         color: cs.textPrimary,
                         fontSize: 14,
                         fontWeight: FontWeight.bold)),
+                const SizedBox(width: 8),
                 ModePill(date: widget.date),
               ],
             ),
@@ -475,7 +477,7 @@ class _TopFoodsPanel extends StatelessWidget {
                   style: TextStyle(fontSize: 10, color: cs.textMuted)),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 18),
           ...top5.map((entry) {
             final val = _macroValue(entry.macros);
             final share = maxVal > 0 ? (val / maxVal).clamp(0.0, 1.0) : 0.0;
