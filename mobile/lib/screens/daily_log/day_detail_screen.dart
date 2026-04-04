@@ -31,29 +31,11 @@ class DayDetailScreen extends ConsumerStatefulWidget {
 class _DayDetailScreenState extends ConsumerState<DayDetailScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  double _panelHeight = 340.0;
   String _topFoodsMacro = 'kcal';
   static const _pageCount = 4;
-  static const _pageHeights = [340.0, 185.0, 215.0, 185.0];
-
-  @override
-  void initState() {
-    super.initState();
-    _pageController.addListener(_onPageScroll);
-  }
-
-  void _onPageScroll() {
-    final page = _pageController.page ?? 0.0;
-    final lower = page.floor().clamp(0, _pageCount - 1);
-    final upper = page.ceil().clamp(0, _pageCount - 1);
-    final t = page - lower;
-    final h = _pageHeights[lower] + (_pageHeights[upper] - _pageHeights[lower]) * t;
-    if ((h - _panelHeight).abs() > 0.5) setState(() => _panelHeight = h);
-  }
 
   @override
   void dispose() {
-    _pageController.removeListener(_onPageScroll);
     _pageController.dispose();
     super.dispose();
   }
@@ -106,8 +88,8 @@ class _DayDetailScreenState extends ConsumerState<DayDetailScreen> {
             child: Column(
               children: [
                 SizedBox(
-                  height: _panelHeight,
-                  child: ClipRect(child: PageView(
+                  height: 340,
+                  child: PageView(
                     controller: _pageController,
                     scrollBehavior: const ScrollBehavior().copyWith(
                         dragDevices: {
@@ -130,7 +112,7 @@ class _DayDetailScreenState extends ConsumerState<DayDetailScreen> {
                       // 4 — Macro split: today vs target
                       _MacroSplitPanel(totals: totals, goals: goals),
                     ],
-                  )),
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Row(
@@ -291,9 +273,10 @@ class _MealBreakdownPanel extends StatelessWidget {
 
     return Container(
       color: cs.card,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // Stacked proportion bar
           ClipRRect(
@@ -405,8 +388,9 @@ class _TopFoodsPanel extends StatelessWidget {
 
     return Container(
       color: cs.card,
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // Toggle
           Row(
@@ -439,13 +423,13 @@ class _TopFoodsPanel extends StatelessWidget {
               );
             }),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           ...top5.map((entry) {
             final val = _macroValue(entry.macros);
             final share = maxVal > 0 ? (val / maxVal).clamp(0.0, 1.0) : 0.0;
             final pct = totalVal > 0 ? (val / totalVal * 100).round() : 0;
             return Padding(
-              padding: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.only(bottom: 10),
               child: Column(
                 children: [
                   Row(
@@ -537,14 +521,15 @@ class _MacroSplitPanel extends StatelessWidget {
 
     return Container(
       color: cs.card,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text('Macro Split  ·  % of calories',
               style:
                   TextStyle(fontSize: 11, color: cs.textMuted)),
-          const SizedBox(height: 10),
+          const SizedBox(height: 16),
           Row(
             children: [
               SizedBox(
@@ -555,7 +540,7 @@ class _MacroSplitPanel extends StatelessWidget {
               Expanded(child: bar(actual)),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 10),
           Row(
             children: [
               SizedBox(
@@ -566,7 +551,7 @@ class _MacroSplitPanel extends StatelessWidget {
               Expanded(child: bar(target)),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 24),
           // Legend row
           Row(
             children: List.generate(3, (i) {

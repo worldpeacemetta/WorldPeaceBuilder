@@ -529,10 +529,6 @@ class _DayCard extends ConsumerWidget {
     final fatOk = goals.fat > 0 && totals.fat >= goals.fat * 0.95 && totals.fat <= goals.fat * 1.05;
     final perfectDay = proteinHit && kcalOk && carbsOk && fatOk;
 
-    // Kcal progress (0.0–1.0)
-    final kcalFrac =
-        (goals.kcal > 0 ? totals.kcal / goals.kcal : 0.0).clamp(0.0, 1.0);
-
     return GestureDetector(
       onTap: () => context.push('/log/$date'),
       child: Container(
@@ -615,23 +611,7 @@ class _DayCard extends ConsumerWidget {
               ),
             ),
 
-            const SizedBox(height: 10),
-
-            // Kcal progress bar
-            ClipRRect(
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(12),
-                bottomRight: Radius.circular(12),
-              ),
-              child: LinearProgressIndicator(
-                value: kcalFrac,
-                minHeight: 3,
-                backgroundColor: cs.border,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  kcalOk ? AppColors.protein : AppColors.kcal,
-                ),
-              ),
-            ),
+            const SizedBox(height: 14),
           ],
         ),
       ),
