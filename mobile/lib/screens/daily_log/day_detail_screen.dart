@@ -554,7 +554,7 @@ class _MacroSplitPanel extends StatelessWidget {
     const colors = [AppColors.protein, AppColors.carbs, AppColors.fat];
     const names = ['Protein', 'Carbs', 'Fat'];
 
-    static const _kcalPerGram = [4.0, 4.0, 9.0]; // protein, carbs, fat
+    const kcalPerGram = [4.0, 4.0, 9.0]; // protein, carbs, fat
     final actualGrams = [totals.protein, totals.carbs, totals.fat];
     final gramLabels = ['g', 'g', 'g'];
     final macroNames = ['Protein', 'Carbs', 'Fat'];
@@ -618,7 +618,7 @@ class _MacroSplitPanel extends StatelessWidget {
                   ? cs.textMuted
                   : (diff > 0 ? AppColors.protein : AppColors.carbs);
               final kcalFromMacro =
-                  (actualGrams[i] * _kcalPerGram[i]).round();
+                  (actualGrams[i] * kcalPerGram[i]).round();
               return Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
