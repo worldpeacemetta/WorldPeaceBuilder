@@ -237,15 +237,15 @@ class AppTheme {
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF5C7A4A),
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.protein,
+        foregroundColor: Colors.black,
         minimumSize: const Size.fromHeight(48),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(foregroundColor: const Color(0xFF5C7A4A)),
+      style: TextButton.styleFrom(foregroundColor: AppColors.protein),
     ),
     dividerTheme: DividerThemeData(color: AppColorScheme.light.border, space: 1),
     bottomNavigationBarTheme: BottomNavigationBarThemeData(
