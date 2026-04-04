@@ -26,6 +26,12 @@ class _FoodLoggingCardState extends ConsumerState<FoodLoggingCard> {
   String _period = '1M';
   String _macro  = 'kcal';
 
+  // Cache the last successfully computed averages so we can crossfade
+  // instead of showing a spinner while a new period loads.
+  Map<String, double>? _lastAvgs;
+  double _lastMaxVal = 1;
+  double _lastTotal  = 0;
+
   static const _periods      = ['1W', '1M', '3M', '1Y'];
   static const _macros       = ['kcal', 'protein', 'carbs', 'fat'];
   static const _macroLabels  = ['Cal', 'Pro', 'Carb', 'Fat'];
@@ -166,98 +172,115 @@ class _FoodLoggingCardState extends ConsumerState<FoodLoggingCard> {
             ),
             const SizedBox(height: 16),
             // Bars
-            entriesAsync.when(
-              loading: () => const Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-              error: (_, __) => Text('Failed to load',
-                  style: TextStyle(color: cs.textMuted)),
-              data: (entries) {
+            Builder(builder: (context) {
+              // On new data, update cache
+              entriesAsync.whenData((entries) {
                 final avgs = _computeAvg(entries);
-                if (avgs.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Text('No data for this period',
-                          style: TextStyle(
-                              color: cs.textMuted,
-                              fontStyle: FontStyle.italic,
-                              fontSize: 13)),
-                    ),
-                  );
+                if (avgs.isNotEmpty) {
+                  _lastAvgs   = avgs;
+                  _lastMaxVal = avgs.values.reduce((a, b) => a > b ? a : b);
+                  _lastTotal  = avgs.values.fold(0.0, (s, v) => s + v);
                 }
-                final maxVal = avgs.values.reduce((a, b) => a > b ? a : b);
-                final total  = avgs.values.fold(0.0, (s, v) => s + v);
-                final totalStr = total >= 10
-                    ? '${total.round()} $_unit'
-                    : '${total.toStringAsFixed(1)} $_unit';
-                return Column(
-                  children: [
-                    ...avgs.entries.map((e) {
-                      final share =
-                          maxVal > 0 ? (e.value / maxVal).clamp(0.0, 1.0) : 0.0;
-                      final valStr = e.value >= 10
-                          ? '${e.value.round()} $_unit'
-                          : '${e.value.toStringAsFixed(1)} $_unit';
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Column(
-                          children: [
-                            Row(children: [
-                              Text(_mealIcons[e.key] ?? '🍽️',
-                                  style: const TextStyle(fontSize: 13)),
-                              const SizedBox(width: 7),
-                              Expanded(
-                                child: Text(mealLabels[e.key] ?? e.key,
-                                    style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500)),
-                              ),
-                              Text(valStr,
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: _color)),
-                            ]),
-                            const SizedBox(height: 4),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(2),
-                              child: LinearProgressIndicator(
-                                value: share,
-                                minHeight: 4,
-                                backgroundColor: cs.border,
-                                valueColor: AlwaysStoppedAnimation(_color),
-                              ),
-                            ),
-                          ],
+              });
+
+              final isLoading = entriesAsync.isLoading;
+              final avgs = _lastAvgs;
+
+              if (avgs == null || avgs.isEmpty) {
+                return entriesAsync.hasError
+                    ? Text('Failed to load', style: TextStyle(color: cs.textMuted))
+                    : const Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                       );
-                    }),
-                    // Total row
-                    Divider(height: 16, color: cs.border),
-                    Row(children: [
-                      const Text('∑',
-                          style: TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w700)),
-                      const SizedBox(width: 7),
-                      const Expanded(
-                        child: Text('Total',
+              }
+
+              final maxVal   = _lastMaxVal;
+              final total    = _lastTotal;
+              final totalStr = total >= 10
+                  ? '${total.round()} $_unit'
+                  : '${total.toStringAsFixed(1)} $_unit';
+
+              // Key forces TweenAnimationBuilder to restart from 0 whenever
+              // the period or macro changes.
+              final animKey = '$_period/$_macro';
+
+              return AnimatedOpacity(
+                opacity: isLoading ? 0.45 : 1.0,
+                duration: const Duration(milliseconds: 300),
+                child: TweenAnimationBuilder<double>(
+                  key: ValueKey(animKey),
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  duration: const Duration(milliseconds: 840),
+                  curve: Curves.easeOut,
+                  builder: (_, progress, __) => Column(
+                    children: [
+                      ...avgs.entries.map((e) {
+                        final share = maxVal > 0
+                            ? (e.value / maxVal).clamp(0.0, 1.0) * progress
+                            : 0.0;
+                        final valStr = e.value >= 10
+                            ? '${e.value.round()} $_unit'
+                            : '${e.value.toStringAsFixed(1)} $_unit';
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Column(
+                            children: [
+                              Row(children: [
+                                Text(_mealIcons[e.key] ?? '🍽️',
+                                    style: const TextStyle(fontSize: 13)),
+                                const SizedBox(width: 7),
+                                Expanded(
+                                  child: Text(mealLabels[e.key] ?? e.key,
+                                      style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500)),
+                                ),
+                                Text(valStr,
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: _color)),
+                              ]),
+                              const SizedBox(height: 4),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(2),
+                                child: LinearProgressIndicator(
+                                  value: share,
+                                  minHeight: 4,
+                                  backgroundColor: cs.border,
+                                  valueColor: AlwaysStoppedAnimation(_color),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                      // Total row
+                      Divider(height: 16, color: cs.border),
+                      Row(children: [
+                        const Text('∑',
                             style: TextStyle(
-                                fontSize: 12, fontWeight: FontWeight.w700)),
-                      ),
-                      Text(totalStr,
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: _color)),
-                    ]),
-                  ],
-                );
-              },
-            ),
+                                fontSize: 13, fontWeight: FontWeight.w700)),
+                        const SizedBox(width: 7),
+                        const Expanded(
+                          child: Text('Total',
+                              style: TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.w700)),
+                        ),
+                        Text(totalStr,
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: _color)),
+                      ]),
+                    ],
+                  ),
+                ),
+              );
+            }),
           ],
         ),
       ),

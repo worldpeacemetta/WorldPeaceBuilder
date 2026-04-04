@@ -6,22 +6,46 @@ import '../models/food.dart';
 import '../providers/settings_provider.dart';
 import '../theme.dart';
 
-class ActivityRingsPanel extends StatelessWidget {
+class ActivityRingsPanel extends StatefulWidget {
   const ActivityRingsPanel({super.key, required this.totals, required this.goals});
   final MacroValues totals;
   final MacroGoals goals;
 
   @override
+  State<ActivityRingsPanel> createState() => _ActivityRingsPanelState();
+}
+
+class _ActivityRingsPanelState extends State<ActivityRingsPanel>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 840));
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = AppColorScheme.of(context);
     final items = [
-      _RingItem('Calories', totals.kcal,    goals.kcal,    AppColors.kcal,    'kcal'),
-      _RingItem('Protein',  totals.protein,  goals.protein,  AppColors.protein, 'g'),
-      _RingItem('Carbs',    totals.carbs,    goals.carbs,    AppColors.carbs,   'g'),
-      _RingItem('Fat',      totals.fat,      goals.fat,      AppColors.fat,     'g'),
+      _RingItem('Calories', widget.totals.kcal,    widget.goals.kcal,    AppColors.kcal,    'kcal'),
+      _RingItem('Protein',  widget.totals.protein,  widget.goals.protein,  AppColors.protein, 'g'),
+      _RingItem('Carbs',    widget.totals.carbs,    widget.goals.carbs,    AppColors.carbs,   'g'),
+      _RingItem('Fat',      widget.totals.fat,      widget.goals.fat,      AppColors.fat,     'g'),
     ];
 
-    final progresses = items
+    final targets = items
         .map((it) => it.goal > 0 ? (it.actual / it.goal).clamp(0.0, 1.0) : 0.0)
         .toList();
 
@@ -33,10 +57,13 @@ class ActivityRingsPanel extends StatelessWidget {
           SizedBox(
             width: 150,
             height: 150,
-            child: CustomPaint(
-              painter: _ActivityRingsPainter(
-                progresses: progresses,
-                colors: items.map((it) => it.color).toList(),
+            child: AnimatedBuilder(
+              animation: _anim,
+              builder: (_, __) => CustomPaint(
+                painter: _ActivityRingsPainter(
+                  progresses: targets.map((p) => p * _anim.value).toList(),
+                  colors: items.map((it) => it.color).toList(),
+                ),
               ),
             ),
           ),

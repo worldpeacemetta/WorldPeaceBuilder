@@ -43,8 +43,8 @@ class _MacroProgressCardState extends State<MacroProgressCard>
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 420));
-    _ctrl.value = 1.0;
+        vsync: this, duration: const Duration(milliseconds: 840));
+    _ctrl.forward();
   }
 
   @override
