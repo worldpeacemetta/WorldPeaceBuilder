@@ -528,43 +528,87 @@ class _TopFoodsPanel extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Chart 4 — Macro split: today's P/C/F % vs target
+// Chart 4 — Macro split: interactive, one macro at a time
 // ---------------------------------------------------------------------------
-class _MacroSplitPanel extends StatelessWidget {
+class _MacroSplitPanel extends StatefulWidget {
   const _MacroSplitPanel({required this.totals, required this.goals});
   final MacroValues totals;
   final MacroGoals goals;
 
-  static const _kcalPerGram = [4.0, 4.0, 9.0]; // protein, carbs, fat
+  @override
+  State<_MacroSplitPanel> createState() => _MacroSplitPanelState();
+}
 
-  List<double> _splitKcal(double p, double c, double f) {
+class _MacroSplitPanelState extends State<_MacroSplitPanel> {
+  int _active = 0; // 0=protein, 1=carbs, 2=fat
+
+  static const _colors        = [AppColors.protein, AppColors.carbs, AppColors.fat];
+  static const _names         = ['PROTEIN', 'CARBS', 'FAT'];
+  static const _macroNames    = ['protein', 'carbs', 'fat'];
+  static const _kcalPerGram   = [4.0, 4.0, 9.0];
+  static const _kcalPerGLabel = ['4 kcal / g', '4 kcal / g', '9 kcal / g'];
+
+  List<double> _split(double p, double c, double f) {
     final pk = p * 4.0, ck = c * 4.0, fk = f * 9.0;
-    final total = pk + ck + fk;
-    if (total <= 0) return [1, 1, 1];
-    return [pk / total, ck / total, fk / total];
+    final t = pk + ck + fk;
+    if (t <= 0) return [1, 1, 1];
+    return [pk / t, ck / t, fk / t];
   }
+
+  String _insight(int i, int diff) {
+    final n = _macroNames[i];
+    if (diff > 10)  return 'Well above your $n target — your ratio is shifted away from other macros.';
+    if (diff > 5)   return 'Slightly above your $n target, within a healthy margin.';
+    if (diff >= -5) return 'Your $n intake is right on target today.';
+    if (diff >= -10) return 'Slightly below your $n target — consider adding a source.';
+    return 'Significantly below your $n target today.';
+  }
+
+  Widget _bar(List<double> fracs, AppColorScheme cs) => ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: SizedBox(
+          height: 18,
+          child: Row(children: List.generate(3, (i) {
+            final flex = (fracs[i] * 1000).clamp(1, 999).round();
+            return Flexible(
+              flex: flex,
+              child: GestureDetector(
+                onTap: () => setState(() => _active = i),
+                child: Container(
+                  color: _colors[i],
+                  foregroundDecoration: _active == i
+                      ? BoxDecoration(
+                          border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.5),
+                              width: 1.5))
+                      : null,
+                ),
+              ),
+            );
+          })),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
-    final actual = _splitKcal(totals.protein, totals.carbs, totals.fat);
-    final target = _splitKcal(goals.protein, goals.carbs, goals.fat);
-    const colors  = [AppColors.protein, AppColors.carbs, AppColors.fat];
-    const names   = ['PROTEIN', 'CARBS', 'FAT'];
-    const macroOf = ['from protein', 'from carbs', 'from fat'];
-    final grams   = [totals.protein, totals.carbs, totals.fat];
-
-    Widget bar(List<double> fracs) => ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: SizedBox(
-            height: 18,
-            child: Row(children: List.generate(3, (i) {
-              final flex = (fracs[i] * 1000).round();
-              return Flexible(flex: flex, child: Container(color: colors[i]));
-            })),
-          ),
-        );
-
+    final actual = _split(
+        widget.totals.protein, widget.totals.carbs, widget.totals.fat);
+    final target = _split(
+        widget.goals.protein, widget.goals.carbs, widget.goals.fat);
+    final grams       = [widget.totals.protein, widget.totals.carbs, widget.totals.fat];
+    final targetGrams = [widget.goals.protein.toDouble(),
+                         widget.goals.carbs.toDouble(),
+                         widget.goals.fat.toDouble()];
     final cs = AppColorScheme.of(context);
+
+    final i          = _active;
+    final aPct       = (actual[i] * 100).round();
+    final tPct       = (target[i] * 100).round();
+    final diff       = aPct - tPct;
+    final diffStr    = diff == 0 ? '±0%' : (diff > 0 ? '+$diff%' : '$diff%');
+    final diffColor  = diff == 0 ? cs.textMuted : _colors[i];
+    final kcal       = (grams[i] * _kcalPerGram[i]).round();
+    final targetKcal = (targetGrams[i] * _kcalPerGram[i]).round();
 
     return Container(
       color: cs.card,
@@ -582,103 +626,192 @@ class _MacroSplitPanel extends StatelessWidget {
                   color: cs.textMuted,
                   fontStyle: FontStyle.italic)),
           const Spacer(),
-          // Bars
+          // Bars (tappable segments)
           Row(children: [
             SizedBox(width: 46,
                 child: Text('Today',
                     style: TextStyle(fontSize: 11, color: cs.textMuted))),
-            Expanded(child: bar(actual)),
+            Expanded(child: _bar(actual, cs)),
           ]),
           const SizedBox(height: 10),
           Row(children: [
             SizedBox(width: 46,
                 child: Text('Target',
                     style: TextStyle(fontSize: 11, color: cs.textMuted))),
-            Expanded(child: bar(target)),
+            Expanded(child: _bar(target, cs)),
           ]),
-          const SizedBox(height: 20),
-          // Legend — 3 columns
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: List.generate(3, (i) {
-              final aPct = (actual[i] * 100).round();
-              final tPct = (target[i] * 100).round();
-              final diff = aPct - tPct;
-              final diffStr = diff == 0 ? '±0%' : (diff > 0 ? '+$diff%' : '$diff%');
-              final diffColor = diff == 0 ? cs.textMuted : colors[i];
-              final kcal = (grams[i] * _kcalPerGram[i]).round();
-
-              return Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(right: i < 2 ? 8 : 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Name row + diff badge
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Container(width: 7, height: 7,
-                              decoration: BoxDecoration(
-                                  color: colors[i], shape: BoxShape.circle)),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(names[i],
-                                style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w700,
-                                    color: colors[i],
-                                    letterSpacing: 0.5)),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 5, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: diffColor.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(diffStr,
-                                style: TextStyle(
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w700,
-                                    color: diffColor)),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      // Kcal from macro (primary — bold, colored)
-                      Text('$kcal kcal ${macroOf[i]}',
-                          style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: colors[i])),
-                      const SizedBox(height: 2),
-                      // Grams (secondary — muted)
-                      Text('${grams[i].round()}g consumed',
-                          style: TextStyle(fontSize: 9, color: cs.textMuted)),
-                      // Thin divider
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        child: Divider(height: 1, color: cs.border),
-                      ),
-                      // % of today's calories
-                      Text('$aPct% of calories',
-                          style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: colors[i])),
-                      const SizedBox(height: 2),
-                      Text('vs $tPct% target',
-                          style: TextStyle(fontSize: 9, color: cs.textMuted)),
-                    ],
-                  ),
+          const SizedBox(height: 12),
+          // Hint + selector dots
+          Row(children: [
+            Text('Tap a dot to explore each macro',
+                style: TextStyle(
+                    fontSize: 9,
+                    color: cs.textMuted,
+                    fontStyle: FontStyle.italic)),
+            const Spacer(),
+            ...List.generate(3, (j) => GestureDetector(
+              onTap: () => setState(() => _active = j),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.only(left: 10),
+                width:  _active == j ? 13 : 8,
+                height: _active == j ? 13 : 8,
+                decoration: BoxDecoration(
+                  color: _active == j
+                      ? _colors[j]
+                      : _colors[j].withValues(alpha: 0.3),
+                  shape: BoxShape.circle,
                 ),
-              );
-            }),
+              ),
+            )),
+          ]),
+          const SizedBox(height: 14),
+          // Animated report
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            transitionBuilder: (child, anim) => FadeTransition(
+              opacity: anim,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.08),
+                  end: Offset.zero,
+                ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
+                child: child,
+              ),
+            ),
+            child: _MacroReport(
+              key: ValueKey(_active),
+              color:           _colors[i],
+              name:            _names[i],
+              kcalPerGramLabel: _kcalPerGLabel[i],
+              kcal:            kcal,
+              aPct:            aPct,
+              targetKcal:      targetKcal,
+              tPct:            tPct,
+              grams:           grams[i],
+              diffStr:         diffStr,
+              diffColor:       diffColor,
+              insight:         _insight(i, diff),
+              cs:              cs,
+            ),
           ),
           const Spacer(),
         ],
       ),
+    );
+  }
+}
+
+// ── Per-macro report (swapped via AnimatedSwitcher) ──────────────────────────
+class _MacroReport extends StatelessWidget {
+  const _MacroReport({
+    super.key,
+    required this.color,
+    required this.name,
+    required this.kcalPerGramLabel,
+    required this.kcal,
+    required this.aPct,
+    required this.targetKcal,
+    required this.tPct,
+    required this.grams,
+    required this.diffStr,
+    required this.diffColor,
+    required this.insight,
+    required this.cs,
+  });
+
+  final Color color;
+  final String name;
+  final String kcalPerGramLabel;
+  final int kcal;
+  final int aPct;
+  final int targetKcal;
+  final int tPct;
+  final double grams;
+  final String diffStr;
+  final Color diffColor;
+  final String insight;
+  final AppColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Name header + kcal/g label
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(width: 7, height: 7,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+            const SizedBox(width: 5),
+            Text(name,
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                    letterSpacing: 0.8)),
+            const Spacer(),
+            Text(kcalPerGramLabel,
+                style: TextStyle(
+                    fontSize: 9,
+                    color: cs.textMuted,
+                    fontStyle: FontStyle.italic)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Big kcal + diff badge
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('$kcal kcal',
+                    style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: color)),
+                Text('$aPct% of today\'s calories  ·  ${grams.round()}g consumed',
+                    style: TextStyle(fontSize: 9, color: cs.textMuted)),
+              ],
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: diffColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(diffStr,
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: diffColor)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        // Target
+        Text('vs target  $targetKcal kcal · $tPct% of intake',
+            style: TextStyle(fontSize: 10, color: cs.textMuted)),
+        const SizedBox(height: 8),
+        // Insight box
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.07),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(insight,
+              style: TextStyle(
+                  fontSize: 10,
+                  color: cs.textPrimary,
+                  fontStyle: FontStyle.italic,
+                  height: 1.4)),
+        ),
+      ],
     );
   }
 }
