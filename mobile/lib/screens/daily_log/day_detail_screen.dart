@@ -31,11 +31,29 @@ class DayDetailScreen extends ConsumerStatefulWidget {
 class _DayDetailScreenState extends ConsumerState<DayDetailScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  double _panelHeight = 340.0;
   String _topFoodsMacro = 'kcal';
   static const _pageCount = 4;
+  static const _pageHeights = [340.0, 185.0, 215.0, 185.0];
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController.addListener(_onPageScroll);
+  }
+
+  void _onPageScroll() {
+    final page = _pageController.page ?? 0.0;
+    final lower = page.floor().clamp(0, _pageCount - 1);
+    final upper = page.ceil().clamp(0, _pageCount - 1);
+    final t = page - lower;
+    final h = _pageHeights[lower] + (_pageHeights[upper] - _pageHeights[lower]) * t;
+    if ((h - _panelHeight).abs() > 0.5) setState(() => _panelHeight = h);
+  }
 
   @override
   void dispose() {
+    _pageController.removeListener(_onPageScroll);
     _pageController.dispose();
     super.dispose();
   }
@@ -87,10 +105,8 @@ class _DayDetailScreenState extends ConsumerState<DayDetailScreen> {
           SliverToBoxAdapter(
             child: Column(
               children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInOut,
-                  height: const [340.0, 185.0, 215.0, 185.0][_currentPage],
+                SizedBox(
+                  height: _panelHeight,
                   child: ClipRect(child: PageView(
                     controller: _pageController,
                     scrollBehavior: const ScrollBehavior().copyWith(
