@@ -336,13 +336,15 @@ class _MealBreakdownPanelState extends State<_MealBreakdownPanel> {
           const SizedBox(height: 10),
           // Meal rows
           ...mealTotals.entries.map((e) {
-            final color  = _mealColors[e.key] ?? AppColors.kcal;
-            final share  = totalKcal > 0
+            final color     = _mealColors[e.key] ?? AppColors.kcal;
+            final share     = totalKcal > 0
                 ? (e.value.kcal / totalKcal).clamp(0.0, 1.0) : 0.0;
-            final pct    = (share * 100).round();
-            final isExp  = _expanded == e.key;
-            final mt     = e.value;
-            final foods  = (mealEntries[e.key] ?? [])
+            final pct       = (share * 100).round();
+            final isExp     = _expanded == e.key;
+            // Hide progress bar on collapsed meals when another is open → frees space
+            final showBar   = isExp || _expanded == null;
+            final mt        = e.value;
+            final foods     = (mealEntries[e.key] ?? [])
               ..sort((a, b) => b.macros.kcal.compareTo(a.macros.kcal));
 
             return Padding(
@@ -390,16 +392,22 @@ class _MealBreakdownPanelState extends State<_MealBreakdownPanel> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  // Mini proportion bar
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(2),
-                    child: LinearProgressIndicator(
-                      value: share,
-                      minHeight: 3,
-                      backgroundColor: cs.border,
-                      valueColor: AlwaysStoppedAnimation<Color>(color),
-                    ),
+                  // Mini proportion bar — hidden on collapsed meals when one is open
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeInOut,
+                    child: showBar ? Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          value: share,
+                          minHeight: 3,
+                          backgroundColor: cs.border,
+                          valueColor: AlwaysStoppedAnimation<Color>(color),
+                        ),
+                      ),
+                    ) : const SizedBox.shrink(),
                   ),
                   // ── Expandable detail ──────────────────────────────
                   AnimatedSize(
@@ -427,7 +435,7 @@ class _MealBreakdownPanelState extends State<_MealBreakdownPanel> {
                                   const SizedBox(height: 4),
                                   // Food list with fade + scroll
                                   SizedBox(
-                                    height: 96,
+                                    height: 80,
                                     child: ShaderMask(
                                       shaderCallback: (rect) => LinearGradient(
                                         begin: Alignment.topCenter,
