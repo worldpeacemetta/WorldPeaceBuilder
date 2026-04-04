@@ -91,6 +91,7 @@ class _DayDetailScreenState extends ConsumerState<DayDetailScreen> {
                   duration: const Duration(milliseconds: 250),
                   curve: Curves.easeInOut,
                   height: const [340.0, 185.0, 215.0, 185.0][_currentPage],
+                  clipBehavior: Clip.hardEdge,
                   child: PageView(
                     controller: _pageController,
                     scrollBehavior: const ScrollBehavior().copyWith(
