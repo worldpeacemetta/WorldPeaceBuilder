@@ -592,6 +592,14 @@ class _TopFoodsPanelState extends State<_TopFoodsPanel>
   }
 
   @override
+  void didUpdateWidget(_TopFoodsPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.macro != widget.macro) {
+      _fill.forward(from: 0);
+    }
+  }
+
+  @override
   void dispose() {
     _fill.dispose();
     super.dispose();
@@ -611,11 +619,11 @@ class _TopFoodsPanelState extends State<_TopFoodsPanel>
         _ => m.kcal,
       };
 
-  Color get _color => switch (widget.macro) {
+  Color _color(BuildContext ctx) => switch (widget.macro) {
         'protein' => AppColors.protein,
         'carbs' => AppColors.carbs,
         'fat' => AppColors.fat,
-        _ => AppColors.kcal,
+        _ => AppColorScheme.of(ctx).kcalColor,
       };
 
   String get _unit => widget.macro == 'kcal' ? 'kcal' : 'g';
@@ -657,8 +665,8 @@ class _TopFoodsPanelState extends State<_TopFoodsPanel>
               ...List.generate(4, (i) {
                 const keys = ['kcal', 'protein', 'carbs', 'fat'];
                 const labels = ['Cal', 'Pro', 'Carb', 'Fat'];
-                const colors = <Color>[
-                  AppColors.kcal, AppColors.protein, AppColors.carbs, AppColors.fat
+                final colors = <Color>[
+                  cs.kcalColor, AppColors.protein, AppColors.carbs, AppColors.fat
                 ];
                 final sel = keys[i] == widget.macro;
                 return GestureDetector(
@@ -685,8 +693,9 @@ class _TopFoodsPanelState extends State<_TopFoodsPanel>
           const SizedBox(height: 10),
           AnimatedBuilder(
             animation: _fill,
-            builder: (_, __) {
+            builder: (animCtx, __) {
               final t = Curves.easeOut.transform(_fill.value);
+              final barColor = _color(animCtx);
               return Column(
                 children: [
                   // Day total vs goal summary bar
@@ -699,7 +708,7 @@ class _TopFoodsPanelState extends State<_TopFoodsPanel>
                             value: goalFrac * t,
                             minHeight: 6,
                             backgroundColor: cs.border,
-                            valueColor: AlwaysStoppedAnimation<Color>(_color),
+                            valueColor: AlwaysStoppedAnimation<Color>(barColor),
                           ),
                         ),
                       ),
@@ -728,7 +737,7 @@ class _TopFoodsPanelState extends State<_TopFoodsPanel>
                       ),
                       Text('${val.round()} $_unit',
                           style: TextStyle(
-                              color: _color,
+                              color: barColor,
                               fontSize: 12,
                               fontWeight: FontWeight.bold)),
                       const SizedBox(width: 4),
@@ -745,7 +754,7 @@ class _TopFoodsPanelState extends State<_TopFoodsPanel>
                       value: share,
                       minHeight: 3,
                       backgroundColor: cs.border,
-                      valueColor: AlwaysStoppedAnimation<Color>(_color),
+                      valueColor: AlwaysStoppedAnimation<Color>(barColor),
                     ),
                   ),
                 ],

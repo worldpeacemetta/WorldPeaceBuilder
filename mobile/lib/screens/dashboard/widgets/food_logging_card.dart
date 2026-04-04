@@ -60,11 +60,11 @@ class _FoodLoggingCardState extends ConsumerState<FoodLoggingCard> {
         _         => m.kcal,
       };
 
-  Color get _color => switch (_macro) {
+  Color _colorFor(BuildContext ctx) => switch (_macro) {
         'protein' => AppColors.protein,
         'carbs'   => AppColors.carbs,
         'fat'     => AppColors.fat,
-        _         => AppColors.kcal,
+        _         => AppColorScheme.of(ctx).kcalColor,
       };
 
   String get _unit => _macro == 'kcal' ? 'kcal' : 'g';
@@ -165,7 +165,7 @@ class _FoodLoggingCardState extends ConsumerState<FoodLoggingCard> {
                 ..._macros.asMap().entries.map((e) => _chip(
                       label: _macroLabels[e.key],
                       selected: e.value == _macro,
-                      color: _macroColors[e.key],
+                      color: e.key == 0 ? cs.kcalColor : _macroColors[e.key],
                       onTap: () => setState(() => _macro = e.value),
                     )),
               ],
@@ -173,6 +173,7 @@ class _FoodLoggingCardState extends ConsumerState<FoodLoggingCard> {
             const SizedBox(height: 16),
             // Bars
             Builder(builder: (context) {
+              final barColor = _colorFor(context);
               // On new data, update cache
               entriesAsync.whenData((entries) {
                 final avgs = _computeAvg(entries);
@@ -242,7 +243,7 @@ class _FoodLoggingCardState extends ConsumerState<FoodLoggingCard> {
                                     style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w700,
-                                        color: _color)),
+                                        color: barColor)),
                               ]),
                               const SizedBox(height: 4),
                               ClipRRect(
@@ -251,7 +252,7 @@ class _FoodLoggingCardState extends ConsumerState<FoodLoggingCard> {
                                   value: share,
                                   minHeight: 4,
                                   backgroundColor: cs.border,
-                                  valueColor: AlwaysStoppedAnimation(_color),
+                                  valueColor: AlwaysStoppedAnimation(barColor),
                                 ),
                               ),
                             ],
@@ -274,7 +275,7 @@ class _FoodLoggingCardState extends ConsumerState<FoodLoggingCard> {
                             style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
-                                color: _color)),
+                                color: barColor)),
                       ]),
                     ],
                   ),

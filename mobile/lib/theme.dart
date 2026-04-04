@@ -32,6 +32,7 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
     required this.border,
     required this.textPrimary,
     required this.textMuted,
+    required this.kcalColor,
   });
 
   final Color bg;
@@ -39,6 +40,9 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
   final Color border;
   final Color textPrimary;
   final Color textMuted;
+  /// Theme-conditional kcal / calorie colour.
+  /// Dark mode: deep teal-blue. Light mode: soft sky blue.
+  final Color kcalColor;
 
   static AppColorScheme of(BuildContext context) =>
       Theme.of(context).extension<AppColorScheme>()!;
@@ -49,6 +53,7 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
     border: Color(0xFF2A2D3E),
     textPrimary: Color(0xFFE2E8F0),
     textMuted: Color(0xFF94A3B8),
+    kcalColor: Color(0xFF1B5B7E),
   );
 
   static const light = AppColorScheme(
@@ -57,16 +62,25 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
     border: Color(0xFFE2E8F0),
     textPrimary: Color(0xFF0F172A),
     textMuted: Color(0xFF64748B),
+    kcalColor: Color(0xFF9BC0DA),
   );
 
   @override
-  AppColorScheme copyWith({Color? bg, Color? card, Color? border, Color? textPrimary, Color? textMuted}) =>
+  AppColorScheme copyWith({
+    Color? bg,
+    Color? card,
+    Color? border,
+    Color? textPrimary,
+    Color? textMuted,
+    Color? kcalColor,
+  }) =>
       AppColorScheme(
         bg: bg ?? this.bg,
         card: card ?? this.card,
         border: border ?? this.border,
         textPrimary: textPrimary ?? this.textPrimary,
         textMuted: textMuted ?? this.textMuted,
+        kcalColor: kcalColor ?? this.kcalColor,
       );
 
   @override
@@ -78,6 +92,7 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
       border: Color.lerp(border, other.border, t)!,
       textPrimary: Color.lerp(textPrimary, other.textPrimary, t)!,
       textMuted: Color.lerp(textMuted, other.textMuted, t)!,
+      kcalColor: Color.lerp(kcalColor, other.kcalColor, t)!,
     );
   }
 }
