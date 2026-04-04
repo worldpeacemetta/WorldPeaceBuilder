@@ -292,9 +292,21 @@ class _MealBreakdownPanelState extends State<_MealBreakdownPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title
-          const Text('Meal Breakdown',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+          // Title row
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              const Text('Meal Breakdown',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+              const Spacer(),
+              Text('${totalKcal.round()} kcal total',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.kcal)),
+            ],
+          ),
           const SizedBox(height: 2),
           Text('Tap a meal to reveal details',
               style: TextStyle(
