@@ -53,7 +53,7 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
     border: Color(0xFF2A2D3E),
     textPrimary: Color(0xFFE2E8F0),
     textMuted: Color(0xFF94A3B8),
-    kcalColor: Color(0xFF1B5B7E),
+    kcalColor: Color(0xFFD0C3F1),
   );
 
   static const light = AppColorScheme(
