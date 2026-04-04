@@ -456,13 +456,15 @@ class _WeekStrip extends StatelessWidget {
 
 // ── Timeline wrapper ──────────────────────────────────────────────────────────
 
-class _TimelineDayCard extends StatelessWidget {
+class _TimelineDayCard extends ConsumerWidget {
   const _TimelineDayCard({required this.date, required this.isLast});
   final String date;
   final bool isLast;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dotColor = modeColor(
+        ref.watch(settingsProvider).modeLabelForDate(date));
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -476,8 +478,8 @@ class _TimelineDayCard extends StatelessWidget {
                 Container(
                   width: 8,
                   height: 8,
-                  decoration: const BoxDecoration(
-                    color: AppColors.protein,
+                  decoration: BoxDecoration(
+                    color: dotColor,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -520,9 +522,6 @@ class _DayCard extends ConsumerWidget {
     final mealCount = entries.map((e) => e.meal).toSet().length;
     final settings = ref.watch(settingsProvider);
     final goals = settings.goalsForDate(date);
-    final modeLabel = settings.modeLabelForDate(date);
-    final borderColor = modeColor(modeLabel);
-
     // Goal achievements
     final proteinHit = totals.protein >= goals.protein;
     final kcalOk = goals.kcal > 0 && totals.kcal >= goals.kcal * 0.95 && totals.kcal <= goals.kcal * 1.05;
@@ -541,9 +540,6 @@ class _DayCard extends ConsumerWidget {
         decoration: BoxDecoration(
           color: cs.card,
           borderRadius: BorderRadius.circular(12),
-          border: Border(
-            left: BorderSide(color: borderColor, width: 3),
-          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
