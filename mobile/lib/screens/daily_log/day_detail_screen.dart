@@ -582,13 +582,20 @@ class _TopFoodsPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title + toggle row
+          // Title
+          const Text('Top Contributors',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 3),
+          Text('Your highest-impact foods today',
+              style: TextStyle(
+                  fontSize: 10,
+                  color: cs.textMuted,
+                  fontStyle: FontStyle.italic)),
+          const SizedBox(height: 10),
+          // Toggle row
           Row(
             children: [
-              const Expanded(
-                child: Text('Top Contributors',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-              ),
+              const Spacer(),
               ...List.generate(4, (i) {
                 const keys = ['kcal', 'protein', 'carbs', 'fat'];
                 const labels = ['Cal', 'Pro', 'Carb', 'Fat'];
