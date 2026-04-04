@@ -91,8 +91,7 @@ class _DayDetailScreenState extends ConsumerState<DayDetailScreen> {
                   duration: const Duration(milliseconds: 250),
                   curve: Curves.easeInOut,
                   height: const [340.0, 185.0, 215.0, 185.0][_currentPage],
-                  clipBehavior: Clip.hardEdge,
-                  child: PageView(
+                  child: ClipRect(child: PageView(
                     controller: _pageController,
                     scrollBehavior: const ScrollBehavior().copyWith(
                         dragDevices: {
@@ -115,7 +114,7 @@ class _DayDetailScreenState extends ConsumerState<DayDetailScreen> {
                       // 4 — Macro split: today vs target
                       _MacroSplitPanel(totals: totals, goals: goals),
                     ],
-                  ),
+                  )),
                 ),
                 const SizedBox(height: 6),
                 Row(
