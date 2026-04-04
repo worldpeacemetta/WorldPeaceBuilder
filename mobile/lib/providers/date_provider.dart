@@ -25,3 +25,9 @@ void setAllDates(WidgetRef ref, String iso) {
   ref.read(dashboardDateProvider.notifier).state = iso;
   ref.read(weekNavDateProvider.notifier).state = iso;
 }
+
+// ---------------------------------------------------------------------------
+// Dashboard activation counter — incremented each time the Dashboard tab is
+// selected. ActivityRingsPanel watches this to replay its fill animation.
+// ---------------------------------------------------------------------------
+final dashboardActivationProvider = StateProvider<int>((ref) => 0);

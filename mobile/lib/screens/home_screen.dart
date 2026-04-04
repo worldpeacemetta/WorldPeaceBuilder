@@ -5,6 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../core/utils.dart';
 import '../providers/date_provider.dart';
 import '../widgets/add_entry_sheet.dart';
+
+// Dashboard branch index in the StatefulNavigationShell
+const _kDashboardIndex = 1;
 import '../theme.dart';
 
 // ── Nav item descriptor ───────────────────────────────────────────────────────
@@ -44,8 +47,12 @@ class HomeScreen extends ConsumerWidget {
       // No floatingActionButton — FAB lives inside the arch bar
       bottomNavigationBar: _ArchNavBar(
         currentIndex: shell.currentIndex,
-        onTabSelected: (i) =>
-            shell.goBranch(i, initialLocation: i == shell.currentIndex),
+        onTabSelected: (i) {
+          if (i == _kDashboardIndex) {
+            ref.read(dashboardActivationProvider.notifier).state++;
+          }
+          shell.goBranch(i, initialLocation: i == shell.currentIndex);
+        },
         onFabTap: () {
           final logDate = ref.read(logDateProvider);
           showAddEntrySheet(context, ref, logDate);

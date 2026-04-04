@@ -9,7 +9,7 @@ import '../../../providers/settings_provider.dart';
 import '../../../theme.dart';
 
 const _kWeightColor = AppColors.kcal;
-const _kBFColor     = AppColors.protein;
+const _kBFColor     = AppColors.fat;
 
 class WeightTrendCard extends ConsumerStatefulWidget {
   const WeightTrendCard({super.key});

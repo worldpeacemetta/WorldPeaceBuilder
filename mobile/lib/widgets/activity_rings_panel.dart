@@ -1,23 +1,26 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/food.dart';
+import '../providers/date_provider.dart';
 import '../providers/settings_provider.dart';
 import '../theme.dart';
 
-class ActivityRingsPanel extends StatefulWidget {
+class ActivityRingsPanel extends ConsumerStatefulWidget {
   const ActivityRingsPanel({super.key, required this.totals, required this.goals});
   final MacroValues totals;
   final MacroGoals goals;
 
   @override
-  State<ActivityRingsPanel> createState() => _ActivityRingsPanelState();
+  ConsumerState<ActivityRingsPanel> createState() => _ActivityRingsPanelState();
 }
 
-class _ActivityRingsPanelState extends State<ActivityRingsPanel>
+class _ActivityRingsPanelState extends ConsumerState<ActivityRingsPanel>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
+  int _lastActivation = 0;
 
   @override
   void initState() {
@@ -48,6 +51,16 @@ class _ActivityRingsPanelState extends State<ActivityRingsPanel>
 
   @override
   Widget build(BuildContext context) {
+    // Replay animation each time the Dashboard tab is tapped.
+    final activation = ref.watch(dashboardActivationProvider);
+    if (activation != _lastActivation) {
+      _lastActivation = activation;
+      // Schedule after build to avoid calling forward() mid-frame.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _ctrl.forward(from: 0);
+      });
+    }
+
     final cs = AppColorScheme.of(context);
     final items = [
       _RingItem('Calories', widget.totals.kcal,    widget.goals.kcal,    AppColors.kcal,    'kcal'),
