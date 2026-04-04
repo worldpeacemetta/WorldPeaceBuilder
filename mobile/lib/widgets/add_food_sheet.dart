@@ -76,7 +76,8 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
     _fatCtrl     = TextEditingController(text: f != null ? f.fat.round().toString()     : ((s?['fat']     as num?)?.round().toString() ?? ''));
     _servingCtrl = TextEditingController(text: f?.servingSize?.toString() ?? '');
     _unit     = f?.unit ?? 'per100g';
-    _category = f?.category;
+    final cat = f?.category;
+    _category = (cat != null && foodCategories.contains(cat)) ? cat : null;
     if (s != null) _scanned = true;
   }
 
@@ -269,12 +270,12 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
                   ),
                   const SizedBox(height: 16),
 
-                  DropdownButtonFormField<String>(
+                  DropdownButtonFormField<String?>(
                     value: _category,
                     decoration: const InputDecoration(labelText: 'Category (optional)'),
                     items: [
-                      const DropdownMenuItem(value: null, child: Text('— None —')),
-                      ...foodCategories.map((c) => DropdownMenuItem(
+                      const DropdownMenuItem<String?>(value: null, child: Text('— None —')),
+                      ...foodCategories.map((c) => DropdownMenuItem<String?>(
                         value: c,
                         child: Text(
                           '${categoryEmojis[c] ?? ''} ${categoryLabels[c] ?? c}',
