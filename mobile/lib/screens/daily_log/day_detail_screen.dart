@@ -88,7 +88,7 @@ class _DayDetailScreenState extends ConsumerState<DayDetailScreen> {
             child: Column(
               children: [
                 SizedBox(
-                  height: 190,
+                  height: 340,
                   child: PageView(
                     controller: _pageController,
                     scrollBehavior: const ScrollBehavior().copyWith(
