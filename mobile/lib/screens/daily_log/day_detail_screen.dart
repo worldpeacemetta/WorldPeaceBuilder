@@ -646,15 +646,15 @@ class _MacroSplitPanel extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      // Grams (large, colored)
-                      Text('${grams[i].round()}g consumed',
+                      // Kcal from macro (primary — bold, colored)
+                      Text('$kcal kcal ${macroOf[i]}',
                           style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               color: colors[i])),
                       const SizedBox(height: 2),
-                      // Kcal from macro
-                      Text('$kcal kcal ${macroOf[i]}',
+                      // Grams (secondary — muted)
+                      Text('${grams[i].round()}g consumed',
                           style: TextStyle(fontSize: 9, color: cs.textMuted)),
                       // Thin divider
                       Padding(
@@ -668,7 +668,7 @@ class _MacroSplitPanel extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                               color: colors[i])),
                       const SizedBox(height: 2),
-                      Text('target: $tPct%',
+                      Text('vs $tPct% target',
                           style: TextStyle(fontSize: 9, color: cs.textMuted)),
                     ],
                   ),
