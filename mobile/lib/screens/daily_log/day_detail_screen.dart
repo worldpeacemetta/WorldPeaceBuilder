@@ -546,7 +546,7 @@ class _MacroSplitPanelState extends State<_MacroSplitPanel> {
   static const _names         = ['PROTEIN', 'CARBS', 'FAT'];
   static const _macroNames    = ['protein', 'carbs', 'fat'];
   static const _kcalPerGram   = [4.0, 4.0, 9.0];
-  static const _kcalPerGLabel = ['4 kcal / g', '4 kcal / g', '9 kcal / g'];
+  static const _kcalPerGLabel = ['4 kcal/g', '4 kcal/g', '9 kcal/g'];
 
   List<double> _split(double p, double c, double f) {
     final pk = p * 4.0, ck = c * 4.0, fk = f * 9.0;
@@ -760,20 +760,27 @@ class _MacroReport extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        // Big kcal + diff badge
+        // Big kcal + formula + diff badge
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('$kcal kcal',
-                    style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: color)),
-                Text('$aPct% of today\'s calories  ·  ${grams.round()}g consumed',
-                    style: TextStyle(fontSize: 9, color: cs.textMuted)),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text('$kcal kcal',
+                        style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: color)),
+                    const SizedBox(width: 6),
+                    Text('($kcalPerGramLabel × ${grams.round()}g)',
+                        style: TextStyle(fontSize: 10, color: cs.textMuted)),
+                  ],
+                ),
               ],
             ),
             const Spacer(),
@@ -791,10 +798,11 @@ class _MacroReport extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 6),
-        // Target
-        Text('vs target  $targetKcal kcal · $tPct% of intake',
-            style: TextStyle(fontSize: 10, color: cs.textMuted)),
+        const SizedBox(height: 10),
+        // Today / Target symmetric rows
+        _PctRow(label: 'Today', pct: aPct, kcalVal: kcal, color: color, cs: cs),
+        const SizedBox(height: 4),
+        _PctRow(label: 'Target', pct: tPct, kcalVal: targetKcal, color: color, cs: cs),
         const SizedBox(height: 8),
         // Insight box
         Container(
@@ -811,6 +819,43 @@ class _MacroReport extends StatelessWidget {
                   fontStyle: FontStyle.italic,
                   height: 1.4)),
         ),
+      ],
+    );
+  }
+}
+
+// ── Symmetric Today / Target percentage row ───────────────────────────────────
+class _PctRow extends StatelessWidget {
+  const _PctRow({
+    required this.label,
+    required this.pct,
+    required this.kcalVal,
+    required this.color,
+    required this.cs,
+  });
+  final String label;
+  final int pct;
+  final int kcalVal;
+  final Color color;
+  final AppColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 46,
+          child: Text(label,
+              style: TextStyle(fontSize: 10, color: cs.textMuted)),
+        ),
+        Text('$pct%',
+            style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: color)),
+        const SizedBox(width: 6),
+        Text('of calories  ·  $kcalVal kcal',
+            style: TextStyle(fontSize: 10, color: cs.textMuted)),
       ],
     );
   }
