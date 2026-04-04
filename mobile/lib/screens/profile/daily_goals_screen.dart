@@ -87,20 +87,58 @@ class _GoalsEditor extends ConsumerStatefulWidget {
 }
 
 class _GoalsEditorState extends ConsumerState<_GoalsEditor> {
-  late MacroGoals _goals;
+  // Active-profile controllers (always used)
   late final TextEditingController _kcalCtrl;
   late final TextEditingController _proteinCtrl;
   late final TextEditingController _carbsCtrl;
   late final TextEditingController _fatCtrl;
 
+  // Second-profile controllers (dual mode only — holds the other tab's values)
+  late final TextEditingController _kcalCtrl2;
+  late final TextEditingController _proteinCtrl2;
+  late final TextEditingController _carbsCtrl2;
+  late final TextEditingController _fatCtrl2;
+
   @override
   void initState() {
     super.initState();
-    _goals = widget.settings.activeGoals;
-    _kcalCtrl    = TextEditingController(text: _goals.kcal.round().toString());
-    _proteinCtrl = TextEditingController(text: _goals.protein.round().toString());
-    _carbsCtrl   = TextEditingController(text: _goals.carbs.round().toString());
-    _fatCtrl     = TextEditingController(text: _goals.fat.round().toString());
+    _kcalCtrl    = TextEditingController();
+    _proteinCtrl = TextEditingController();
+    _carbsCtrl   = TextEditingController();
+    _fatCtrl     = TextEditingController();
+    _kcalCtrl2    = TextEditingController();
+    _proteinCtrl2 = TextEditingController();
+    _carbsCtrl2   = TextEditingController();
+    _fatCtrl2     = TextEditingController();
+    _loadAll(widget.settings);
+  }
+
+  /// Populate all controllers from [s] without losing edits.
+  void _loadAll(AppSettings s) {
+    _fillCtrl(s.activeGoals, _kcalCtrl, _proteinCtrl, _carbsCtrl, _fatCtrl);
+    if (s.setupMode == 'dual') {
+      final other = s.dualProfile == 'train' ? s.dualRestGoals : s.dualTrainGoals;
+      _fillCtrl(other, _kcalCtrl2, _proteinCtrl2, _carbsCtrl2, _fatCtrl2);
+    }
+  }
+
+  void _fillCtrl(MacroGoals g,
+      TextEditingController k, TextEditingController p,
+      TextEditingController c, TextEditingController f) {
+    k.text = g.kcal.round().toString();
+    p.text = g.protein.round().toString();
+    c.text = g.carbs.round().toString();
+    f.text = g.fat.round().toString();
+  }
+
+  MacroGoals _parse(TextEditingController k, TextEditingController p,
+      TextEditingController c, TextEditingController f, MacroGoals fallback) {
+    return MacroGoals(
+      kcal:    double.tryParse(k.text) ?? fallback.kcal,
+      protein: double.tryParse(p.text) ?? fallback.protein,
+      carbs:   double.tryParse(c.text) ?? fallback.carbs,
+      fat:     double.tryParse(f.text) ?? fallback.fat,
+    );
   }
 
   @override
@@ -108,46 +146,52 @@ class _GoalsEditorState extends ConsumerState<_GoalsEditor> {
     super.didUpdateWidget(oldWidget);
     final oldS = oldWidget.settings;
     final newS = widget.settings;
-    final profileChanged = oldS.setupMode != newS.setupMode ||
-        oldS.dualProfile != newS.dualProfile;
-    if (profileChanged) {
-      _goals = newS.activeGoals;
-      _kcalCtrl.text    = _goals.kcal.round().toString();
-      _proteinCtrl.text = _goals.protein.round().toString();
-      _carbsCtrl.text   = _goals.carbs.round().toString();
-      _fatCtrl.text     = _goals.fat.round().toString();
+
+    if (oldS.setupMode != newS.setupMode) {
+      // Mode changed entirely — reload everything
+      _loadAll(newS);
+    } else if (oldS.dualProfile != newS.dualProfile) {
+      // Tab switched — swap active ↔ secondary controllers WITHOUT overwriting
+      // active controllers (user's unsaved edits are preserved in ctrl2)
+      final tmp = [_kcalCtrl.text, _proteinCtrl.text, _carbsCtrl.text, _fatCtrl.text];
+      _kcalCtrl.text    = _kcalCtrl2.text;
+      _proteinCtrl.text = _proteinCtrl2.text;
+      _carbsCtrl.text   = _carbsCtrl2.text;
+      _fatCtrl.text     = _fatCtrl2.text;
+      _kcalCtrl2.text    = tmp[0];
+      _proteinCtrl2.text = tmp[1];
+      _carbsCtrl2.text   = tmp[2];
+      _fatCtrl2.text     = tmp[3];
     }
   }
 
   @override
   void dispose() {
-    _kcalCtrl.dispose();
-    _proteinCtrl.dispose();
-    _carbsCtrl.dispose();
-    _fatCtrl.dispose();
+    _kcalCtrl.dispose();   _proteinCtrl.dispose();
+    _carbsCtrl.dispose();  _fatCtrl.dispose();
+    _kcalCtrl2.dispose();  _proteinCtrl2.dispose();
+    _carbsCtrl2.dispose(); _fatCtrl2.dispose();
     super.dispose();
   }
 
   void _save() {
-    final updated = MacroGoals(
-      kcal:    double.tryParse(_kcalCtrl.text)    ?? _goals.kcal,
-      protein: double.tryParse(_proteinCtrl.text) ?? _goals.protein,
-      carbs:   double.tryParse(_carbsCtrl.text)   ?? _goals.carbs,
-      fat:     double.tryParse(_fatCtrl.text)      ?? _goals.fat,
-    );
     final s = widget.settings;
+    final active  = _parse(_kcalCtrl,  _proteinCtrl,  _carbsCtrl,  _fatCtrl,  s.activeGoals);
     AppSettings newSettings;
     switch (s.setupMode) {
       case 'dual':
+        // Always save both profiles so neither tab's edits are lost
+        final other = _parse(_kcalCtrl2, _proteinCtrl2, _carbsCtrl2, _fatCtrl2,
+            s.dualProfile == 'train' ? s.dualRestGoals : s.dualTrainGoals);
         newSettings = s.dualProfile == 'train'
-            ? s.copyWith(dualTrainGoals: updated)
-            : s.copyWith(dualRestGoals: updated);
+            ? s.copyWith(dualTrainGoals: active, dualRestGoals: other)
+            : s.copyWith(dualRestGoals: active, dualTrainGoals: other);
       case 'bulking':
-        newSettings = s.copyWith(bulkingGoals: updated);
+        newSettings = s.copyWith(bulkingGoals: active);
       case 'cutting':
-        newSettings = s.copyWith(cuttingGoals: updated);
+        newSettings = s.copyWith(cuttingGoals: active);
       default:
-        newSettings = s.copyWith(maintenanceGoals: updated);
+        newSettings = s.copyWith(maintenanceGoals: active);
     }
     ref.read(settingsProvider.notifier).update(newSettings);
     ScaffoldMessenger.of(context).showSnackBar(
