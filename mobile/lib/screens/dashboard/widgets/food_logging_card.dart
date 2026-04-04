@@ -6,14 +6,6 @@ import '../../../models/food.dart';
 import '../../../providers/entries_provider.dart';
 import '../../../theme.dart';
 
-const _mealColors = {
-  'breakfast': Color(0xFFFFB347),
-  'lunch'    : AppColors.protein,
-  'dinner'   : AppColors.kcal,
-  'snack'    : AppColors.carbs,
-  'other'    : AppColors.fat,
-};
-
 const _mealIcons = {
   'breakfast': '🌅',
   'lunch'    : '☀️',
@@ -22,29 +14,115 @@ const _mealIcons = {
   'other'    : '🍽️',
 };
 
-/// Per-meal calorie breakdown card — stacked proportion bar + meal cards.
-class FoodLoggingCard extends ConsumerWidget {
-  const FoodLoggingCard({super.key, required this.date});
-  final String date;
+/// Average macro intake per meal slot over a selectable rolling period.
+class FoodLoggingCard extends ConsumerStatefulWidget {
+  const FoodLoggingCard({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final entries = ref.watch(entriesProvider(date)).valueOrNull ?? [];
-    if (entries.isEmpty) return const SizedBox.shrink();
+  ConsumerState<FoodLoggingCard> createState() => _FoodLoggingCardState();
+}
 
-    // Aggregate by meal
-    final mealTotals = <String, MacroValues>{};
-    for (final meal in mealOrder) {
-      final items = entries.where((e) => e.meal == meal).toList();
-      if (items.isEmpty) continue;
-      mealTotals[meal] = items.fold<MacroValues>(
-        const MacroValues(),
-        (acc, e) => acc + e.macros,
-      );
+class _FoodLoggingCardState extends ConsumerState<FoodLoggingCard> {
+  String _period = '1M';
+  String _macro  = 'kcal';
+
+  static const _periods      = ['1W', '1M', '3M', '1Y'];
+  static const _macros       = ['kcal', 'protein', 'carbs', 'fat'];
+  static const _macroLabels  = ['Cal', 'Pro', 'Carb', 'Fat'];
+  static const _macroColors  = <Color>[
+    AppColors.kcal, AppColors.protein, AppColors.carbs, AppColors.fat,
+  ];
+
+  String _startDate() {
+    final days = switch (_period) {
+      '1W' => 7,
+      '1M' => 30,
+      '3M' => 91,
+      '1Y' => 365,
+      _    => 30,
+    };
+    final start = DateTime.now().subtract(Duration(days: days));
+    return '${start.year.toString().padLeft(4, '0')}'
+        '-${start.month.toString().padLeft(2, '0')}'
+        '-${start.day.toString().padLeft(2, '0')}';
+  }
+
+  double _macroValue(MacroValues m) => switch (_macro) {
+        'protein' => m.protein,
+        'carbs'   => m.carbs,
+        'fat'     => m.fat,
+        _         => m.kcal,
+      };
+
+  Color get _color => switch (_macro) {
+        'protein' => AppColors.protein,
+        'carbs'   => AppColors.carbs,
+        'fat'     => AppColors.fat,
+        _         => AppColors.kcal,
+      };
+
+  String get _unit => _macro == 'kcal' ? 'kcal' : 'g';
+
+  int get _macroIndex => _macros.indexOf(_macro);
+
+  /// Avg macro per meal slot — only counts days where the slot was logged.
+  Map<String, double> _computeAvg(List<Entry> entries) {
+    // Accumulate per-day per-meal totals
+    final dayMeal = <String, Map<String, double>>{};
+    for (final e in entries) {
+      dayMeal.putIfAbsent(e.date, () => {});
+      final m = dayMeal[e.date]!;
+      m[e.meal] = (m[e.meal] ?? 0) + _macroValue(e.macros);
     }
-    if (mealTotals.isEmpty) return const SizedBox.shrink();
+    // Sum across days, count days logged per meal slot
+    final sums   = <String, double>{};
+    final counts = <String, int>{};
+    for (final dayMap in dayMeal.values) {
+      for (final kv in dayMap.entries) {
+        sums[kv.key]   = (sums[kv.key]   ?? 0) + kv.value;
+        counts[kv.key] = (counts[kv.key] ?? 0) + 1;
+      }
+    }
+    // Return in mealOrder, skip slots with no data
+    return {
+      for (final meal in mealOrder)
+        if (sums.containsKey(meal)) meal: sums[meal]! / counts[meal]!,
+    };
+  }
 
-    final totalKcal = mealTotals.values.fold(0.0, (s, m) => s + m.kcal);
+  Widget _chip({
+    required String label,
+    required bool selected,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Builder(builder: (context) {
+      final cs = AppColorScheme.of(context);
+      return GestureDetector(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.only(left: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          decoration: BoxDecoration(
+            color: selected ? color.withValues(alpha: 0.15) : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: selected ? color : cs.border),
+          ),
+          child: Text(label,
+              style: TextStyle(
+                  color: selected ? color : cs.textMuted,
+                  fontSize: 10,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.normal)),
+        ),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
+    final entriesAsync = ref.watch(entriesInRangeProvider(_startDate()));
+    final periodColor = cs.textPrimary;
 
     return Card(
       child: Padding(
@@ -52,132 +130,112 @@ class FoodLoggingCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Title + period chips
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Food Logging',
+                const Text('Avg per Meal',
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                Text('${totalKcal.round()} kcal total',
-                    style: TextStyle(fontSize: 12, color: AppColorScheme.of(context).textMuted)),
+                const Spacer(),
+                ..._periods.map((p) => _chip(
+                      label: p,
+                      selected: p == _period,
+                      color: periodColor,
+                      onTap: () => setState(() => _period = p),
+                    )),
               ],
             ),
-            const SizedBox(height: 12),
-            // Stacked proportion bar
-            _StackedBar(mealTotals: mealTotals, totalKcal: totalKcal),
-            const SizedBox(height: 14),
-            // Meal cards (no individual bars)
-            ...mealTotals.entries.map((e) => _MealCard(
-              meal: e.key,
-              macros: e.value,
-              color: _mealColors[e.key] ?? AppColors.kcal,
-              icon: _mealIcons[e.key] ?? '🍽️',
-            )),
+            const SizedBox(height: 3),
+            // Subtitle + macro chips
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Text('Average intake per meal slot',
+                      style: TextStyle(
+                          fontSize: 10,
+                          color: cs.textMuted,
+                          fontStyle: FontStyle.italic)),
+                ),
+                ..._macros.asMap().entries.map((e) => _chip(
+                      label: _macroLabels[e.key],
+                      selected: e.value == _macro,
+                      color: _macroColors[e.key],
+                      onTap: () => setState(() => _macro = e.value),
+                    )),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Bars
+            entriesAsync.when(
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+              error: (_, __) => Text('Failed to load',
+                  style: TextStyle(color: cs.textMuted)),
+              data: (entries) {
+                final avgs = _computeAvg(entries);
+                if (avgs.isEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Text('No data for this period',
+                          style: TextStyle(
+                              color: cs.textMuted,
+                              fontStyle: FontStyle.italic,
+                              fontSize: 13)),
+                    ),
+                  );
+                }
+                final maxVal = avgs.values.reduce((a, b) => a > b ? a : b);
+                return Column(
+                  children: avgs.entries.map((e) {
+                    final share =
+                        maxVal > 0 ? (e.value / maxVal).clamp(0.0, 1.0) : 0.0;
+                    final valStr = e.value >= 10
+                        ? '${e.value.round()} $_unit'
+                        : '${e.value.toStringAsFixed(1)} $_unit';
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Column(
+                        children: [
+                          Row(children: [
+                            Text(_mealIcons[e.key] ?? '🍽️',
+                                style: const TextStyle(fontSize: 13)),
+                            const SizedBox(width: 7),
+                            Expanded(
+                              child: Text(mealLabels[e.key] ?? e.key,
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500)),
+                            ),
+                            Text(valStr,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: _color)),
+                          ]),
+                          const SizedBox(height: 4),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(2),
+                            child: LinearProgressIndicator(
+                              value: share,
+                              minHeight: 4,
+                              backgroundColor: cs.border,
+                              valueColor: AlwaysStoppedAnimation(_color),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-
-class _StackedBar extends StatelessWidget {
-  const _StackedBar({required this.mealTotals, required this.totalKcal});
-  final Map<String, MacroValues> mealTotals;
-  final double totalKcal;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(5),
-      child: SizedBox(
-        height: 8,
-        child: Row(
-          children: mealTotals.entries.map((e) {
-            final flex = totalKcal > 0
-                ? ((e.value.kcal / totalKcal) * 1000).round()
-                : 0;
-            return Flexible(
-              flex: flex,
-              child: Container(color: _mealColors[e.key] ?? AppColors.kcal),
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-
-class _MealCard extends StatelessWidget {
-  const _MealCard({
-    required this.meal, required this.macros,
-    required this.color, required this.icon,
-  });
-  final String meal;
-  final MacroValues macros;
-  final Color color;
-  final String icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        children: [
-          // Colored accent dot
-          Container(
-            width: 5,
-            height: 5,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 8),
-          Text(icon, style: const TextStyle(fontSize: 15)),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              mealLabels[meal] ?? meal,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-            ),
-          ),
-          // kcal value
-          Text(
-            '${macros.kcal.round()}',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color),
-          ),
-          const SizedBox(width: 3),
-          Text('kcal', style: TextStyle(fontSize: 11, color: AppColorScheme.of(context).textMuted)),
-          const SizedBox(width: 10),
-          // P / C / F chips
-          _Chip('P', macros.protein.round(), AppColors.protein),
-          const SizedBox(width: 4),
-          _Chip('C', macros.carbs.round(), AppColors.carbs),
-          const SizedBox(width: 4),
-          _Chip('F', macros.fat.round(), AppColors.fat),
-        ],
-      ),
-    );
-  }
-}
-
-class _Chip extends StatelessWidget {
-  const _Chip(this.label, this.value, this.color);
-  final String label;
-  final int value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        '$label$value',
-        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: color),
       ),
     );
   }

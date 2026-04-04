@@ -1,12 +1,33 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/utils.dart';
 import '../models/entry.dart';
 import '../models/food.dart';
 import 'date_provider.dart';
 import 'log_history_provider.dart';
 
 final _supabase = Supabase.instance.client;
+
+// ---------------------------------------------------------------------------
+// All entries from startDate (inclusive) to today.
+// Used by the Avg per Meal dashboard KPI.
+// ---------------------------------------------------------------------------
+final entriesInRangeProvider =
+    FutureProvider.autoDispose.family<List<Entry>, String>((ref, startDate) async {
+  final user = _supabase.auth.currentUser;
+  if (user == null) return [];
+  final today = todayISO();
+  final data = await _supabase
+      .from('entries')
+      .select('*, food:foods(*)')
+      .gte('date', startDate)
+      .lte('date', today)
+      .order('date');
+  return (data as List)
+      .map((j) => Entry.fromJson(j as Map<String, dynamic>))
+      .toList();
+});
 
 // ---------------------------------------------------------------------------
 // Entries for a specific date.
