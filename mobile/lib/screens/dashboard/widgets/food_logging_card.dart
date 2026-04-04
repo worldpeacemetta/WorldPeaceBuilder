@@ -23,7 +23,7 @@ class FoodLoggingCard extends ConsumerStatefulWidget {
 }
 
 class _FoodLoggingCardState extends ConsumerState<FoodLoggingCard> {
-  String _period = '1M';
+  String _period = '1W';
   String _macro  = 'kcal';
 
   // Cache the last successfully computed averages so we can crossfade

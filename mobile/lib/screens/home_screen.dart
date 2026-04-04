@@ -4,11 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../core/utils.dart';
 import '../providers/date_provider.dart';
+import '../theme.dart';
 import '../widgets/add_entry_sheet.dart';
 
 // Dashboard branch index in the StatefulNavigationShell
 const _kDashboardIndex = 1;
-import '../theme.dart';
 
 // ── Nav item descriptor ───────────────────────────────────────────────────────
 
