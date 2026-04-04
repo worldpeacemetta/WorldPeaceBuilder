@@ -315,7 +315,7 @@ class _MacroPreview extends StatelessWidget {
                 fontStyle: FontStyle.italic)),
         const SizedBox(height: 8),
         Row(children: [
-          _M('Kcal', macros.kcal, 'kcal', AppColors.kcal),
+          _M('Kcal', macros.kcal, 'kcal', AppColorScheme.of(context).kcalColor),
           const SizedBox(width: 10),
           _M('Protein', macros.protein, 'g', AppColors.protein),
           const SizedBox(width: 10),

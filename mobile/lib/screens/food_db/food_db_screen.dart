@@ -251,7 +251,7 @@ class _FourMacroBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Row(
         children: [
-          Expanded(child: _PillArc(label: 'K', actual: totals.kcal,    goal: goals.kcal,    unit: 'kcal', color: AppColors.kcal)),
+          Expanded(child: _PillArc(label: 'K', actual: totals.kcal,    goal: goals.kcal,    unit: 'kcal', color: AppColorScheme.of(context).kcalColor)),
           const SizedBox(width: 8),
           Expanded(child: _PillArc(label: 'P', actual: totals.protein, goal: goals.protein, unit: 'g',    color: AppColors.protein, isProtein: true)),
           const SizedBox(width: 8),

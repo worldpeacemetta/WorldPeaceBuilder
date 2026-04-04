@@ -168,7 +168,7 @@ class _FoodSavedSheetState extends State<_FoodSavedSheet>
                                   children: [
                                     _MacroChip('Kcal',
                                         widget.food.kcal.round().toString(),
-                                        AppColors.kcal),
+                                        AppColorScheme.of(context).kcalColor),
                                     _MacroChip('Protein',
                                         '${widget.food.protein.round()}g',
                                         AppColors.protein),

@@ -288,7 +288,7 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
 
                   Row(
                     children: [
-                      Expanded(child: _macroField('Calories', _kcalCtrl, AppColors.kcal, 'kcal')),
+                      Expanded(child: _macroField('Calories', _kcalCtrl, AppColorScheme.of(context).kcalColor, 'kcal')),
                       const SizedBox(width: 10),
                       Expanded(child: _macroField('Protein', _proteinCtrl, AppColors.protein, 'g')),
                     ],

@@ -8,8 +8,7 @@ import '../../../core/utils.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../theme.dart';
 
-const _kWeightColor = AppColors.kcal;
-const _kBFColor     = AppColors.fat;
+const _kBFColor = AppColors.fat;
 
 class WeightTrendCard extends ConsumerStatefulWidget {
   const WeightTrendCard({super.key});
@@ -147,6 +146,7 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
   @override
   Widget build(BuildContext context) {
     final cs = AppColorScheme.of(context);
+    final kWeightColor = cs.kcalColor;
     final history = ref.watch(settingsProvider).weightHistory;
     final recent  = history.length > 30
         ? history.sublist(history.length - 30)
@@ -220,7 +220,7 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
               // ── legend ──
               Row(
                 children: [
-                  Container(width: 16, height: 2, color: _kWeightColor),
+                  Container(width: 16, height: 2, color: kWeightColor),
                   const SizedBox(width: 4),
                   Text('Weight',
                       style: TextStyle(fontSize: 11, color: cs.textMuted)),
@@ -247,7 +247,7 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                     '${latest!.weight.toStringAsFixed(1)} kg',
                     style: const TextStyle(
                       fontSize: 22, fontWeight: FontWeight.w700,
-                      color: _kWeightColor,
+                      color: kWeightColor,
                     ),
                   ),
                   if (latest.bodyFat != null) ...[
@@ -348,14 +348,14 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                       LineChartBarData(
                         spots: weightSpots,
                         isCurved: true,
-                        color: _kWeightColor,
+                        color: kWeightColor,
                         barWidth: 2,
                         dotData: FlDotData(
                           show: recent.length <= 10,
                           getDotPainter: (_, __, ___, ____) =>
                               FlDotCirclePainter(
                                   radius: 3,
-                                  color: _kWeightColor,
+                                  color: kWeightColor,
                                   strokeWidth: 0),
                         ),
                         belowBarData: BarAreaData(
@@ -364,8 +364,8 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              _kWeightColor.withValues(alpha: 0.4),
-                              _kWeightColor.withValues(alpha: 0.02),
+                              kWeightColor.withValues(alpha: 0.4),
+                              kWeightColor.withValues(alpha: 0.02),
                             ],
                           ),
                         ),
@@ -397,8 +397,8 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                             // Weight tooltip
                             return LineTooltipItem(
                               '${s.y.toStringAsFixed(1)} kg',
-                              const TextStyle(
-                                color: _kWeightColor,
+                              TextStyle(
+                                color: kWeightColor,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 12,
                               ),

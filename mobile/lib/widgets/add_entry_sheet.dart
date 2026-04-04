@@ -277,7 +277,7 @@ class _AddEntrySheetState extends ConsumerState<_AddEntrySheet> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _PreviewMacro('Kcal', _preview.kcal, AppColors.kcal),
+                    _PreviewMacro('Kcal', _preview.kcal, AppColorScheme.of(context).kcalColor),
                     _PreviewMacro('Protein', _preview.protein, AppColors.protein),
                     _PreviewMacro('Carbs', _preview.carbs, AppColors.carbs),
                     _PreviewMacro('Fat', _preview.fat, AppColors.fat),

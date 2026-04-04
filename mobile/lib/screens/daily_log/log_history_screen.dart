@@ -464,7 +464,7 @@ class _TimelineDayCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dotColor = modeColor(
-        ref.watch(settingsProvider).modeLabelForDate(date));
+        ref.watch(settingsProvider).modeLabelForDate(date), context);
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -577,7 +577,7 @@ class _DayCard extends ConsumerWidget {
                   _MacroStat(
                     label: 'KCAL',
                     value: '${totals.kcal.round()}',
-                    color: AppColors.kcal,
+                    color: AppColorScheme.of(context).kcalColor,
                     hit: kcalOk,
                   ),
                   const SizedBox(width: 16),

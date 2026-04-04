@@ -71,8 +71,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Logo / header
-                const Icon(Icons.local_fire_department_rounded,
-                    size: 56, color: AppColors.kcal),
+                Icon(Icons.local_fire_department_rounded,
+                    size: 56, color: AppColorScheme.of(context).kcalColor),
                 const SizedBox(height: 12),
                 Text(
                   'MacroTracker',

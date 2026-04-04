@@ -8,9 +8,9 @@ import '../theme.dart';
 // ---------------------------------------------------------------------------
 // Colour + icon for each mode label
 // ---------------------------------------------------------------------------
-Color modeColor(String label) => switch (label) {
+Color modeColor(String label, BuildContext ctx) => switch (label) {
   'Train Day'   => AppColors.protein,
-  'Rest Day'    => AppColors.kcal,
+  'Rest Day'    => AppColorScheme.of(ctx).kcalColor,
   'Bulking'     => const Color(0xFFFBBF24),
   'Cutting'     => AppColors.fat,
   _             => AppColors.textMuted,
@@ -35,7 +35,7 @@ class ModePill extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
     final label = settings.modeLabelForDate(date);
-    final color = modeColor(label);
+    final color = modeColor(label, context);
 
     return GestureDetector(
       onTap: () => _showModeSheet(context, ref, date, settings),
@@ -155,7 +155,7 @@ class _ModeSheetState extends ConsumerState<_ModeSheet> {
           // Mode options
           ...['maintenance', 'dual', 'bulking', 'cutting'].map((mode) {
             final label = _labelFor(mode, mode == 'dual' ? _profile : null);
-            final color = modeColor(label);
+            final color = modeColor(label, context);
             return InkWell(
               onTap: () => setState(() => _setup = mode),
               borderRadius: BorderRadius.circular(10),

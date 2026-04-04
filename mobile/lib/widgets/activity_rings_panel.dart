@@ -63,7 +63,7 @@ class _ActivityRingsPanelState extends ConsumerState<ActivityRingsPanel>
 
     final cs = AppColorScheme.of(context);
     final items = [
-      _RingItem('Calories', widget.totals.kcal,    widget.goals.kcal,    AppColors.kcal,    'kcal'),
+      _RingItem('Calories', widget.totals.kcal,    widget.goals.kcal,    cs.kcalColor,    'kcal'),
       _RingItem('Protein',  widget.totals.protein,  widget.goals.protein,  AppColors.protein, 'g'),
       _RingItem('Carbs',    widget.totals.carbs,    widget.goals.carbs,    AppColors.carbs,   'g'),
       _RingItem('Fat',      widget.totals.fat,      widget.goals.fat,      AppColors.fat,     'g'),

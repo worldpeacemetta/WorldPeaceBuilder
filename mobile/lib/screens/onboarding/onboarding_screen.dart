@@ -570,7 +570,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               _sectionLabel('Training days'),
               const SizedBox(height: 8),
               _macroGrid([
-                ('Calories', _tKcalCtrl, 'kcal', AppColors.kcal),
+                ('Calories', _tKcalCtrl, 'kcal', AppColorScheme.of(context).kcalColor),
                 ('Protein',  _tProteinCtrl, 'g', AppColors.protein),
                 ('Carbs',    _tCarbsCtrl, 'g',   AppColors.carbs),
                 ('Fat',      _tFatCtrl, 'g',     AppColors.fat),
@@ -579,14 +579,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               _sectionLabel('Rest days'),
               const SizedBox(height: 8),
               _macroGrid([
-                ('Calories', _rKcalCtrl, 'kcal', AppColors.kcal),
+                ('Calories', _rKcalCtrl, 'kcal', AppColorScheme.of(context).kcalColor),
                 ('Protein',  _rProteinCtrl, 'g', AppColors.protein),
                 ('Carbs',    _rCarbsCtrl, 'g',   AppColors.carbs),
                 ('Fat',      _rFatCtrl, 'g',     AppColors.fat),
               ]),
             ])
           : _macroGrid([
-              ('Calories', _kcalCtrl, 'kcal', AppColors.kcal),
+              ('Calories', _kcalCtrl, 'kcal', AppColorScheme.of(context).kcalColor),
               ('Protein',  _proteinCtrl, 'g', AppColors.protein),
               ('Carbs',    _carbsCtrl, 'g',   AppColors.carbs),
               ('Fat',      _fatCtrl, 'g',     AppColors.fat),

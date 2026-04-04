@@ -225,7 +225,7 @@ class _MealHeaderMacros extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _M('K', macros.kcal.round(), AppColors.kcal),
+        _M('K', macros.kcal.round(), AppColorScheme.of(context).kcalColor),
         const SizedBox(width: 6),
         _M('P', macros.protein.round(), AppColors.protein),
         const SizedBox(width: 6),
@@ -246,12 +246,12 @@ class _MealHeaderMacros extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Chart 2 — Meal breakdown: stacked bar + compact rows
 // ---------------------------------------------------------------------------
-const _mealColors = {
-  'breakfast': Color(0xFFFFB347),
-  'lunch': AppColors.protein,
-  'dinner': AppColors.kcal,
-  'snack': AppColors.carbs,
-  'other': AppColors.fat,
+Map<String, Color> _mealColorsFor(BuildContext ctx) => {
+  'breakfast': const Color(0xFFFFB347),
+  'lunch'    : AppColors.protein,
+  'dinner'   : AppColorScheme.of(ctx).kcalColor,
+  'snack'    : AppColors.carbs,
+  'other'    : AppColors.fat,
 };
 
 class _MealBreakdownPanel extends StatefulWidget {
@@ -287,6 +287,7 @@ class _MealBreakdownPanelState extends State<_MealBreakdownPanel>
   @override
   Widget build(BuildContext context) {
     final cs = AppColorScheme.of(context);
+    final mealColors = _mealColorsFor(context);
     final mealTotals = <String, MacroValues>{};
     final mealEntries = <String, List<Entry>>{};
     for (final meal in mealOrder) {
@@ -320,7 +321,7 @@ class _MealBreakdownPanelState extends State<_MealBreakdownPanel>
                   style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.kcal)),
+                      color: cs.kcalColor)),
             ],
           ),
           const SizedBox(height: 2),
@@ -340,7 +341,7 @@ class _MealBreakdownPanelState extends State<_MealBreakdownPanel>
                   final flex = totalKcal > 0
                       ? ((e.value.kcal / totalKcal) * 1000).round()
                       : 0;
-                  final color = _mealColors[e.key] ?? AppColors.kcal;
+                  final color = mealColors[e.key] ?? cs.kcalColor;
                   final isExp = _expanded == e.key;
                   return Flexible(
                     flex: flex,
@@ -370,7 +371,7 @@ class _MealBreakdownPanelState extends State<_MealBreakdownPanel>
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: mealTotals.entries.map((e) {
-            final color     = _mealColors[e.key] ?? AppColors.kcal;
+            final color     = mealColors[e.key] ?? cs.kcalColor;
             final share     = (totalKcal > 0
                 ? (e.value.kcal / totalKcal).clamp(0.0, 1.0) : 0.0) * t;
             final pct       = (share * 100).round();
@@ -1259,7 +1260,7 @@ class _DetailEntryTileState extends ConsumerState<_DetailEntryTile>
                                         fontSize: 10,
                                         color: cs.textMuted)),
                                 _MC('K', macros.kcal.round(),
-                                    AppColors.kcal),
+                                    cs.kcalColor),
                                 const SizedBox(width: 5),
                                 _MC('P', macros.protein.round(),
                                     AppColors.protein, 'g'),

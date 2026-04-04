@@ -31,8 +31,8 @@ const _keys   = ['kcal', 'protein', 'carbs', 'fat'];
 const _names  = {'kcal': 'Calories', 'protein': 'Protein',
                  'carbs': 'Carbs',   'fat': 'Fat'};
 const _units  = {'kcal': 'kcal', 'protein': 'g', 'carbs': 'g', 'fat': 'g'};
-const _colors = {
-  'kcal'   : AppColors.kcal,
+Map<String, Color> _colorsFor(BuildContext ctx) => {
+  'kcal'   : AppColorScheme.of(ctx).kcalColor,
   'protein': AppColors.protein,
   'carbs'  : AppColors.carbs,
   'fat'    : AppColors.fat,
@@ -78,11 +78,12 @@ class _WeeklyNutritionChartState
   @override
   Widget build(BuildContext context) {
     final cs       = AppColorScheme.of(context);
+    final colors   = _colorsFor(context);
     final days     = weekDates(widget.date);
     final settings = ref.watch(settingsProvider);
     final totals   = days.map((d) => ref.watch(macroTotalsProvider(d))).toList();
     final goals    = days.map((d) => settings.goalsForDate(d)).toList();
-    final dotColors = days.map((d) => modeColor(settings.modeLabelForDate(d))).toList();
+    final dotColors = days.map((d) => modeColor(settings.modeLabelForDate(d), context)).toList();
 
     final selIdx    = days.indexOf(_sel).clamp(0, 6);
     final selTotals = totals[selIdx];
@@ -166,7 +167,7 @@ class _WeeklyNutritionChartState
                           macroKey : _keys[i],
                           actual   : _actual(selTotals, _keys[i]),
                           goal     : _goal(selGoals, _keys[i]),
-                          color    : _colors[_keys[i]]!,
+                          color    : colors[_keys[i]]!,
                           showRem  : _rem,
                           height   : _barRowH,
                         ),

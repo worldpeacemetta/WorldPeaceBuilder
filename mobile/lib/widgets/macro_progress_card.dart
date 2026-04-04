@@ -25,8 +25,9 @@ class _MacroProgressCardState extends State<MacroProgressCard>
 
   static const _labels = ['Calories', 'Protein', 'Carbs', 'Fat'];
   static const _units  = ['kcal', 'g', 'g', 'g'];
-  static const _colors = <Color>[
-    AppColors.kcal, AppColors.protein, AppColors.carbs, AppColors.fat,
+  // Not const — kcalColor is theme-dependent.
+  List<Color> _colorsFor(BuildContext ctx) => [
+    AppColorScheme.of(ctx).kcalColor, AppColors.protein, AppColors.carbs, AppColors.fat,
   ];
 
   double _actual(int i) {
@@ -75,6 +76,7 @@ class _MacroProgressCardState extends State<MacroProgressCard>
     final pillIndices = [0, 1, 2, 3].where((i) => i != _featured).toList();
 
     final cs = AppColorScheme.of(context);
+    final colors = _colorsFor(context);
     return Container(
       color: cs.card,
       padding: const EdgeInsets.all(16),
@@ -105,10 +107,10 @@ class _MacroProgressCardState extends State<MacroProgressCard>
                         final Color displayColor;
                         if (t < 0.5) {
                           displayPct = _prevPct * (1 - t / 0.5);
-                          displayColor = _colors[_prev];
+                          displayColor = colors[_prev];
                         } else {
                           displayPct = currPct * ((t - 0.5) / 0.5);
-                          displayColor = _colors[_featured];
+                          displayColor = colors[_featured];
                         }
                         final cs = AppColorScheme.of(context);
                         return CustomPaint(
@@ -139,7 +141,7 @@ class _MacroProgressCardState extends State<MacroProgressCard>
                         pct: currRaw,
                         label: _labels[_featured],
                         unit: _units[_featured],
-                        color: _colors[_featured],
+                        color: colors[_featured],
                         isOver: isOver,
                       ),
                     ),
@@ -158,7 +160,7 @@ class _MacroProgressCardState extends State<MacroProgressCard>
                       actual: _actual(pillIndices[k]),
                       goal: _goal(pillIndices[k]),
                       unit: _units[pillIndices[k]],
-                      color: _colors[pillIndices[k]],
+                      color: colors[pillIndices[k]],
                       onTap: () => _selectFeatured(pillIndices[k]),
                       isProtein: pillIndices[k] == 1,
                     ),

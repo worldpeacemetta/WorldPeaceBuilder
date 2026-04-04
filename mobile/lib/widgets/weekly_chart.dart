@@ -84,7 +84,7 @@ class WeeklyChartCard extends ConsumerWidget {
                       LineChartBarData(
                         spots: List.generate(7, (i) => FlSpot(i.toDouble(), goal)),
                         isCurved: false,
-                        color: AppColors.kcal.withValues(alpha: 0.35),
+                        color: cs.kcalColor.withValues(alpha: 0.35),
                         barWidth: 1.5,
                         dotData: const FlDotData(show: false),
                         dashArray: [5, 5],
@@ -96,17 +96,17 @@ class WeeklyChartCard extends ConsumerWidget {
                         (i) => FlSpot(i.toDouble(), dayData[i]),
                       ),
                       isCurved: true,
-                      color: AppColors.kcal,
+                      color: cs.kcalColor,
                       barWidth: 2.5,
                       belowBarData: BarAreaData(
                         show: true,
-                        color: AppColors.kcal.withValues(alpha: 0.12),
+                        color: cs.kcalColor.withValues(alpha: 0.12),
                       ),
                       dotData: FlDotData(
                         show: true,
                         getDotPainter: (spot, _, __, ___) => FlDotCirclePainter(
                           radius: 3,
-                          color: AppColors.kcal,
+                          color: cs.kcalColor,
                           strokeWidth: 0,
                         ),
                       ),

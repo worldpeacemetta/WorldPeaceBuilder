@@ -206,7 +206,7 @@ class _GoalsEditorState extends ConsumerState<_GoalsEditor> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            _goalField('Calories (kcal)', _kcalCtrl, AppColors.kcal),
+            _goalField('Calories (kcal)', _kcalCtrl, AppColorScheme.of(context).kcalColor),
             const SizedBox(height: 12),
             _goalField('Protein (g)', _proteinCtrl, AppColors.protein),
             const SizedBox(height: 12),

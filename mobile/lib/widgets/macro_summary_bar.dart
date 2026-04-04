@@ -18,7 +18,7 @@ class MacroSummaryBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
-          _MacroKpi('Calories', totals.kcal, goals.kcal, 'kcal', AppColors.kcal),
+          _MacroKpi('Calories', totals.kcal, goals.kcal, 'kcal', cs.kcalColor),
           _MacroKpi('Protein',  totals.protein, goals.protein, 'g', AppColors.protein),
           _MacroKpi('Carbs',    totals.carbs,   goals.carbs,   'g', AppColors.carbs),
           _MacroKpi('Fat',      totals.fat,     goals.fat,     'g', AppColors.fat),

@@ -239,10 +239,10 @@ class _EntryTile extends ConsumerWidget {
         trailing: Text(
           '${macros.kcal.round()}\nkcal',
           textAlign: TextAlign.right,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: AppColors.kcal,
+            color: AppColorScheme.of(context).kcalColor,
             height: 1.3,
           ),
         ),
@@ -391,7 +391,7 @@ class _EditEntrySheetState extends ConsumerState<_EditEntrySheet> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _MacroPreview('Kcal', _preview.kcal, AppColors.kcal),
+                _MacroPreview('Kcal', _preview.kcal, AppColorScheme.of(context).kcalColor),
                 _MacroPreview('Protein', _preview.protein, AppColors.protein),
                 _MacroPreview('Carbs', _preview.carbs, AppColors.carbs),
                 _MacroPreview('Fat', _preview.fat, AppColors.fat),
