@@ -245,7 +245,7 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                 children: [
                   Text(
                     '${latest!.weight.toStringAsFixed(1)} kg',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 22, fontWeight: FontWeight.w700,
                       color: kWeightColor,
                     ),

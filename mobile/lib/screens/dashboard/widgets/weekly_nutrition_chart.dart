@@ -230,6 +230,7 @@ class _Grid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = _colorsFor(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: List.generate(7, (col) {
