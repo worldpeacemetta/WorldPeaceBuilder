@@ -262,8 +262,24 @@ class _MealBreakdownPanel extends StatefulWidget {
   State<_MealBreakdownPanel> createState() => _MealBreakdownPanelState();
 }
 
-class _MealBreakdownPanelState extends State<_MealBreakdownPanel> {
-  String? _expanded; // meal key currently expanded, null = all collapsed
+class _MealBreakdownPanelState extends State<_MealBreakdownPanel>
+    with SingleTickerProviderStateMixin {
+  String? _expanded;
+  late final AnimationController _fill;
+
+  @override
+  void initState() {
+    super.initState();
+    _fill = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 840))
+      ..forward();
+  }
+
+  @override
+  void dispose() {
+    _fill.dispose();
+    super.dispose();
+  }
 
   void _toggle(String meal) =>
       setState(() => _expanded = _expanded == meal ? null : meal);
@@ -347,10 +363,16 @@ class _MealBreakdownPanelState extends State<_MealBreakdownPanel> {
           ),
           const SizedBox(height: 10),
           // Meal rows
-          ...mealTotals.entries.map((e) {
+          AnimatedBuilder(
+           animation: _fill,
+           builder: (_, __) {
+            final t = Curves.easeOut.transform(_fill.value);
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: mealTotals.entries.map((e) {
             final color     = _mealColors[e.key] ?? AppColors.kcal;
-            final share     = totalKcal > 0
-                ? (e.value.kcal / totalKcal).clamp(0.0, 1.0) : 0.0;
+            final share     = (totalKcal > 0
+                ? (e.value.kcal / totalKcal).clamp(0.0, 1.0) : 0.0) * t;
             final pct       = (share * 100).round();
             final isExp     = _expanded == e.key;
             // Hide progress bar on collapsed meals when another is open → frees space
@@ -504,7 +526,9 @@ class _MealBreakdownPanelState extends State<_MealBreakdownPanel> {
                 ],
               ),
             );
-          }),
+          }).toList(),
+         ); // Column
+        }), // AnimatedBuilder
         ],
       ),
     );
@@ -539,7 +563,7 @@ class _MacroChip extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Chart 3 — Top foods (unchanged)
 // ---------------------------------------------------------------------------
-class _TopFoodsPanel extends StatelessWidget {
+class _TopFoodsPanel extends StatefulWidget {
   const _TopFoodsPanel({
     required this.entries,
     required this.goals,
@@ -551,37 +575,59 @@ class _TopFoodsPanel extends StatelessWidget {
   final String macro;
   final ValueChanged<String> onMacroChanged;
 
-  double _goalValue() => switch (macro) {
-        'protein' => goals.protein,
-        'carbs' => goals.carbs,
-        'fat' => goals.fat,
-        _ => goals.kcal.toDouble(),
+  @override
+  State<_TopFoodsPanel> createState() => _TopFoodsPanelState();
+}
+
+class _TopFoodsPanelState extends State<_TopFoodsPanel>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _fill;
+
+  @override
+  void initState() {
+    super.initState();
+    _fill = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 840))
+      ..forward();
+  }
+
+  @override
+  void dispose() {
+    _fill.dispose();
+    super.dispose();
+  }
+
+  double _goalValue() => switch (widget.macro) {
+        'protein' => widget.goals.protein,
+        'carbs' => widget.goals.carbs,
+        'fat' => widget.goals.fat,
+        _ => widget.goals.kcal.toDouble(),
       };
 
-  double _macroValue(MacroValues m) => switch (macro) {
+  double _macroValue(MacroValues m) => switch (widget.macro) {
         'protein' => m.protein,
         'carbs' => m.carbs,
         'fat' => m.fat,
         _ => m.kcal,
       };
 
-  Color get _color => switch (macro) {
+  Color get _color => switch (widget.macro) {
         'protein' => AppColors.protein,
         'carbs' => AppColors.carbs,
         'fat' => AppColors.fat,
         _ => AppColors.kcal,
       };
 
-  String get _unit => macro == 'kcal' ? 'kcal' : 'g';
+  String get _unit => widget.macro == 'kcal' ? 'kcal' : 'g';
 
   @override
   Widget build(BuildContext context) {
-    final sorted = [...entries]
+    final sorted = [...widget.entries]
       ..sort((a, b) =>
           _macroValue(b.macros).compareTo(_macroValue(a.macros)));
     final top5 = sorted.take(5).toList();
     final maxVal = top5.isNotEmpty ? _macroValue(top5.first.macros) : 1.0;
-    final totalVal = entries.fold(0.0, (s, e) => s + _macroValue(e.macros));
+    final totalVal = widget.entries.fold(0.0, (s, e) => s + _macroValue(e.macros));
     final cs = AppColorScheme.of(context);
 
     final goalVal = _goalValue();
@@ -614,9 +660,9 @@ class _TopFoodsPanel extends StatelessWidget {
                 const colors = <Color>[
                   AppColors.kcal, AppColors.protein, AppColors.carbs, AppColors.fat
                 ];
-                final sel = keys[i] == macro;
+                final sel = keys[i] == widget.macro;
                 return GestureDetector(
-                  onTap: () => onMacroChanged(keys[i]),
+                  onTap: () => widget.onMacroChanged(keys[i]),
                   child: Container(
                     margin: const EdgeInsets.only(left: 4),
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -637,29 +683,35 @@ class _TopFoodsPanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          // Day total vs goal summary
-          Row(
-            children: [
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: goalFrac,
-                    minHeight: 6,
-                    backgroundColor: cs.border,
-                    valueColor: AlwaysStoppedAnimation<Color>(_color),
+          AnimatedBuilder(
+            animation: _fill,
+            builder: (_, __) {
+              final t = Curves.easeOut.transform(_fill.value);
+              return Column(
+                children: [
+                  // Day total vs goal summary bar
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: goalFrac * t,
+                            minHeight: 6,
+                            backgroundColor: cs.border,
+                            valueColor: AlwaysStoppedAnimation<Color>(_color),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text('${totalVal.round()} / ${goalVal.round()} $_unit  ·  $goalPct%',
+                          style: TextStyle(fontSize: 10, color: cs.textMuted)),
+                    ],
                   ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text('${totalVal.round()} / ${goalVal.round()} $_unit  ·  $goalPct%',
-                  style: TextStyle(fontSize: 10, color: cs.textMuted)),
-            ],
-          ),
-          const SizedBox(height: 18),
-          ...top5.map((entry) {
-            final val = _macroValue(entry.macros);
-            final share = maxVal > 0 ? (val / maxVal).clamp(0.0, 1.0) : 0.0;
+                  const SizedBox(height: 18),
+                  ...top5.map((entry) {
+                    final val = _macroValue(entry.macros);
+                    final share = (maxVal > 0 ? (val / maxVal).clamp(0.0, 1.0) : 0.0) * t;
             final pct = totalVal > 0 ? (val / totalVal * 100).round() : 0;
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
@@ -699,7 +751,11 @@ class _TopFoodsPanel extends StatelessWidget {
                 ],
               ),
             );
-          }),
+                  }).toList(),
+                ],
+              ); // Column inside AnimatedBuilder
+            },
+          ), // AnimatedBuilder
         ],
       ),
     );
