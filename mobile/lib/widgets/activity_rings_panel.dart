@@ -18,14 +18,12 @@ class ActivityRingsPanel extends StatefulWidget {
 class _ActivityRingsPanelState extends State<ActivityRingsPanel>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
-  late final Animation<double> _anim;
 
   @override
   void initState() {
     super.initState();
     _ctrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 840));
-    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
     _ctrl.forward();
   }
 
@@ -58,13 +56,16 @@ class _ActivityRingsPanelState extends State<ActivityRingsPanel>
             width: 150,
             height: 150,
             child: AnimatedBuilder(
-              animation: _anim,
-              builder: (_, __) => CustomPaint(
-                painter: _ActivityRingsPainter(
-                  progresses: targets.map((p) => p * _anim.value).toList(),
-                  colors: items.map((it) => it.color).toList(),
-                ),
-              ),
+              animation: _ctrl,
+              builder: (_, __) {
+                final t = Curves.easeOut.transform(_ctrl.value);
+                return CustomPaint(
+                  painter: _ActivityRingsPainter(
+                    progresses: targets.map((p) => p * t).toList(),
+                    colors: items.map((it) => it.color).toList(),
+                  ),
+                );
+              },
             ),
           ),
           const SizedBox(width: 16),
