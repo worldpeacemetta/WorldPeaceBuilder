@@ -254,18 +254,30 @@ const _mealColors = {
   'other': AppColors.fat,
 };
 
-class _MealBreakdownPanel extends StatelessWidget {
+class _MealBreakdownPanel extends StatefulWidget {
   const _MealBreakdownPanel({required this.entries});
   final List<Entry> entries;
+
+  @override
+  State<_MealBreakdownPanel> createState() => _MealBreakdownPanelState();
+}
+
+class _MealBreakdownPanelState extends State<_MealBreakdownPanel> {
+  String? _expanded; // meal key currently expanded, null = all collapsed
+
+  void _toggle(String meal) =>
+      setState(() => _expanded = _expanded == meal ? null : meal);
 
   @override
   Widget build(BuildContext context) {
     final cs = AppColorScheme.of(context);
     final mealTotals = <String, MacroValues>{};
+    final mealEntries = <String, List<Entry>>{};
     for (final meal in mealOrder) {
-      final items = entries.where((e) => e.meal == meal).toList();
+      final items = widget.entries.where((e) => e.meal == meal).toList();
       if (items.isEmpty) continue;
       mealTotals[meal] = MacroValues.sum(items.map((e) => e.macros));
+      mealEntries[meal] = items;
     }
     if (mealTotals.isEmpty) {
       return Center(
@@ -283,8 +295,14 @@ class _MealBreakdownPanel extends StatelessWidget {
           // Title
           const Text('Meal Breakdown',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 12),
-          // Stacked proportion bar
+          const SizedBox(height: 2),
+          Text('Tap a meal to reveal details',
+              style: TextStyle(
+                  fontSize: 10,
+                  color: cs.textMuted,
+                  fontStyle: FontStyle.italic)),
+          const SizedBox(height: 10),
+          // Stacked bar — segments tappable
           ClipRRect(
             borderRadius: BorderRadius.circular(5),
             child: SizedBox(
@@ -294,57 +312,86 @@ class _MealBreakdownPanel extends StatelessWidget {
                   final flex = totalKcal > 0
                       ? ((e.value.kcal / totalKcal) * 1000).round()
                       : 0;
+                  final color = _mealColors[e.key] ?? AppColors.kcal;
+                  final isExp = _expanded == e.key;
                   return Flexible(
                     flex: flex,
-                    child: Container(
-                        color: _mealColors[e.key] ?? AppColors.kcal),
+                    child: GestureDetector(
+                      onTap: () => _toggle(e.key),
+                      child: Container(
+                        color: color,
+                        foregroundDecoration: isExp
+                            ? BoxDecoration(
+                                border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.6),
+                                    width: 1.5))
+                            : null,
+                      ),
+                    ),
                   );
                 }).toList(),
               ),
             ),
           ),
-          const SizedBox(height: 12),
           const SizedBox(height: 10),
           // Meal rows
           ...mealTotals.entries.map((e) {
-            final color = _mealColors[e.key] ?? AppColors.kcal;
-            final share = totalKcal > 0
-                ? (e.value.kcal / totalKcal).clamp(0.0, 1.0)
-                : 0.0;
-            final pct = (share * 100).round();
+            final color  = _mealColors[e.key] ?? AppColors.kcal;
+            final share  = totalKcal > 0
+                ? (e.value.kcal / totalKcal).clamp(0.0, 1.0) : 0.0;
+            final pct    = (share * 100).round();
+            final isExp  = _expanded == e.key;
+            final mt     = e.value;
+            final foods  = (mealEntries[e.key] ?? [])
+              ..sort((a, b) => b.macros.kcal.compareTo(a.macros.kcal));
+
             return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.only(bottom: 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                          width: 5, height: 5,
-                          decoration: BoxDecoration(
-                              color: color, shape: BoxShape.circle)),
-                      const SizedBox(width: 7),
-                      Text(_mealEmoji(e.key),
-                          style: const TextStyle(fontSize: 13)),
-                      const SizedBox(width: 7),
-                      Expanded(
-                        child: Text(mealLabels[e.key] ?? e.key,
-                            style: const TextStyle(
-                                fontSize: 12, fontWeight: FontWeight.w500)),
-                      ),
-                      Text('${e.value.kcal.round()}',
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: color)),
-                      Text(' kcal',
-                          style: TextStyle(fontSize: 11, color: cs.textMuted)),
-                      const SizedBox(width: 4),
-                      Text('· $pct%',
-                          style: TextStyle(fontSize: 10, color: cs.textMuted)),
-                    ],
+                  // ── Tappable header row ────────────────────────────
+                  GestureDetector(
+                    onTap: () => _toggle(e.key),
+                    behavior: HitTestBehavior.opaque,
+                    child: Row(
+                      children: [
+                        Container(width: 5, height: 5,
+                            decoration: BoxDecoration(
+                                color: color, shape: BoxShape.circle)),
+                        const SizedBox(width: 7),
+                        Text(_mealEmoji(e.key),
+                            style: const TextStyle(fontSize: 13)),
+                        const SizedBox(width: 7),
+                        Expanded(
+                          child: Text(mealLabels[e.key] ?? e.key,
+                              style: const TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.w500)),
+                        ),
+                        Text('${mt.kcal.round()}',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: color)),
+                        Text(' kcal',
+                            style: TextStyle(
+                                fontSize: 11, color: cs.textMuted)),
+                        const SizedBox(width: 4),
+                        Text('· $pct%',
+                            style: TextStyle(
+                                fontSize: 10, color: cs.textMuted)),
+                        const SizedBox(width: 6),
+                        AnimatedRotation(
+                          turns: isExp ? 0.5 : 0.0,
+                          duration: const Duration(milliseconds: 200),
+                          child: Icon(Icons.keyboard_arrow_down,
+                              size: 14, color: cs.textMuted),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 4),
+                  // Mini proportion bar
                   ClipRRect(
                     borderRadius: BorderRadius.circular(2),
                     child: LinearProgressIndicator(
@@ -354,12 +401,117 @@ class _MealBreakdownPanel extends StatelessWidget {
                       valueColor: AlwaysStoppedAnimation<Color>(color),
                     ),
                   ),
+                  // ── Expandable detail ──────────────────────────────
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeInOut,
+                    child: isExp
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: AnimatedOpacity(
+                              opacity: isExp ? 1.0 : 0.0,
+                              duration: const Duration(milliseconds: 200),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Macro chips
+                                  Row(children: [
+                                    _MacroChip('P', mt.protein, AppColors.protein, cs),
+                                    const SizedBox(width: 6),
+                                    _MacroChip('C', mt.carbs, AppColors.carbs, cs),
+                                    const SizedBox(width: 6),
+                                    _MacroChip('F', mt.fat, AppColors.fat, cs),
+                                  ]),
+                                  const SizedBox(height: 6),
+                                  Divider(height: 1, color: cs.border),
+                                  const SizedBox(height: 4),
+                                  // Food list with fade + scroll
+                                  SizedBox(
+                                    height: 96,
+                                    child: ShaderMask(
+                                      shaderCallback: (rect) => LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          Colors.white,
+                                          Colors.white,
+                                          Colors.white.withValues(alpha: 0),
+                                        ],
+                                        stops: const [0, 0.75, 1],
+                                      ).createShader(rect),
+                                      blendMode: BlendMode.dstIn,
+                                      child: ListView.builder(
+                                        padding: EdgeInsets.zero,
+                                        physics:
+                                            const ClampingScrollPhysics(),
+                                        itemCount: foods.length,
+                                        itemBuilder: (_, idx) {
+                                          final f = foods[idx];
+                                          return Padding(
+                                            padding: const EdgeInsets.only(
+                                                bottom: 5),
+                                            child: Row(children: [
+                                              Expanded(
+                                                child: Text(
+                                                  f.food?.name ?? f.foodId,
+                                                  style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: cs.textPrimary),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              Text(
+                                                '${f.macros.kcal.round()} kcal',
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight:
+                                                        FontWeight.w600,
+                                                    color: color),
+                                              ),
+                                            ]),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
                 ],
               ),
             );
           }),
         ],
       ),
+    );
+  }
+}
+
+// ── Macro chip for meal detail ────────────────────────────────────────────────
+class _MacroChip extends StatelessWidget {
+  const _MacroChip(this.label, this.grams, this.color, this.cs);
+  final String label;
+  final double grams;
+  final Color color;
+  final AppColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text('$label  ${grams.round()}g',
+          style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: color)),
     );
   }
 }
