@@ -190,47 +190,71 @@ class _FoodLoggingCardState extends ConsumerState<FoodLoggingCard> {
                   );
                 }
                 final maxVal = avgs.values.reduce((a, b) => a > b ? a : b);
+                final total  = avgs.values.fold(0.0, (s, v) => s + v);
+                final totalStr = total >= 10
+                    ? '${total.round()} $_unit'
+                    : '${total.toStringAsFixed(1)} $_unit';
                 return Column(
-                  children: avgs.entries.map((e) {
-                    final share =
-                        maxVal > 0 ? (e.value / maxVal).clamp(0.0, 1.0) : 0.0;
-                    final valStr = e.value >= 10
-                        ? '${e.value.round()} $_unit'
-                        : '${e.value.toStringAsFixed(1)} $_unit';
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Column(
-                        children: [
-                          Row(children: [
-                            Text(_mealIcons[e.key] ?? '🍽️',
-                                style: const TextStyle(fontSize: 13)),
-                            const SizedBox(width: 7),
-                            Expanded(
-                              child: Text(mealLabels[e.key] ?? e.key,
-                                  style: const TextStyle(
+                  children: [
+                    ...avgs.entries.map((e) {
+                      final share =
+                          maxVal > 0 ? (e.value / maxVal).clamp(0.0, 1.0) : 0.0;
+                      final valStr = e.value >= 10
+                          ? '${e.value.round()} $_unit'
+                          : '${e.value.toStringAsFixed(1)} $_unit';
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Column(
+                          children: [
+                            Row(children: [
+                              Text(_mealIcons[e.key] ?? '🍽️',
+                                  style: const TextStyle(fontSize: 13)),
+                              const SizedBox(width: 7),
+                              Expanded(
+                                child: Text(mealLabels[e.key] ?? e.key,
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500)),
+                              ),
+                              Text(valStr,
+                                  style: TextStyle(
                                       fontSize: 12,
-                                      fontWeight: FontWeight.w500)),
+                                      fontWeight: FontWeight.w700,
+                                      color: _color)),
+                            ]),
+                            const SizedBox(height: 4),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(2),
+                              child: LinearProgressIndicator(
+                                value: share,
+                                minHeight: 4,
+                                backgroundColor: cs.border,
+                                valueColor: AlwaysStoppedAnimation(_color),
+                              ),
                             ),
-                            Text(valStr,
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: _color)),
-                          ]),
-                          const SizedBox(height: 4),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(2),
-                            child: LinearProgressIndicator(
-                              value: share,
-                              minHeight: 4,
-                              backgroundColor: cs.border,
-                              valueColor: AlwaysStoppedAnimation(_color),
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
+                      );
+                    }),
+                    // Total row
+                    Divider(height: 16, color: cs.border),
+                    Row(children: [
+                      const Text('∑',
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w700)),
+                      const SizedBox(width: 7),
+                      const Expanded(
+                        child: Text('Total',
+                            style: TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w700)),
                       ),
-                    );
-                  }).toList(),
+                      Text(totalStr,
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: _color)),
+                    ]),
+                  ],
                 );
               },
             ),
