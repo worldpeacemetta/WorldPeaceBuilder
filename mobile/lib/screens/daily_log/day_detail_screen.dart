@@ -87,8 +87,10 @@ class _DayDetailScreenState extends ConsumerState<DayDetailScreen> {
           SliverToBoxAdapter(
             child: Column(
               children: [
-                SizedBox(
-                  height: 340,
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                  height: const [340.0, 185.0, 215.0, 185.0][_currentPage],
                   child: PageView(
                     controller: _pageController,
                     scrollBehavior: const ScrollBehavior().copyWith(
@@ -374,8 +376,9 @@ class _TopFoodsPanel extends StatelessWidget {
     final sorted = [...entries]
       ..sort((a, b) =>
           _macroValue(b.macros).compareTo(_macroValue(a.macros)));
-    final top3 = sorted.take(3).toList();
-    final maxVal = top3.isNotEmpty ? _macroValue(top3.first.macros) : 1.0;
+    final top5 = sorted.take(5).toList();
+    final maxVal = top5.isNotEmpty ? _macroValue(top5.first.macros) : 1.0;
+    final totalVal = entries.fold(0.0, (s, e) => s + _macroValue(e.macros));
     const keys = ['kcal', 'protein', 'carbs', 'fat'];
     const labels = ['Cal', 'Pro', 'Carb', 'Fat'];
     const colors = <Color>[
@@ -421,10 +424,10 @@ class _TopFoodsPanel extends StatelessWidget {
             }),
           ),
           const SizedBox(height: 8),
-          ...top3.map((entry) {
+          ...top5.map((entry) {
             final val = _macroValue(entry.macros);
-            final share =
-                maxVal > 0 ? (val / maxVal).clamp(0.0, 1.0) : 0.0;
+            final share = maxVal > 0 ? (val / maxVal).clamp(0.0, 1.0) : 0.0;
+            final pct = totalVal > 0 ? (val / totalVal * 100).round() : 0;
             return Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: Column(
@@ -434,9 +437,7 @@ class _TopFoodsPanel extends StatelessWidget {
                       Expanded(
                         child: Text(
                           entry.food?.name ?? entry.foodId,
-                          style: TextStyle(
-                              color: cs.textPrimary,
-                              fontSize: 12),
+                          style: TextStyle(color: cs.textPrimary, fontSize: 12),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -445,6 +446,11 @@ class _TopFoodsPanel extends StatelessWidget {
                               color: _color,
                               fontSize: 12,
                               fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 4),
+                      Text('· $pct%',
+                          style: TextStyle(
+                              color: cs.textMuted,
+                              fontSize: 11)),
                     ],
                   ),
                   const SizedBox(height: 3),
