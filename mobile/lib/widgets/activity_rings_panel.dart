@@ -28,6 +28,19 @@ class _ActivityRingsPanelState extends State<ActivityRingsPanel>
   }
 
   @override
+  void didUpdateWidget(ActivityRingsPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Re-run the animation when real data arrives (replaces the initial zero state).
+    final hadNoData = oldWidget.totals.kcal == 0 && oldWidget.totals.protein == 0
+        && oldWidget.totals.carbs == 0 && oldWidget.totals.fat == 0;
+    final hasData = widget.totals.kcal > 0 || widget.totals.protein > 0
+        || widget.totals.carbs > 0 || widget.totals.fat > 0;
+    if (hadNoData && hasData) {
+      _ctrl.forward(from: 0);
+    }
+  }
+
+  @override
   void dispose() {
     _ctrl.dispose();
     super.dispose();
