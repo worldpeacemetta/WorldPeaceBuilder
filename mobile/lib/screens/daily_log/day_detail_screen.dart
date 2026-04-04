@@ -281,7 +281,7 @@ class _MealBreakdownPanel extends StatelessWidget {
           // Title
           const Text('Meal Breakdown',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-          const Spacer(),
+          const SizedBox(height: 12),
           // Stacked proportion bar
           ClipRRect(
             borderRadius: BorderRadius.circular(5),
