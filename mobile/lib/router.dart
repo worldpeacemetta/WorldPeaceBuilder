@@ -21,7 +21,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   final authNotifier = ref.watch(authStateProvider.notifier);
 
   return GoRouter(
-    initialLocation: '/log',
+    initialLocation: '/dashboard',
     refreshListenable: authNotifier,
     redirect: (context, state) {
       final session = Supabase.instance.client.auth.currentSession;
