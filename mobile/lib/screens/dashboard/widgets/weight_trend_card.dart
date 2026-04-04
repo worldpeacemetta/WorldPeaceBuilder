@@ -8,10 +8,8 @@ import '../../../core/utils.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../theme.dart';
 
-// Cyan — matches web app's body fat line colour.
-const _kBFColor = Color(0xFF22D3EE);
-// Purple — matches web app's weight line colour.
-const _kWeightColor = Color(0xFFA855F7);
+const _kWeightColor = AppColors.kcal;
+const _kBFColor     = AppColors.protein;
 
 class WeightTrendCard extends ConsumerStatefulWidget {
   const WeightTrendCard({super.key});
