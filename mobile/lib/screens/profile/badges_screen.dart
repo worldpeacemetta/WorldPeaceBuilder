@@ -174,73 +174,280 @@ class _BadgeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = AppColorScheme.of(context);
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: cs.card,
-        borderRadius: BorderRadius.circular(12),
-        border: unlocked
-            ? Border.all(
-                color: def.colorEnd.withValues(alpha: 0.4),
-                width: 1,
-              )
-            : null,
-      ),
-      child: Row(
-        children: [
-          BadgeWidget(def: def, size: 48, locked: !unlocked),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        def.name,
-                        style: TextStyle(
-                          color: unlocked
-                              ? cs.textPrimary
-                              : cs.textMuted,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    if (unlocked)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: def.colorStart.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
+    return GestureDetector(
+      onTap: () => _showBadgeDetail(context, def),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: cs.card,
+          borderRadius: BorderRadius.circular(12),
+          border: unlocked
+              ? Border.all(
+                  color: def.colorEnd.withValues(alpha: 0.4),
+                  width: 1,
+                )
+              : null,
+        ),
+        child: Row(
+          children: [
+            BadgeWidget(def: def, size: 48, locked: !unlocked),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
                         child: Text(
-                          'Unlocked',
+                          def.name,
                           style: TextStyle(
-                            color: def.colorEnd,
-                            fontSize: 10,
+                            color: unlocked ? cs.textPrimary : cs.textMuted,
+                            fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
-                  ],
+                      if (unlocked)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: def.colorStart.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            'Unlocked',
+                            style: TextStyle(
+                              color: def.colorEnd,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    def.desc,
+                    style: TextStyle(color: cs.textMuted, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, size: 16,
+                color: cs.textMuted.withValues(alpha: 0.5)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Badge detail bottom sheet
+// ---------------------------------------------------------------------------
+
+void _showBadgeDetail(BuildContext context, BadgeDef initial) {
+  // Gather earned state from the nearest ProviderScope
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (ctx) => ProviderScope(
+      parent: ProviderScope.containerOf(context),
+      child: _BadgeDetailSheet(initial: initial),
+    ),
+  );
+}
+
+class _BadgeDetailSheet extends ConsumerStatefulWidget {
+  const _BadgeDetailSheet({required this.initial});
+  final BadgeDef initial;
+
+  @override
+  ConsumerState<_BadgeDetailSheet> createState() => _BadgeDetailSheetState();
+}
+
+class _BadgeDetailSheetState extends ConsumerState<_BadgeDetailSheet> {
+  late final PageController _pageCtrl;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = kBadges.indexWhere((b) => b.stringId == widget.initial.stringId);
+    if (_currentIndex < 0) _currentIndex = 0;
+    _pageCtrl = PageController(initialPage: _currentIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageCtrl.dispose();
+    super.dispose();
+  }
+
+  void _goTo(int index) {
+    _pageCtrl.animateToPage(index,
+        duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final earned = ref.watch(badgesProvider).earned;
+    final cs = AppColorScheme.of(context);
+    final def = kBadges[_currentIndex];
+    final unlocked = earned.contains(def.stringId);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.card,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 36),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle
+          Container(
+            width: 40, height: 4,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: cs.border,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          // PageView — swipeable badges
+          SizedBox(
+            height: 240,
+            child: PageView.builder(
+              controller: _pageCtrl,
+              itemCount: kBadges.length,
+              onPageChanged: (i) => setState(() => _currentIndex = i),
+              itemBuilder: (_, i) {
+                final b = kBadges[i];
+                final isUnlocked = earned.contains(b.stringId);
+                return _BadgePage(def: b, unlocked: isUnlocked);
+              },
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Name + category
+          Text(def.name,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          Text(def.category,
+              style: TextStyle(fontSize: 12, color: cs.textMuted,
+                  fontWeight: FontWeight.w500)),
+          const SizedBox(height: 8),
+          Text(def.desc,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: cs.textMuted, height: 1.4)),
+
+          const SizedBox(height: 16),
+
+          // Unlocked chip
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: BoxDecoration(
+              color: unlocked
+                  ? def.colorStart.withValues(alpha: 0.15)
+                  : cs.border.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  unlocked ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
+                  size: 13,
+                  color: unlocked ? def.colorEnd : cs.textMuted,
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(width: 5),
                 Text(
-                  def.desc,
+                  unlocked ? 'Unlocked' : 'Locked',
                   style: TextStyle(
-                    color: cs.textMuted,
                     fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: unlocked ? def.colorEnd : cs.textMuted,
                   ),
                 ),
               ],
             ),
           ),
+
+          const SizedBox(height: 24),
+
+          // Arrow navigation
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                onPressed: _currentIndex > 0
+                    ? () => _goTo(_currentIndex - 1)
+                    : null,
+                icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                iconSize: 20,
+                color: _currentIndex > 0 ? cs.textPrimary : cs.border,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '${_currentIndex + 1} / ${kBadges.length}',
+                style: TextStyle(fontSize: 12, color: cs.textMuted),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: _currentIndex < kBadges.length - 1
+                    ? () => _goTo(_currentIndex + 1)
+                    : null,
+                icon: const Icon(Icons.arrow_forward_ios_rounded),
+                iconSize: 20,
+                color: _currentIndex < kBadges.length - 1
+                    ? cs.textPrimary
+                    : cs.border,
+              ),
+            ],
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _BadgePage extends StatelessWidget {
+  const _BadgePage({required this.def, required this.unlocked});
+  final BadgeDef def;
+  final bool unlocked;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          width: 160,
+          height: 160,
+          decoration: unlocked
+              ? BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: def.colorStart.withValues(alpha: 0.35),
+                      blurRadius: 40,
+                      spreadRadius: 12,
+                    ),
+                  ],
+                )
+              : null,
+          child: Center(
+            child: BadgeWidget(def: def, size: 140, locked: !unlocked),
+          ),
+        ),
+      ],
     );
   }
 }
