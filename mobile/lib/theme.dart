@@ -6,8 +6,8 @@ class AppColors {
 
   static const kcal    = Color(0xFFD0C3F1); // lavender
   static const protein = Color(0xFFC3DCD8); // teal mist
-  static const carbs   = Color(0xFFCEEEF8); // sky
-  static const fat     = Color(0xFFFEF1AB); // butter
+  static const carbs   = Color(0xFFF5A7A6); // rose
+  static const fat     = Color(0xFFF5CF9F); // peach
 
   // Surface / background (dark mode constants — use AppColorScheme for theme-aware colours)
   static const bg      = Color(0xFF0F1117);
