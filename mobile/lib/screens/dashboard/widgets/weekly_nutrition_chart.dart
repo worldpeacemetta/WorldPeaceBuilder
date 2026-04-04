@@ -264,7 +264,7 @@ class _Grid extends StatelessWidget {
                       child: _BarCell(
                         actual      : _actual(totals[col], _keys[r]),
                         goal        : _goal(goals[col], _keys[r]),
-                        color       : _colors[_keys[r]]!,
+                        color       : colors[_keys[r]]!,
                         showRemaining: showRemaining,
                       ),
                     ),
