@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -44,8 +46,10 @@ class BadgesNotifier extends StateNotifier<BadgesState> {
   final Ref _ref;
   final _supabase = Supabase.instance.client;
 
-  // Whether the first DB load has completed (prevents popup-on-first-load).
-  bool _initialLoadDone = false;
+  // Completer that resolves once the initial DB load finishes.
+  // recompute() awaits this so it never runs before the baseline is known,
+  // even if the provider was just created moments ago.
+  final Completer<void> _loadCompleter = Completer<void>();
 
   Future<void> load() async {
     final user = _supabase.auth.currentUser;
@@ -65,8 +69,6 @@ class BadgesNotifier extends StateNotifier<BadgesState> {
           .map((r) => r['badge_id'] as String)
           .toSet();
     } catch (_) {}
-
-    _initialLoadDone = true;
 
     // 2. Compute earned badges from current data.
     final computed = await _computeFromData();
@@ -88,6 +90,7 @@ class BadgesNotifier extends StateNotifier<BadgesState> {
     }
 
     state = BadgesState(earned: merged, loading: false);
+    if (!_loadCompleter.isCompleted) _loadCompleter.complete();
   }
 
   Future<Set<String>> _computeFromData() async {
@@ -128,7 +131,10 @@ class BadgesNotifier extends StateNotifier<BadgesState> {
 
   /// Call after new entries or foods are added to recompute badges.
   Future<void> recompute() async {
-    if (!_initialLoadDone) return;
+    // Wait for the initial load so we have the correct baseline of already-
+    // earned badges before computing deltas (works even if the provider was
+    // just created and load() hasn't finished yet).
+    await _loadCompleter.future;
     final user = _supabase.auth.currentUser;
     if (user == null) return;
 

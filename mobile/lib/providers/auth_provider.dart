@@ -59,7 +59,8 @@ Future<AuthResponse> signUp({
     password: password,
     data: {
       'username': username.trim().toLowerCase(),
-      'display_username': username.trim(),
+      // display_username is set at the end of the onboarding questionnaire,
+      // so _onboardingDone() correctly returns false until onboarding completes.
     },
   );
 }
