@@ -241,7 +241,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         if (f.containsKey('serving_size')) 'serving_size': f['serving_size'],
       }).toList();
 
-      await Supabase.instance.client.from('foods').insert(payload);
+      final inserted = await Supabase.instance.client
+          .from('foods')
+          .insert(payload)
+          .select('id');
+
+      // Persist the seeded IDs so badge computation can exclude them from
+      // user-added food counts (mirrors web app's defaultFoodIds).
+      final ids = (inserted as List).map((r) => r['id'] as String).toList();
+      if (ids.isNotEmpty) {
+        await ref.read(settingsProvider.notifier).update(
+          ref.read(settingsProvider).copyWith(defaultFoodIds: ids),
+        );
+      }
     } catch (_) {
       // Non-fatal — the user can still add foods manually.
     }

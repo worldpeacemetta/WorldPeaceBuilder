@@ -124,6 +124,10 @@ class AppSettings {
   // Per-date goal overrides — mirrors web app's daily_macro_goals.byDate
   // Key: ISO date string, Value: {setup, profile}
   final Map<String, Map<String, String>> goalSchedule;
+  // IDs of the default foods seeded at onboarding — excluded from food-count
+  // badges so only foods the user adds themselves count toward milestones.
+  // Mirrors web app's defaultFoodIds in daily_macro_goals.
+  final List<String> defaultFoodIds;
 
   const AppSettings({
     this.setupMode = 'maintenance',
@@ -138,6 +142,7 @@ class AppSettings {
     this.bodyStats = const BodyStats(),
     this.weightHistory = const [],
     this.goalSchedule = const {},
+    this.defaultFoodIds = const [],
   });
 
   MacroGoals get activeGoals {
@@ -222,6 +227,7 @@ class AppSettings {
     goalSchedule: (j['goalSchedule'] as Map?)?.map(
       (k, v) => MapEntry(k as String, (v as Map).cast<String, String>()),
     ) ?? {},
+    defaultFoodIds: (j['defaultFoodIds'] as List?)?.cast<String>() ?? [],
   );
 
   Map<String, dynamic> toJson() => {
@@ -237,6 +243,7 @@ class AppSettings {
     'bodyStats': bodyStats.toJson(),
     'weightHistory': weightHistory.map((e) => e.toJson()).toList(),
     'goalSchedule': goalSchedule,
+    'defaultFoodIds': defaultFoodIds,
   };
 
   AppSettings copyWith({
@@ -252,6 +259,7 @@ class AppSettings {
     BodyStats? bodyStats,
     List<WeightEntry>? weightHistory,
     Map<String, Map<String, String>>? goalSchedule,
+    List<String>? defaultFoodIds,
   }) => AppSettings(
     setupMode: setupMode ?? this.setupMode,
     dualProfile: dualProfile ?? this.dualProfile,
@@ -265,6 +273,7 @@ class AppSettings {
     bodyStats    : bodyStats     ?? this.bodyStats,
     weightHistory: weightHistory ?? this.weightHistory,
     goalSchedule : goalSchedule  ?? this.goalSchedule,
+    defaultFoodIds: defaultFoodIds ?? this.defaultFoodIds,
   );
 }
 
@@ -448,6 +457,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
       cuttingGoals:     _goalsFromJson(g['cutting']),
       maintenanceGoals: _goalsFromJson(g['maintenance']),
       goalSchedule:     goalSchedule,
+      defaultFoodIds:   (g['defaultFoodIds'] as List?)?.cast<String>() ?? [],
     );
   }
 
@@ -462,6 +472,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     'cutting':      s.cuttingGoals.toJson(),
     'maintenance':  s.maintenanceGoals.toJson(),
     'byDate': s.goalSchedule,  // always write — omitting wipes web-app overrides
+    if (s.defaultFoodIds.isNotEmpty) 'defaultFoodIds': s.defaultFoodIds,
   };
 }
 

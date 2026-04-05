@@ -116,8 +116,9 @@ class BadgesNotifier extends StateNotifier<BadgesState> {
     final userFoodsCount = foods.length;
     final hasHomeRecipe = foods.any((f) => f.category == 'homeRecipe');
 
-    // Goals resolver.
+    // Goals resolver + default food IDs for badge exclusion.
     final settings = _ref.read(settingsProvider);
+    final defaultFoodIds = settings.defaultFoodIds.toSet();
     ({double kcal, double protein, double carbs, double fat}) goalsForDate(String date) {
       final g = settings.goalsForDate(date);
       return (kcal: g.kcal, protein: g.protein, carbs: g.carbs, fat: g.fat);
@@ -127,6 +128,7 @@ class BadgesNotifier extends StateNotifier<BadgesState> {
       entries: entries,
       userFoodsCount: userFoodsCount,
       hasHomeRecipe: hasHomeRecipe,
+      defaultFoodIds: defaultFoodIds,
       goalsForDate: goalsForDate,
     );
   }

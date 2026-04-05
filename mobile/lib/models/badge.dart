@@ -126,11 +126,17 @@ Set<String> computeEarnedBadgeStringIds({
   required List<RawBadgeEntry> entries,
   required int userFoodsCount,
   required bool hasHomeRecipe,
+  /// IDs of default foods seeded at onboarding — excluded from food-count
+  /// badges so only foods the user added themselves count toward milestones.
+  Set<String> defaultFoodIds = const {},
   /// Returns MacroGoals (kcal/protein/carbs/fat) for a given ISO date.
   required ({double kcal, double protein, double carbs, double fat}) Function(String date) goalsForDate,
 }) {
+  // Only count foods the user actually added themselves.
+  final addedFoodsCount = (userFoodsCount - defaultFoodIds.length).clamp(0, userFoodsCount);
+
   final loggedDates = entries.map((e) => e.date).toSet().toList()..sort();
-  if (loggedDates.isEmpty && userFoodsCount == 0 && !hasHomeRecipe) return {};
+  if (loggedDates.isEmpty && addedFoodsCount == 0 && !hasHomeRecipe) return {};
 
   // Group entries by date
   final byDate = <String, List<RawBadgeEntry>>{};
@@ -206,12 +212,12 @@ Set<String> computeEarnedBadgeStringIds({
     if (perfectDates.length >= 30) 'perfect_day_30',
     // Veggie milestone
     if (veggieDates.isNotEmpty) 'veggie_day_1',
-    // Food library
-    if (userFoodsCount >= 10)  'foods_added_10',
-    if (userFoodsCount >= 25)  'foods_added_25',
-    if (userFoodsCount >= 50)  'foods_added_50',
-    if (userFoodsCount >= 100) 'foods_added_100',
-    if (userFoodsCount >= 200) 'foods_added_200',
+    // Food library — uses only user-added foods, not seeded defaults
+    if (addedFoodsCount >= 10)  'foods_added_10',
+    if (addedFoodsCount >= 25)  'foods_added_25',
+    if (addedFoodsCount >= 50)  'foods_added_50',
+    if (addedFoodsCount >= 100) 'foods_added_100',
+    if (addedFoodsCount >= 200) 'foods_added_200',
     // Recipe
     if (hasHomeRecipe) 'recipe_first',
   };
