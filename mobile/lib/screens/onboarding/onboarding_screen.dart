@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/default_foods.dart';
+import '../../providers/foods_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../theme.dart';
 
@@ -213,6 +215,38 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
   }
 
+  // ── Default food seeding ─────────────────────────────────────────────────────
+
+  /// Inserts the 34 default foods for a brand-new user.
+  /// Checks for existing foods first so this is a no-op for any user who
+  /// already has foods in their database (existing accounts are unaffected).
+  Future<void> _seedDefaultFoods(String userId) async {
+    try {
+      final existing = await Supabase.instance.client
+          .from('foods')
+          .select('id')
+          .eq('user_id', userId)
+          .limit(1);
+      if ((existing as List).isNotEmpty) return;
+
+      final payload = kDefaultFoods.map((f) => {
+        'user_id':  userId,
+        'name':     f['name'],
+        'unit':     f['unit'],
+        'category': f['category'],
+        'kcal':     f['kcal'],
+        'fat':      f['fat'],
+        'carbs':    f['carbs'],
+        'protein':  f['protein'],
+        if (f.containsKey('serving_size')) 'serving_size': f['serving_size'],
+      }).toList();
+
+      await Supabase.instance.client.from('foods').insert(payload);
+    } catch (_) {
+      // Non-fatal — the user can still add foods manually.
+    }
+  }
+
   // ── Save ────────────────────────────────────────────────────────────────────
 
   Future<void> _handleComplete() async {
@@ -292,8 +326,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       // _saveToSupabase, which uses the correct table and column names.
       await ref.read(settingsProvider.notifier).update(updated);
 
+      // 3. Seed the default food library (skipped if foods already exist so
+      //    existing users are never affected).
+      await _seedDefaultFoods(user.id);
+
       if (mounted) {
         ref.invalidate(settingsProvider);
+        ref.invalidate(foodsProvider);
         context.go('/log');
       }
     } catch (e) {
