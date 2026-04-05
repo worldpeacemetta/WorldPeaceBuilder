@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/auth_provider.dart';
 import '../providers/badges_provider.dart';
+import '../providers/entries_provider.dart';
+import '../providers/foods_provider.dart';
+import '../providers/log_history_provider.dart';
 import '../providers/settings_provider.dart';
 import '../theme.dart';
 
@@ -40,6 +43,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     try {
       if (_mode == _AuthMode.signIn) {
         await signInWithUsername(_usernameCtrl.text, _passwordCtrl.text);
+        // Flush any stale data from a previous session before loading fresh.
+        ref.invalidate(foodsProvider);
+        ref.invalidate(entriesProvider);
+        ref.invalidate(loggedDatesProvider);
+        ref.invalidate(badgesProvider);
         // Pull settings and badges from Supabase immediately after sign-in.
         await ref.read(settingsProvider.notifier).syncFromSupabase();
         ref.read(badgesProvider.notifier).load();

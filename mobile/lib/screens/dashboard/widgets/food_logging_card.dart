@@ -187,15 +187,35 @@ class _FoodLoggingCardState extends ConsumerState<FoodLoggingCard> {
               final isLoading = entriesAsync.isLoading;
               final avgs = _lastAvgs;
 
-              if (avgs == null || avgs.isEmpty) {
-                return entriesAsync.hasError
-                    ? Text('Failed to load', style: TextStyle(color: cs.textMuted))
-                    : const Center(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      );
+              // Show spinner only while data is still in flight AND we have
+              // nothing cached to display yet.
+              if (avgs == null) {
+                if (isLoading) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
+                }
+                // Data loaded but no entries in this period — empty state.
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Center(
+                    child: Text(
+                      'No meals logged in this period',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: cs.textMuted,
+                          fontStyle: FontStyle.italic),
+                    ),
+                  ),
+                );
+              }
+
+              if (entriesAsync.hasError) {
+                return Text('Failed to load',
+                    style: TextStyle(color: cs.textMuted));
               }
 
               final maxVal   = _lastMaxVal;

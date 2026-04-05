@@ -10,6 +10,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../providers/badges_provider.dart';
+import '../../providers/entries_provider.dart';
+import '../../providers/foods_provider.dart';
+import '../../providers/log_history_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../theme.dart';
 
@@ -394,6 +398,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
     if (ok == true) {
       await ref.read(settingsProvider.notifier).clearLocalCache();
+      // Invalidate all user-scoped data so the next sign-in starts clean.
+      ref.invalidate(foodsProvider);
+      ref.invalidate(entriesProvider);
+      ref.invalidate(loggedDatesProvider);
+      ref.invalidate(badgesProvider);
       await signOut();
     }
   }
