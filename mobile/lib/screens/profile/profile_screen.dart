@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../theme.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -391,7 +392,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ],
       ),
     );
-    if (ok == true) await signOut();
+    if (ok == true) {
+      await ref.read(settingsProvider.notifier).clearLocalCache();
+      await signOut();
+    }
   }
 }
 

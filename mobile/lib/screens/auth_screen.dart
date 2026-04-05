@@ -42,8 +42,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         // Pull goals from Supabase immediately after sign-in.
         await ref.read(settingsProvider.notifier).syncFromSupabase();
       } else {
+        // Username is collected during the onboarding questionnaire; use the
+        // email prefix as a temporary placeholder.
+        final tempUsername = _emailCtrl.text.trim().split('@').first;
         await signUp(
-          username: _usernameCtrl.text,
+          username: tempUsername,
           email: _emailCtrl.text,
           password: _passwordCtrl.text,
         );
@@ -90,17 +93,19 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 ),
                 const SizedBox(height: 36),
 
-                // Username field
-                TextField(
-                  controller: _usernameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Username',
-                    prefixIcon: Icon(Icons.person_outline),
+                // Username field — shown only for sign-in (used for lookup)
+                if (isSignIn) ...[
+                  TextField(
+                    controller: _usernameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Username or email',
+                      prefixIcon: Icon(Icons.person_outline),
+                    ),
+                    textInputAction: TextInputAction.next,
+                    autocorrect: false,
                   ),
-                  textInputAction: isSignIn ? TextInputAction.next : TextInputAction.next,
-                  autocorrect: false,
-                ),
-                const SizedBox(height: 14),
+                  const SizedBox(height: 14),
+                ],
 
                 // Email (sign-up only)
                 if (!isSignIn) ...[

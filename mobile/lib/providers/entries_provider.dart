@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/utils.dart';
 import '../models/entry.dart';
 import '../models/food.dart';
+import 'badges_provider.dart';
 import 'date_provider.dart';
 import 'log_history_provider.dart';
 
@@ -78,6 +79,8 @@ class EntriesNotifier extends StateNotifier<AsyncValue<List<Entry>>> {
       final entry = Entry.fromJson(row as Map<String, dynamic>);
       state = state.whenData((list) => [...list, entry]);
       _ref.invalidate(loggedDatesProvider);
+      // Recompute badges so milestones like "First Step" trigger immediately.
+      _ref.read(badgesProvider.notifier).recompute();
       return true;
     } catch (_) {
       return false;

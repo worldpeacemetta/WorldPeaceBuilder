@@ -230,7 +230,29 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         }),
       );
 
-      // 2. Build goals and save via settings provider
+      // 2. Build goals + body stats and save via settings provider
+      final heightCm = _unit == 'metric'
+          ? double.tryParse(_heightCmCtrl.text) ?? 0
+          : _ftInToCm(double.tryParse(_heightFtCtrl.text) ?? 0,
+                      double.tryParse(_heightInCtrl.text) ?? 0);
+      final weightKg = _unit == 'metric'
+          ? double.tryParse(_weightKgCtrl.text) ?? 0
+          : _lbToKg(double.tryParse(_weightLbCtrl.text) ?? 0);
+      final bodyStats = BodyStats(
+        age:        _ageCtrl.text.isNotEmpty ? int.tryParse(_ageCtrl.text) : null,
+        sex:        _sex.isNotEmpty ? _sex : 'other',
+        heightCm:   heightCm > 0 ? heightCm : null,
+        weightKg:   weightKg > 0 ? weightKg : null,
+        bodyFatPct: _bodyFatCtrl.text.isNotEmpty
+            ? double.tryParse(_bodyFatCtrl.text)
+            : null,
+        activity:   _activity,
+      );
+      // Seed an initial weight-history entry if the user supplied their weight.
+      final weightHistory = weightKg > 0
+          ? [WeightEntry(date: DateTime.now().toIso8601String().substring(0, 10), weight: weightKg)]
+          : <WeightEntry>[];
+
       final AppSettings updated;
       if (_goalMode == 'dual') {
         updated = ref.read(settingsProvider).copyWith(
@@ -247,6 +269,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             carbs:   double.tryParse(_rCarbsCtrl.text)   ?? 140,
             fat:     double.tryParse(_rFatCtrl.text)     ?? 67,
           ),
+          bodyStats: bodyStats,
+          weightHistory: weightHistory.isNotEmpty ? weightHistory : null,
         );
       } else {
         final goals = MacroGoals(
@@ -260,27 +284,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           maintenanceGoals: _goalMode == 'maintenance' ? goals : null,
           bulkingGoals:     _goalMode == 'bulking'     ? goals : null,
           cuttingGoals:     _goalMode == 'cutting'     ? goals : null,
+          bodyStats: bodyStats,
+          weightHistory: weightHistory.isNotEmpty ? weightHistory : null,
         );
       }
+      // update() persists everything (goals + body stats) to user_profile via
+      // _saveToSupabase, which uses the correct table and column names.
       await ref.read(settingsProvider.notifier).update(updated);
-
-      // 3. Save body stats to profile
-      final heightCm = _unit == 'metric'
-          ? double.tryParse(_heightCmCtrl.text) ?? 0
-          : _ftInToCm(double.tryParse(_heightFtCtrl.text) ?? 0,
-                      double.tryParse(_heightInCtrl.text) ?? 0);
-      final weightKg = _unit == 'metric'
-          ? double.tryParse(_weightKgCtrl.text) ?? 0
-          : _lbToKg(double.tryParse(_weightLbCtrl.text) ?? 0);
-
-      await Supabase.instance.client.from('profiles').update({
-        if (_ageCtrl.text.isNotEmpty)    'age':          int.parse(_ageCtrl.text),
-        if (_sex.isNotEmpty)             'sex':          _sex,
-        if (heightCm > 0)               'height_cm':    heightCm,
-        if (weightKg > 0)               'weight_kg':    weightKg,
-        if (_bodyFatCtrl.text.isNotEmpty) 'body_fat_pct': double.parse(_bodyFatCtrl.text),
-        'activity_level': _activity,
-      }).eq('user_id', user.id);
 
       if (mounted) {
         ref.invalidate(settingsProvider);

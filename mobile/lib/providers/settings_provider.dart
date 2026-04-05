@@ -352,6 +352,14 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   /// Call after sign-in to pull everything from the server.
   Future<void> syncFromSupabase() => _loadFromSupabase();
 
+  /// Wipe local cache and reset to defaults — call on sign-out so a
+  /// subsequent sign-in with a different account starts clean.
+  Future<void> clearLocalCache() async {
+    state = const AppSettings();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kSettings);
+  }
+
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kSettings, jsonEncode(state.toJson()));
