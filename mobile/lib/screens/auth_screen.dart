@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/auth_provider.dart';
+import '../providers/badges_provider.dart';
 import '../providers/settings_provider.dart';
 import '../theme.dart';
 
@@ -39,8 +40,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     try {
       if (_mode == _AuthMode.signIn) {
         await signInWithUsername(_usernameCtrl.text, _passwordCtrl.text);
-        // Pull goals from Supabase immediately after sign-in.
+        // Pull settings and badges from Supabase immediately after sign-in.
         await ref.read(settingsProvider.notifier).syncFromSupabase();
+        ref.read(badgesProvider.notifier).load();
       } else {
         // Username is collected during the onboarding questionnaire; use the
         // email prefix as a temporary placeholder.

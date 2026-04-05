@@ -55,6 +55,8 @@ class BadgesNotifier extends StateNotifier<BadgesState> {
     final user = _supabase.auth.currentUser;
     if (user == null) {
       state = state.copyWith(loading: false);
+      // Complete so recompute() doesn't hang when called before sign-in.
+      if (!_loadCompleter.isCompleted) _loadCompleter.complete();
       return;
     }
 

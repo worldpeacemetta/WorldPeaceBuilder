@@ -117,7 +117,7 @@ class AppSettings {
   final MacroGoals bulkingGoals;
   final MacroGoals cuttingGoals;
   final MacroGoals maintenanceGoals;
-  final String theme;             // system | light | dark
+  final String theme;             // system | light | dark  (default: system)
   final String language;          // en | fr | es | de | pt | it | nl | ja | zh
   final BodyStats bodyStats;
   final List<WeightEntry> weightHistory;
@@ -133,7 +133,7 @@ class AppSettings {
     this.bulkingGoals   = const MacroGoals(kcal: 3000, protein: 200, carbs: 320, fat: 90),
     this.cuttingGoals   = const MacroGoals(kcal: 1600, protein: 180, carbs: 130, fat: 55),
     this.maintenanceGoals = const MacroGoals(),
-    this.theme = 'dark',
+    this.theme = 'system',
     this.language = 'en',
     this.bodyStats = const BodyStats(),
     this.weightHistory = const [],
@@ -354,10 +354,12 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
 
   /// Wipe local cache and reset to defaults — call on sign-out so a
   /// subsequent sign-in with a different account starts clean.
+  /// Theme and language are preserved so the auth screen respects the
+  /// user's display preference after sign-out.
   Future<void> clearLocalCache() async {
-    state = const AppSettings();
+    state = AppSettings(theme: state.theme, language: state.language);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_kSettings);
+    await prefs.setString(_kSettings, jsonEncode(state.toJson()));
   }
 
   Future<void> _save() async {
