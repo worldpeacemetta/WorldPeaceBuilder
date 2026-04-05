@@ -170,6 +170,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     setState(() => _step = (_step + 1).clamp(0, _totalSteps - 1));
   }
 
+  void _back() => setState(() => _step = (_step - 1).clamp(0, _totalSteps - 1));
+
   void _skip() => setState(() => _step = (_step + 1).clamp(0, _totalSteps - 1));
 
   // ── Macro computation ───────────────────────────────────────────────────────
@@ -368,7 +370,29 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
           child: Column(
             children: [
-              _ProgressBar(step: _step, total: _totalSteps),
+              Row(
+                children: [
+                  // Fixed-width slot: back arrow on step > 0, empty on step 0
+                  // so the progress bar width stays consistent.
+                  SizedBox(
+                    width: 32,
+                    child: _step > 0
+                        ? GestureDetector(
+                            onTap: _back,
+                            child: Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              size: 18,
+                              color: AppColorScheme.of(context).textPrimary,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(child: _ProgressBar(step: _step, total: _totalSteps)),
+                  // Mirror the left slot so the bar stays perfectly centred.
+                  const SizedBox(width: 40),
+                ],
+              ),
               const SizedBox(height: 24),
               Expanded(
                 child: SingleChildScrollView(
