@@ -461,6 +461,16 @@ class _KpiCell extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            _names[macroKey]!,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: color,
+              letterSpacing: 0.2,
+            ),
+          ),
+          const SizedBox(height: 3),
           RichText(
             text: TextSpan(
               children: [
