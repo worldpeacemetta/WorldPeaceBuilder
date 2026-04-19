@@ -901,12 +901,14 @@ class _StepWrapper extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _AnimatedWords(
+          key: ValueKey('t_$title'),
           text: title,
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, height: 1.25),
         ),
         if (subtitle != null) ...[
           const SizedBox(height: 6),
           _AnimatedWords(
+            key: ValueKey('s_$subtitle'),
             delayMs: 250,
             text: subtitle!,
             style: TextStyle(fontSize: 14, color: AppColorScheme.of(context).textMuted, height: 1.4),
