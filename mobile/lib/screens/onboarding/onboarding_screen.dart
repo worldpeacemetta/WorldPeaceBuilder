@@ -88,13 +88,13 @@ double _lbToKg(double lb)  => lb / 2.20462;
 
 // Lottie asset per step index (null = no animation for that step)
 const _kLottie = <String?>[
-  'assets/lottie/businessman_files_up_with_rocket.json', // 0: welcome
+  'assets/lottie/Businessman flies up with rocket.json', // 0: welcome
   'assets/lottie/Login.json',                            // 1: name
-  'assets/lottie/Analytics_Character_Animation.json',    // 2: about you
-  'assets/lottie/Isometric_data_analysis.json',          // 3: measurements
-  'assets/lottie/Weightlifting_competition.json',        // 4: activity
+  'assets/lottie/Analytics Character Animation.json',    // 2: about you
+  'assets/lottie/Isometric data analysis.json',          // 3: measurements
+  'assets/lottie/Weightlifting competition.json',        // 4: activity
   null,                                                   // 5: goal
-  'assets/lottie/Food_Choice.json',                      // 6: macro targets
+  'assets/lottie/Food Choice.json',                      // 6: macro targets
 ];
 
 // ---------------------------------------------------------------------------
