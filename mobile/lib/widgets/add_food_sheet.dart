@@ -194,7 +194,9 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
               child: Row(
                 children: [
                   Text(
-                    isEdit ? 'Edit Food' : (_tab == 'recipe' ? 'New Recipe' : 'New Food'),
+                    isEdit
+                        ? (widget.existing!.isRecipe ? 'Edit Recipe' : 'Edit Food')
+                        : (_tab == 'recipe' ? 'New Recipe' : 'New Food'),
                     style: Theme.of(context).textTheme.titleMedium
                         ?.copyWith(fontWeight: FontWeight.w700),
                   ),
@@ -225,19 +227,22 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
                   // ── Recipe form ───────────────────────────────────────
-                  if (!isEdit && _tab == 'recipe') ...[
+                  if ((!isEdit && _tab == 'recipe') || (isEdit && widget.existing!.isRecipe)) ...[
                     AddRecipeForm(
+                      existing: isEdit ? widget.existing : null,
                       onSaved: (food) async {
                         Navigator.of(context).pop();
-                        final logNow = await showFoodSavedSheet(
-                            widget.parentContext, food);
-                        if (logNow) {
-                          final today = DateTime.now();
-                          final date =
-                              '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-                          showAddEntrySheet(
-                              widget.parentContext, widget.parentRef, date,
-                              preselectedFood: food);
+                        if (!isEdit) {
+                          final logNow = await showFoodSavedSheet(
+                              widget.parentContext, food);
+                          if (logNow) {
+                            final today = DateTime.now();
+                            final date =
+                                '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+                            showAddEntrySheet(
+                                widget.parentContext, widget.parentRef, date,
+                                preselectedFood: food);
+                          }
                         }
                       },
                     ),

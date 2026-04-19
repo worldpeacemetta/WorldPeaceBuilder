@@ -10,9 +10,9 @@ import '../theme.dart';
 // Public entry point
 // ---------------------------------------------------------------------------
 class AddRecipeForm extends ConsumerStatefulWidget {
-  const AddRecipeForm({super.key, required this.onSaved});
-  /// Called with the saved Food after a successful save.
+  const AddRecipeForm({super.key, required this.onSaved, this.existing});
   final void Function(Food food) onSaved;
+  final Food? existing;
 
   @override
   ConsumerState<AddRecipeForm> createState() => _AddRecipeFormState();
@@ -25,7 +25,17 @@ class _IngRow {
   Food? food;
   final TextEditingController qtyCtrl = TextEditingController();
 
-  double get grams => double.tryParse(qtyCtrl.text) ?? 0;
+  // Raw user input: grams for per100g foods, serving count for perServing foods
+  double get qty => double.tryParse(qtyCtrl.text) ?? 0;
+
+  // Always in grams — used for storage and computeRecipeTotals
+  double get grams {
+    final q = qty;
+    if (food == null || food!.unit == 'per100g') return q;
+    return q * (food!.servingSize ?? 100.0);
+  }
+
+  String get unitLabel => food?.unit == 'perServing' ? 'serving' : 'g';
 
   void dispose() => qtyCtrl.dispose();
 }
@@ -39,6 +49,39 @@ class _AddRecipeFormState extends ConsumerState<AddRecipeForm> {
   String _unit        = 'perServing';
   bool   _saving      = false;
   final  _rows        = <_IngRow>[_IngRow()];      // at least one row
+
+  @override
+  void initState() {
+    super.initState();
+    final f = widget.existing;
+    if (f == null) return;
+    _nameCtrl.text = f.name;
+    _unit = f.unit;
+    if (f.unit == 'per100g' && f.servingSize != null) {
+      _sizeCtrl.text = f.servingSize!.toString();
+    }
+    final foods = ref.read(foodListProvider);
+    final rows = <_IngRow>[];
+    for (final ing in f.components) {
+      final food = foods.where((fd) => fd.id == ing.foodId).firstOrNull;
+      if (food == null) continue;
+      final row = _IngRow();
+      row.food = food;
+      final displayQty = food.unit == 'per100g'
+          ? ing.quantity
+          : ing.quantity / (food.servingSize ?? 100.0);
+      row.qtyCtrl.text = displayQty % 1 == 0
+          ? displayQty.round().toString()
+          : displayQty.toStringAsFixed(2);
+      rows.add(row);
+    }
+    if (rows.isNotEmpty) {
+      _rows[0].dispose();
+      _rows
+        ..clear()
+        ..addAll(rows);
+    }
+  }
 
   @override
   void dispose() {
@@ -104,15 +147,28 @@ class _AddRecipeFormState extends ConsumerState<AddRecipeForm> {
       'components':   components,
     };
 
-    final newFood = await ref.read(foodsProvider.notifier).addFood(data);
-    if (!mounted) return;
-    setState(() => _saving = false);
-    if (newFood == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to save recipe')),
-      );
+    if (widget.existing != null) {
+      final ok = await ref.read(foodsProvider.notifier).updateFood(widget.existing!.id, data);
+      if (!mounted) return;
+      setState(() => _saving = false);
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update recipe')),
+        );
+      } else {
+        widget.onSaved(widget.existing!);
+      }
     } else {
-      widget.onSaved(newFood);
+      final newFood = await ref.read(foodsProvider.notifier).addFood(data);
+      if (!mounted) return;
+      setState(() => _saving = false);
+      if (newFood == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to save recipe')),
+        );
+      } else {
+        widget.onSaved(newFood);
+      }
     }
   }
 
@@ -242,9 +298,9 @@ class _AddRecipeFormState extends ConsumerState<AddRecipeForm> {
                     controller: row.qtyCtrl,
                     keyboardType: TextInputType.number,
                     textAlign: TextAlign.center,
-                    decoration: const InputDecoration(
-                      labelText: 'g',
-                      contentPadding: EdgeInsets.symmetric(
+                    decoration: InputDecoration(
+                      labelText: row.unitLabel,
+                      contentPadding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 12),
                     ),
                     onChanged: (_) => setState(() {}),
@@ -284,7 +340,7 @@ class _AddRecipeFormState extends ConsumerState<AddRecipeForm> {
                 ? const SizedBox(
                     height: 20, width: 20,
                     child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Save Recipe'),
+                : Text(widget.existing != null ? 'Save Changes' : 'Save Recipe'),
           ),
         ),
         const SizedBox(height: 24),
