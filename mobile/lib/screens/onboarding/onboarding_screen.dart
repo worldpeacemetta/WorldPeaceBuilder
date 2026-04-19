@@ -493,7 +493,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   Widget _buildName() {
     return _StepWrapper(
-      key: const ValueKey(1),
       title: 'First things first — what\'s your name?',
       subtitle: 'This is how you\'ll appear in the app. You can always change it later.',
       nextDisabled: _nameCtrl.text.trim().isEmpty,
