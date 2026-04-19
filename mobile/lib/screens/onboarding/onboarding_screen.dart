@@ -3,6 +3,7 @@ import 'dart:math' show max;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lottie/lottie.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/default_foods.dart';
@@ -85,6 +86,17 @@ Map<String, Map<String, int>>? _computeDualMacros(String sex, double? age,
 double _ftInToCm(double ft, double inch) => (ft * 12 + inch) * 2.54;
 double _lbToKg(double lb)  => lb / 2.20462;
 
+// Lottie asset per step index (null = no animation for that step)
+const _kLottie = <String?>[
+  'assets/lottie/businessman_files_up_with_rocket.json', // 0: welcome
+  'assets/lottie/Login.json',                            // 1: name
+  'assets/lottie/Analytics_Character_Animation.json',    // 2: about you
+  'assets/lottie/Isometric_data_analysis.json',          // 3: measurements
+  'assets/lottie/Weightlifting_competition.json',        // 4: activity
+  null,                                                   // 5: goal
+  'assets/lottie/Food_Choice.json',                      // 6: macro targets
+];
+
 // ---------------------------------------------------------------------------
 // OnboardingScreen
 // ---------------------------------------------------------------------------
@@ -97,7 +109,7 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 }
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
-  static const _totalSteps = 6;
+  static const _totalSteps = 7; // 0=welcome, 1=name, 2=about, 3=measurements, 4=activity, 5=goal, 6=macros
   int _step = 0;
   bool _saving = false;
 
@@ -166,7 +178,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   // ── Navigation ─────────────────────────────────────────────────────────────
 
   void _next() {
-    if (_step == 4) _computeAndFillMacros();
+    if (_step == 5) _computeAndFillMacros();
     setState(() => _step = (_step + 1).clamp(0, _totalSteps - 1));
   }
 
@@ -364,6 +376,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_step == 0) return _buildWelcomeScreen();
+
+    final cs = AppColorScheme.of(context);
+    final lottie = _kLottie[_step];
+
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -372,28 +389,31 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             children: [
               Row(
                 children: [
-                  // Fixed-width slot: back arrow on step > 0, empty on step 0
-                  // so the progress bar width stays consistent.
                   SizedBox(
                     width: 32,
-                    child: _step > 0
-                        ? GestureDetector(
-                            onTap: _back,
-                            child: Icon(
-                              Icons.arrow_back_ios_new_rounded,
-                              size: 18,
-                              color: AppColorScheme.of(context).textPrimary,
-                            ),
-                          )
-                        : null,
+                    child: GestureDetector(
+                      onTap: _back,
+                      child: Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 18,
+                        color: cs.textPrimary,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 8),
-                  Expanded(child: _ProgressBar(step: _step, total: _totalSteps)),
-                  // Mirror the left slot so the bar stays perfectly centred.
+                  Expanded(child: _ProgressBar(step: _step - 1, total: 6)),
                   const SizedBox(width: 40),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
+              if (lottie != null)
+                SizedBox(
+                  height: 180,
+                  child: Lottie.asset(lottie, fit: BoxFit.contain, key: ValueKey(_step)),
+                )
+              else
+                const SizedBox(height: 8),
+              const SizedBox(height: 8),
               Expanded(
                 child: SingleChildScrollView(
                   child: _buildStep(),
@@ -406,40 +426,98 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     );
   }
 
-  Widget _buildStep() {
-    return switch (_step) {
-      0 => _StepWrapper(
-          title: 'What should we call you?',
-          subtitle: 'This is how your name will appear in the app.',
-          nextDisabled: _nameCtrl.text.trim().isEmpty,
-          onNext: _next,
-          child: TextField(
-            controller: _nameCtrl,
-            autofocus: true,
-            textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(
-              labelText: 'Display name',
-              hintText: 'e.g. David',
-            ),
-            onChanged: (_) => setState(() {}),
-            onSubmitted: (_) { if (_nameCtrl.text.trim().isNotEmpty) _next(); },
+  Widget _buildWelcomeScreen() {
+    final cs = AppColorScheme.of(context);
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(28, 32, 28, 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 5,
+                child: Center(
+                  child: Lottie.asset(_kLottie[0]!, fit: BoxFit.contain),
+                ),
+              ),
+              Expanded(
+                flex: 5,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _AnimatedWords(
+                      key: const ValueKey('welcome_title'),
+                      text: 'Your nutrition, your way.',
+                      style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800, height: 1.2),
+                    ),
+                    const SizedBox(height: 12),
+                    _AnimatedWords(
+                      key: const ValueKey('welcome_body'),
+                      delayMs: 350,
+                      text: 'MacroTracker puts you in full control. Build a food library from your own grocery supplies, scan barcodes, create recipes from scratch, and set goals that actually fit your lifestyle — not a generic template.',
+                      style: TextStyle(fontSize: 15, height: 1.55, color: cs.textMuted),
+                    ),
+                    const Spacer(),
+                    FilledButton(
+                      onPressed: _next,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.protein,
+                        foregroundColor: Colors.black87,
+                        minimumSize: const Size(double.infinity, 52),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: const Text('Get started', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
-      1 => _buildAgeSex(),
-      2 => _buildMeasurements(),
-      3 => _buildActivity(),
-      4 => _buildGoal(),
-      5 => _buildMacroReview(),
+      ),
+    );
+  }
+
+  Widget _buildStep() {
+    return switch (_step) {
+      1 => _buildName(),
+      2 => _buildAgeSex(),
+      3 => _buildMeasurements(),
+      4 => _buildActivity(),
+      5 => _buildGoal(),
+      6 => _buildMacroReview(),
       _ => const SizedBox.shrink(),
     };
+  }
+
+  Widget _buildName() {
+    return _StepWrapper(
+      key: const ValueKey(1),
+      title: 'First things first — what\'s your name?',
+      subtitle: 'This is how you\'ll appear in the app. You can always change it later.',
+      nextDisabled: _nameCtrl.text.trim().isEmpty,
+      onNext: _next,
+      child: TextField(
+        controller: _nameCtrl,
+        autofocus: true,
+        textCapitalization: TextCapitalization.words,
+        decoration: const InputDecoration(
+          labelText: 'Display name',
+          hintText: 'e.g. David',
+        ),
+        onChanged: (_) => setState(() {}),
+        onSubmitted: (_) { if (_nameCtrl.text.trim().isNotEmpty) _next(); },
+      ),
+    );
   }
 
   // ── Step 1: Age & Sex ───────────────────────────────────────────────────────
 
   Widget _buildAgeSex() {
     return _StepWrapper(
-      title: 'About you',
-      subtitle: 'Used to calculate your recommended macros.',
+      title: 'Tell us a bit about yourself.',
+      subtitle: 'Your age and biological sex help us calculate the right starting point for your macros.',
       onNext: _next,
       onSkip: _skip,
       child: Column(
@@ -479,8 +557,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   Widget _buildMeasurements() {
     return _StepWrapper(
-      title: 'Your measurements',
-      subtitle: 'Helps us calculate your TDEE more accurately.',
+      title: 'Now let\'s get the numbers right.',
+      subtitle: 'Height and weight help us estimate how much fuel your body actually needs each day.',
       onNext: _next,
       onSkip: _skip,
       child: Column(
@@ -568,8 +646,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       ('athlete',   'Athlete',      '2× per day or physical job'),
     ];
     return _StepWrapper(
-      title: 'Activity level',
-      subtitle: 'How active are you on a typical week?',
+      title: 'How does a typical week look for you?',
+      subtitle: 'Be honest — there are no wrong answers. This shapes your daily calorie target.',
       onNext: _next,
       onSkip: _skip,
       child: Column(
@@ -596,8 +674,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       ('dual',        '📆', 'Train / Rest days', 'Different goals for training vs rest'),
     ];
     return _StepWrapper(
-      title: 'What\'s your goal?',
-      subtitle: 'We\'ll calculate your personalised macros.',
+      title: 'What are you working towards?',
+      subtitle: 'We\'ll use your answer to dial in your calorie and macro targets.',
       onNext: _next,
       onSkip: _skip,
       child: Column(
@@ -641,11 +719,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   Widget _buildMacroReview() {
     final tdeeText = _tdee != null
-        ? 'Your estimated TDEE is $_tdee kcal/day.'
-        : 'Review and adjust your daily macro targets.';
+        ? 'Your estimated TDEE is $_tdee kcal/day. Adjust anything — you\'re in full control.'
+        : 'Calculated from everything you just told us. Adjust anything — you\'re in full control.';
 
     return _StepWrapper(
-      title: 'Your macro targets',
+      title: 'Here\'s your starting point.',
       subtitle: tdeeText,
       nextLabel: _saving ? 'Saving…' : 'Get started',
       nextDisabled: _saving,
@@ -702,6 +780,80 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 // Sub-widgets
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// _AnimatedWords — progressive word-by-word fade-in
+// ---------------------------------------------------------------------------
+
+class _AnimatedWords extends StatefulWidget {
+  const _AnimatedWords({
+    super.key,
+    required this.text,
+    required this.style,
+    this.delayMs = 0,
+  });
+  final String text;
+  final TextStyle style;
+  final int delayMs;
+
+  @override
+  State<_AnimatedWords> createState() => _AnimatedWordsState();
+}
+
+class _AnimatedWordsState extends State<_AnimatedWords>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final List<Animation<double>> _anims;
+
+  @override
+  void initState() {
+    super.initState();
+    final words = widget.text.split(RegExp(r'\s+'));
+    final count = words.length;
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 400 + count * 60),
+    );
+    _anims = List.generate(count, (i) {
+      final start = count == 1 ? 0.0 : (i / count * 0.65).clamp(0.0, 1.0);
+      final end = (start + 0.35).clamp(0.0, 1.0);
+      return CurvedAnimation(
+        parent: _ctrl,
+        curve: Interval(start, end, curve: Curves.easeOut),
+      );
+    });
+    if (widget.delayMs > 0) {
+      Future.delayed(Duration(milliseconds: widget.delayMs), () {
+        if (mounted) _ctrl.forward();
+      });
+    } else {
+      _ctrl.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final words = widget.text.split(RegExp(r'\s+'));
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, __) => Wrap(
+        children: [
+          for (int i = 0; i < words.length; i++)
+            Opacity(
+              opacity: _anims[i].value,
+              child: Text('${words[i]} ', style: widget.style),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ProgressBar extends StatelessWidget {
   const _ProgressBar({required this.step, required this.total});
   final int step, total;
@@ -749,14 +901,17 @@ class _StepWrapper extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+        _AnimatedWords(
+          text: title,
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, height: 1.25),
+        ),
         if (subtitle != null) ...[
           const SizedBox(height: 6),
-          Text(subtitle!,
-              style: TextStyle(
-                  fontSize: 14,
-                  color: AppColorScheme.of(context).textMuted)),
+          _AnimatedWords(
+            delayMs: 250,
+            text: subtitle!,
+            style: TextStyle(fontSize: 14, color: AppColorScheme.of(context).textMuted, height: 1.4),
+          ),
         ],
         const SizedBox(height: 24),
         child,
