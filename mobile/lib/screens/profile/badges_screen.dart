@@ -18,9 +18,9 @@ class _BadgesScreenState extends ConsumerState<BadgesScreen> {
   @override
   void initState() {
     super.initState();
-    // Re-run full badge computation each time the screen opens so any
-    // badges earned since last launch (e.g. across DST boundaries) appear.
-    Future.microtask(() => ref.read(badgesProvider.notifier).load());
+    // Use recompute() not load() — recompute queues newly earned badges for
+    // popups and doesn't wipe existing state or the newlyEarnedQueue.
+    Future.microtask(() => ref.read(badgesProvider.notifier).recompute());
   }
 
   @override
