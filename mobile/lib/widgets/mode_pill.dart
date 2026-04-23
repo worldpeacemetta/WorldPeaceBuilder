@@ -71,15 +71,17 @@ class ModePill extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 void _showModeSheet(
     BuildContext context, WidgetRef ref, String date, AppSettings settings) {
+  final container = ProviderScope.containerOf(context);
+  final cardColor = Theme.of(context).extension<AppColorScheme>()!.card;
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Theme.of(context).extension<AppColorScheme>()!.card,
+    backgroundColor: cardColor,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     builder: (ctx) => ProviderScope(
-      parent: ProviderScope.containerOf(context),
+      parent: container,
       child: _ModeSheet(date: date),
     ),
   );

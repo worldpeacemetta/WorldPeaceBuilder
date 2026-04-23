@@ -25,16 +25,18 @@ void showAddEntrySheet(
   String date, {
   Food? preselectedFood,
 }) {
+  final container = ProviderScope.containerOf(context);
+  final cardColor = Theme.of(context).extension<AppColorScheme>()!.card;
   showModalBottomSheet(
     context: context,
     useRootNavigator: true,
     isScrollControlled: true,
-    backgroundColor: Theme.of(context).extension<AppColorScheme>()!.card,
+    backgroundColor: cardColor,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     builder: (ctx) => ProviderScope(
-      parent: ProviderScope.containerOf(context),
+      parent: container,
       child: _AddEntrySheet(
         date: date,
         parentContext: context,

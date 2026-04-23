@@ -257,15 +257,20 @@ class _EntryTile extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 void showEditEntrySheet(
     BuildContext context, WidgetRef ref, Entry entry, String date) {
+  // Capture the container and card color before the async modal builder
+  // is invoked — the caller's context may be deactivated by the time
+  // the bottom sheet repaints during its dismiss animation.
+  final container = ProviderScope.containerOf(context);
+  final cardColor = Theme.of(context).extension<AppColorScheme>()!.card;
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Theme.of(context).extension<AppColorScheme>()!.card,
+    backgroundColor: cardColor,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     builder: (ctx) => ProviderScope(
-      parent: ProviderScope.containerOf(context),
+      parent: container,
       child: _EditEntrySheet(entry: entry, date: date),
     ),
   );
@@ -318,9 +323,10 @@ class _EditEntrySheetState extends ConsumerState<_EditEntrySheet> {
       meal: _meal,
     );
     if (mounted) {
+      final messenger = ScaffoldMessenger.of(context);
       Navigator.pop(context);
       if (!ok) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(content: Text('Failed to update entry')),
         );
       }
