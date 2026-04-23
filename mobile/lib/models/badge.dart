@@ -229,10 +229,14 @@ int _maxStreak(List<String> sortedDates) {
   for (int i = 1; i < sortedDates.length; i++) {
     final prev = DateTime.parse(sortedDates[i - 1]);
     final curr = DateTime.parse(sortedDates[i]);
-    if (curr.difference(prev).inDays == 1) {
+    // Use UTC calendar dates to avoid DST spring-forward truncating 23h to 0 days.
+    final diffDays = DateTime.utc(curr.year, curr.month, curr.day)
+        .difference(DateTime.utc(prev.year, prev.month, prev.day))
+        .inDays;
+    if (diffDays == 1) {
       current++;
       if (current > max) max = current;
-    } else {
+    } else if (diffDays > 1) {
       current = 1;
     }
   }

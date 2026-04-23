@@ -7,11 +7,24 @@ import '../../providers/badges_provider.dart';
 import '../../theme.dart';
 import '../../widgets/badge_widget.dart';
 
-class BadgesScreen extends ConsumerWidget {
+class BadgesScreen extends ConsumerStatefulWidget {
   const BadgesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<BadgesScreen> createState() => _BadgesScreenState();
+}
+
+class _BadgesScreenState extends ConsumerState<BadgesScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Re-run full badge computation each time the screen opens so any
+    // badges earned since last launch (e.g. across DST boundaries) appear.
+    Future.microtask(() => ref.read(badgesProvider.notifier).load());
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final badgesState = ref.watch(badgesProvider);
     final earned = badgesState.earned;
     final total  = kBadges.length;
