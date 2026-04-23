@@ -10,11 +10,12 @@ import 'add_food_sheet.dart';
 
 /// Returns the most appropriate meal based on current time of day.
 String _suggestMeal() {
-  final h = DateTime.now().hour;
-  if (h < 10) return 'breakfast';
-  if (h < 13) return 'lunch';
-  if (h < 17) return 'snack';
-  if (h < 21) return 'dinner';
+  final now = DateTime.now();
+  final minutes = now.hour * 60 + now.minute;
+  if (minutes < 10 * 60)           return 'breakfast'; // before 10:00
+  if (minutes < 13 * 60 + 45)     return 'lunch';     // before 13:45
+  if (minutes < 17 * 60)          return 'snack';     // before 17:00
+  if (minutes < 21 * 60 + 45)     return 'dinner';    // before 21:45
   return 'snack';
 }
 
