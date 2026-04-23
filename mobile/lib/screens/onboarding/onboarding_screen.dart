@@ -408,7 +408,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               const SizedBox(height: 12),
               if (lottie != null)
                 SizedBox(
-                  height: 180,
+                  height: 270,
                   child: Lottie.asset(lottie, fit: BoxFit.contain, key: ValueKey(_step)),
                 )
               else
