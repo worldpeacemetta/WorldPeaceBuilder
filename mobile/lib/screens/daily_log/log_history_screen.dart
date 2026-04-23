@@ -399,6 +399,22 @@ class _WeekStrip extends ConsumerWidget {
               final isToday = iso == today;
               final hasEntries = loggedSet.contains(iso);
 
+              // Achievement ring
+              final totals = ref.watch(macroTotalsProvider(iso));
+              final goals  = settings.goalsForDate(iso);
+              final proteinHit = goals.protein > 0 && totals.protein >= goals.protein;
+              final isPerfect  = proteinHit &&
+                  goals.kcal > 0 && goals.carbs > 0 && goals.fat > 0 &&
+                  totals.kcal  >= goals.kcal  * 0.95 && totals.kcal  <= goals.kcal  * 1.05 &&
+                  totals.carbs >= goals.carbs * 0.95 && totals.carbs <= goals.carbs * 1.05 &&
+                  totals.fat   >= goals.fat   * 0.95 && totals.fat   <= goals.fat   * 1.05;
+
+              final ringColor = isPerfect
+                  ? const Color(0xFFFBBF24)   // gold — all macros in range
+                  : proteinHit
+                      ? AppColors.protein      // green — protein goal hit
+                      : null;
+
               return GestureDetector(
                 onTap: () => context.push('/log/$iso'),
                 child: Column(
@@ -406,30 +422,29 @@ class _WeekStrip extends ConsumerWidget {
                     Text(
                       dayLetters[i],
                       style: TextStyle(
-                        color: isToday
-                            ? cs.textPrimary
-                            : cs.textMuted,
+                        color: isToday ? cs.textPrimary : cs.textMuted,
                         fontSize: 11,
-                        fontWeight:
-                            isToday ? FontWeight.w600 : FontWeight.normal,
+                        fontWeight: isToday ? FontWeight.w600 : FontWeight.normal,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Container(
                       width: 30,
                       height: 30,
-                      decoration: isToday
-                          ? const BoxDecoration(
-                              color: Colors.white, shape: BoxShape.circle)
-                          : null,
+                      decoration: BoxDecoration(
+                        color: isToday ? Colors.white : Colors.transparent,
+                        shape: BoxShape.circle,
+                        border: ringColor != null
+                            ? Border.all(color: ringColor, width: 2)
+                            : null,
+                      ),
                       alignment: Alignment.center,
                       child: Text(
                         '${day.day}',
                         style: TextStyle(
                           color: isToday ? cs.bg : cs.textPrimary,
                           fontSize: 13,
-                          fontWeight:
-                              isToday ? FontWeight.w700 : FontWeight.normal,
+                          fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
                         ),
                       ),
                     ),
