@@ -487,7 +487,10 @@ class _FoodTileState extends ConsumerState<_FoodTile>
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final cs = AppColorScheme.of(context);
+    return Container(
+      color: cs.card,
+      child: Row(
       children: [
         // ── Swipeable tile area ─────────────────────────────────────────
         Expanded(
@@ -520,7 +523,7 @@ class _FoodTileState extends ConsumerState<_FoodTile>
                     Transform.translate(
                       offset: Offset(offset, 0),
                       child: Container(
-                        color: AppColorScheme.of(context).card,
+                        color: cs.card,
                         child: ListTile(
                           contentPadding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 4),
@@ -540,7 +543,7 @@ class _FoodTileState extends ConsumerState<_FoodTile>
                             '${widget.food.kcal.round()} kcal · P ${widget.food.protein.round()}g · C ${widget.food.carbs.round()}g · F ${widget.food.fat.round()}g'
                             '  ·  per ${widget.food.unit == 'per100g' ? '100 g' : 'serving'}',
                             style: TextStyle(
-                                fontSize: 12, color: AppColorScheme.of(context).textMuted),
+                                fontSize: 12, color: cs.textMuted),
                           ),
                         ),
                       ),
@@ -561,17 +564,18 @@ class _FoodTileState extends ConsumerState<_FoodTile>
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
             child: Container(
-              width: 28,
-              height: 28,
+              width: 30,
+              height: 30,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: AppColors.protein, width: 1.5),
+                color: cs.border,
               ),
-              child: const Icon(Icons.add, size: 16, color: AppColors.protein),
+              child: Icon(Icons.add, size: 18, color: cs.textPrimary),
             ),
           ),
         ),
       ],
+    ),
     );
   }
 }
