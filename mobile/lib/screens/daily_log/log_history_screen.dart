@@ -330,7 +330,7 @@ class _Divider extends StatelessWidget {
 
 // ── Week strip ────────────────────────────────────────────────────────────────
 
-class _WeekStrip extends StatelessWidget {
+class _WeekStrip extends ConsumerWidget {
   final DateTime weekStart;
   final String weekLabel;
   final List<String> loggedDates;
@@ -352,8 +352,9 @@ class _WeekStrip extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final cs = AppColorScheme.of(context);
+    final settings = ref.watch(settingsProvider);
     const dayLetters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
     final loggedSet = loggedDates.toSet();
 
@@ -433,15 +434,18 @@ class _WeekStrip extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Container(
-                      width: 5,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: hasEntries
-                            ? AppColors.protein
-                            : Colors.transparent,
-                        shape: BoxShape.circle,
-                      ),
+                    SizedBox(
+                      height: 14,
+                      child: hasEntries
+                          ? Builder(builder: (ctx) {
+                              final label = settings.modeLabelForDate(iso);
+                              return Icon(
+                                modeIcon(label),
+                                size: 13,
+                                color: modeColor(label, ctx),
+                              );
+                            })
+                          : null,
                     ),
                   ],
                 ),

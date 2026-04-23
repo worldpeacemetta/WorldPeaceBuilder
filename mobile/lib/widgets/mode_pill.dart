@@ -18,9 +18,9 @@ Color modeColor(String label, BuildContext ctx) => switch (label) {
 
 IconData modeIcon(String label) => switch (label) {
   'Train Day'   => Icons.fitness_center,
-  'Rest Day'    => Icons.self_improvement,
-  'Bulking'     => Icons.trending_up,
-  'Cutting'     => Icons.trending_down,
+  'Rest Day'    => Icons.hotel,
+  'Bulking'     => Icons.local_fire_department,
+  'Cutting'     => Icons.eco,
   _             => Icons.balance,
 };
 
