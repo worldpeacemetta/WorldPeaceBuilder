@@ -93,7 +93,7 @@ const _kLottie = <String?>[
   'assets/lottie/Analytics Character Animation.json',    // 2: about you
   'assets/lottie/Isometric data analysis.json',          // 3: measurements
   'assets/lottie/Weightlifting competition.json',        // 4: activity
-  null,                                                   // 5: goal
+  'assets/lottie/setupmode.json',                         // 5: goal
   'assets/lottie/Food Choice.json',                      // 6: macro targets
 ];
 
