@@ -54,8 +54,11 @@ class HomeScreen extends ConsumerWidget {
           shell.goBranch(i, initialLocation: i == shell.currentIndex);
         },
         onFabTap: () {
-          final logDate = ref.read(logDateProvider);
-          showAddEntrySheet(context, ref, logDate);
+          final today = todayISO();
+          // Always log to today; also snap all date state so the Log
+          // screen doesn't show a stale previous day after the sheet closes.
+          setAllDates(ref, today);
+          showAddEntrySheet(context, ref, today);
         },
       ),
     );

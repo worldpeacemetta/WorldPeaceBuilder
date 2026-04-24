@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/constants.dart';
+import '../core/utils.dart';
 import '../models/food.dart';
+import '../providers/date_provider.dart';
 import '../providers/foods_provider.dart';
 import '../theme.dart';
 import 'add_entry_sheet.dart';
@@ -133,9 +135,8 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
           // Show animated confirmation sheet with Log Now option
           final logNow = await showFoodSavedSheet(parentCtx, newFood);
           if (logNow) {
-            final today = DateTime.now();
-            final date =
-                '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+            final date = todayISO();
+            setAllDates(parentRef, date);
             showAddEntrySheet(parentCtx, parentRef, date, preselectedFood: newFood);
           }
         }
@@ -194,9 +195,7 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
               child: Row(
                 children: [
                   Text(
-                    isEdit
-                        ? (widget.existing!.isRecipe ? 'Edit Recipe' : 'Edit Food')
-                        : (_tab == 'recipe' ? 'New Recipe' : 'New Food'),
+                    isEdit ? 'Edit Food' : (_tab == 'recipe' ? 'New Recipe' : 'New Food'),
                     style: Theme.of(context).textTheme.titleMedium
                         ?.copyWith(fontWeight: FontWeight.w700),
                   ),
@@ -227,22 +226,18 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
                   // ── Recipe form ───────────────────────────────────────
-                  if ((!isEdit && _tab == 'recipe') || (isEdit && widget.existing!.isRecipe)) ...[
+                  if (!isEdit && _tab == 'recipe') ...[
                     AddRecipeForm(
-                      existing: isEdit ? widget.existing : null,
                       onSaved: (food) async {
                         Navigator.of(context).pop();
-                        if (!isEdit) {
-                          final logNow = await showFoodSavedSheet(
-                              widget.parentContext, food);
-                          if (logNow) {
-                            final today = DateTime.now();
-                            final date =
-                                '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-                            showAddEntrySheet(
-                                widget.parentContext, widget.parentRef, date,
-                                preselectedFood: food);
-                          }
+                        final logNow = await showFoodSavedSheet(
+                            widget.parentContext, food);
+                        if (logNow) {
+                          final date = todayISO();
+                          setAllDates(widget.parentRef, date);
+                          showAddEntrySheet(
+                              widget.parentContext, widget.parentRef, date,
+                              preselectedFood: food);
                         }
                       },
                     ),
