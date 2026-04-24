@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 
 import '../models/food.dart';
 import '../theme.dart';
@@ -26,8 +27,6 @@ class _FoodSavedSheet extends StatefulWidget {
 class _FoodSavedSheetState extends State<_FoodSavedSheet>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
-  late final Animation<double> _circleFade;
-  late final Animation<double> _checkProgress;
   late final Animation<double> _contentFade;
 
   @override
@@ -35,28 +34,16 @@ class _FoodSavedSheetState extends State<_FoodSavedSheet>
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 600),
     );
-
-    // Circle fades in 0–30%
-    _circleFade = CurvedAnimation(
-      parent: _ctrl,
-      curve: const Interval(0.0, 0.3, curve: Curves.easeOut),
-    );
-
-    // Checkmark draws itself 25–75%
-    _checkProgress = CurvedAnimation(
-      parent: _ctrl,
-      curve: const Interval(0.25, 0.75, curve: Curves.easeInOut),
-    );
-
-    // Content slides up + fades 60–100%
     _contentFade = CurvedAnimation(
       parent: _ctrl,
-      curve: const Interval(0.6, 1.0, curve: Curves.easeOut),
+      curve: Curves.easeOut,
     );
-
-    _ctrl.forward();
+    // Delay content reveal slightly so Lottie plays first
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (mounted) _ctrl.forward();
+    });
   }
 
   @override
@@ -107,24 +94,20 @@ class _FoodSavedSheetState extends State<_FoodSavedSheet>
                   padding: const EdgeInsets.symmetric(horizontal: 32),
                   child: Column(
                     children: [
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 8),
 
-                      // Animated checkmark
-                      AnimatedBuilder(
-                        animation: _ctrl,
-                        builder: (_, __) => SizedBox(
-                          width: 100,
-                          height: 100,
-                          child: CustomPaint(
-                            painter: _CheckPainter(
-                              circleFade: _circleFade.value,
-                              checkProgress: _checkProgress.value,
-                            ),
-                          ),
+                      // Lottie success animation
+                      SizedBox(
+                        width: 160,
+                        height: 160,
+                        child: Lottie.asset(
+                          'assets/lottie/LogFoodAnimation.json',
+                          repeat: false,
+                          fit: BoxFit.contain,
                         ),
                       ),
 
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 12),
 
                       // Food name + details
                       FadeTransition(
@@ -253,76 +236,3 @@ class _MacroChip extends StatelessWidget {
   }
 }
 
-// ── Checkmark painter ─────────────────────────────────────────────────────────
-
-class _CheckPainter extends CustomPainter {
-  const _CheckPainter({
-    required this.circleFade,
-    required this.checkProgress,
-  });
-
-  final double circleFade;
-  final double checkProgress;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 4;
-
-    // Background circle
-    final bgPaint = Paint()
-      ..color = AppColors.protein.withValues(alpha: 0.12 * circleFade)
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(center, radius * circleFade, bgPaint);
-
-    // Circle stroke
-    final circlePaint = Paint()
-      ..color = AppColors.protein.withValues(alpha: circleFade)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-    canvas.drawCircle(center, radius * circleFade, circlePaint);
-
-    if (checkProgress <= 0) return;
-
-    // Checkmark path: two segments
-    // Start → elbow → end (relative to center of 100×100)
-    final sw = size.width;
-    final sh = size.height;
-    final p1 = Offset(sw * 0.25, sh * 0.52);
-    final p2 = Offset(sw * 0.44, sh * 0.68);
-    final p3 = Offset(sw * 0.75, sh * 0.36);
-
-    // Total path length (approximate) split 40/60
-    const seg1Frac = 0.38;
-    final checkPaint = Paint()
-      ..color = AppColors.protein
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.5
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    final path = Path();
-    if (checkProgress <= seg1Frac) {
-      final t = checkProgress / seg1Frac;
-      path.moveTo(p1.dx, p1.dy);
-      path.lineTo(
-        p1.dx + (p2.dx - p1.dx) * t,
-        p1.dy + (p2.dy - p1.dy) * t,
-      );
-    } else {
-      final t = (checkProgress - seg1Frac) / (1.0 - seg1Frac);
-      path.moveTo(p1.dx, p1.dy);
-      path.lineTo(p2.dx, p2.dy);
-      path.lineTo(
-        p2.dx + (p3.dx - p2.dx) * t,
-        p2.dy + (p3.dy - p2.dy) * t,
-      );
-    }
-    canvas.drawPath(path, checkPaint);
-  }
-
-  @override
-  bool shouldRepaint(_CheckPainter old) =>
-      old.circleFade != circleFade || old.checkProgress != checkProgress;
-}
