@@ -37,7 +37,7 @@ class _FoodDbScreenState extends ConsumerState<FoodDbScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final logDate    = ref.watch(logDateProvider);
+    final logDate    = todayISO();
     final totals     = ref.watch(macroTotalsProvider(logDate));
     final goals      = ref.watch(settingsProvider).goalsForDate(logDate);
     final foodsAsync = ref.watch(foodsProvider);
@@ -557,10 +557,11 @@ class _FoodTileState extends ConsumerState<_FoodTile>
 
         // ── Quick-log + button (always visible) ─────────────────────────
         GestureDetector(
-          onTap: () => showAddEntrySheet(
-            context, ref, widget.logDate,
-            preselectedFood: widget.food,
-          ),
+          onTap: () {
+            setAllDates(ref, widget.logDate);
+            showAddEntrySheet(context, ref, widget.logDate,
+                preselectedFood: widget.food);
+          },
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
             child: Container(
