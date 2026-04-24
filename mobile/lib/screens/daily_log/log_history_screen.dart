@@ -432,7 +432,7 @@ class _WeekStrip extends ConsumerWidget {
                       width: 30,
                       height: 30,
                       decoration: BoxDecoration(
-                        color: isToday ? Colors.white : Colors.transparent,
+                        color: isToday ? cs.textPrimary : Colors.transparent,
                         shape: BoxShape.circle,
                         border: ringColor != null
                             ? Border.all(color: ringColor, width: 2)
