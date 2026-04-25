@@ -6,6 +6,7 @@ import '../models/entry.dart';
 import '../models/food.dart';
 import '../providers/date_provider.dart';
 import '../providers/entries_provider.dart';
+import '../providers/settings_provider.dart';
 import '../providers/smart_insight_provider.dart';
 import '../theme.dart';
 
@@ -753,6 +754,8 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
               },
             ),
           ),
+          // Macro impact preview
+          _MacroImpactSection(suggestion: widget.insight.totalMacros),
           // Log button
           Padding(
             padding: EdgeInsets.fromLTRB(
@@ -769,6 +772,175 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Macro impact section — shows current progress + what this meal would add
+// ---------------------------------------------------------------------------
+
+class _MacroImpactSection extends ConsumerWidget {
+  const _MacroImpactSection({required this.suggestion});
+  final MacroValues suggestion;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs      = AppColorScheme.of(context);
+    final today   = todayISO();
+    final current = ref.watch(macroTotalsProvider(today));
+    final goals   = ref.read(settingsProvider).goalsForDate(today);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Divider(height: 24, color: cs.border),
+          Text(
+            'Macro impact',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: cs.textMuted,
+              letterSpacing: 0.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _ImpactBar(
+            label: 'Protein',
+            current: current.protein,
+            addition: suggestion.protein,
+            goal: goals.protein,
+            color: AppColors.protein,
+            unit: 'g',
+          ),
+          const SizedBox(height: 10),
+          _ImpactBar(
+            label: 'Carbs',
+            current: current.carbs,
+            addition: suggestion.carbs,
+            goal: goals.carbs,
+            color: AppColors.carbs,
+            unit: 'g',
+          ),
+          const SizedBox(height: 10),
+          _ImpactBar(
+            label: 'Fat',
+            current: current.fat,
+            addition: suggestion.fat,
+            goal: goals.fat,
+            color: AppColors.fat,
+            unit: 'g',
+          ),
+          const SizedBox(height: 10),
+          _ImpactBar(
+            label: 'Calories',
+            current: current.kcal,
+            addition: suggestion.kcal,
+            goal: goals.kcal,
+            color: AppColorScheme.of(context).kcalColor,
+            unit: ' kcal',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImpactBar extends StatelessWidget {
+  const _ImpactBar({
+    required this.label,
+    required this.current,
+    required this.addition,
+    required this.goal,
+    required this.color,
+    required this.unit,
+  });
+
+  final String label;
+  final double current;
+  final double addition;
+  final double goal;
+  final Color color;
+  final String unit;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs             = AppColorScheme.of(context);
+    final projected      = current + addition;
+    final currentRatio   = goal > 0 ? (current   / goal).clamp(0.0, 1.0) : 0.0;
+    final projectedRatio = goal > 0 ? (projected / goal).clamp(0.0, 1.0) : 0.0;
+    final addRatio       = projectedRatio - currentRatio;
+    final overGoal       = projected > goal;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label,
+                style: TextStyle(fontSize: 12, color: cs.textMuted)),
+            RichText(
+              text: TextSpan(
+                style: DefaultTextStyle.of(context).style,
+                children: [
+                  TextSpan(
+                    text: '+${addition.round()}$unit  ',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: color,
+                        fontWeight: FontWeight.w600),
+                  ),
+                  TextSpan(
+                    text: '→ ${projected.round()} / ${goal.round()}$unit',
+                    style: TextStyle(fontSize: 11, color: cs.textMuted),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 5),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: SizedBox(
+            height: 7,
+            child: LayoutBuilder(
+              builder: (_, constraints) {
+                final w = constraints.maxWidth;
+                return Stack(
+                  children: [
+                    // Background track
+                    Container(color: cs.border),
+                    // Current portion (muted)
+                    Positioned(
+                      left: 0,
+                      child: Container(
+                        width: currentRatio * w,
+                        height: 7,
+                        color: color.withValues(alpha: 0.40),
+                      ),
+                    ),
+                    // Addition portion (full color)
+                    Positioned(
+                      left: currentRatio * w,
+                      child: Container(
+                        width: addRatio * w,
+                        height: 7,
+                        color: overGoal
+                            ? AppColors.danger.withValues(alpha: 0.8)
+                            : color,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
