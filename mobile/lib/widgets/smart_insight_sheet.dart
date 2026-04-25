@@ -157,11 +157,11 @@ class _SmartInsightSheet extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Bidirectional wallet-style card carousel
+// Card carousel — H-swipe navigates meal slots, V-swipe navigates options
 // ---------------------------------------------------------------------------
 
-const _kPeek  = 28.0;   // px each side — prev/next card peeks on both edges
-const _kCardH = 228.0;  // fixed card height
+const _kPeek  = 28.0;  // horizontal: adjacent slot visible on each side
+const _kPeekV = 18.0;  // vertical: adjacent option visible on each side
 
 class _CardDeck extends StatefulWidget {
   const _CardDeck({
@@ -180,149 +180,207 @@ class _CardDeck extends StatefulWidget {
   State<_CardDeck> createState() => _CardDeckState();
 }
 
-class _CardDeckState extends State<_CardDeck>
-    with SingleTickerProviderStateMixin {
-  int _currentIdx = 0;
-  double _dragX   = 0;
-  double _cardW   = 300; // updated each build via LayoutBuilder
+class _CardDeckState extends State<_CardDeck> with TickerProviderStateMixin {
+  // ── Slot (horizontal) ────────────────────────────────────────────────────
+  int _slotIdx = 0;
+  double _dragX = 0;
+  double _hS = 0, _hE = 0;
+  late final AnimationController _hCtrl;
 
-  double _animStart = 0;
-  double _animEnd   = 0;
-  late final AnimationController _ctrl;
+  // ── Option (vertical) ────────────────────────────────────────────────────
+  late List<int> _optIdxs;
+  double _dragY = 0;
+  double _vS = 0, _vE = 0;
+  late final AnimationController _vCtrl;
+
+  // ── Gesture direction lock ────────────────────────────────────────────────
+  bool? _isHoriz;
+
+  // ── Layout (set by LayoutBuilder each frame) ──────────────────────────────
+  double _cardW = 300;
+  double _cardH = 200;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
+    _optIdxs = List.filled(widget.slots.length, 0);
+
+    _hCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 280));
-    _ctrl.addListener(_onAnimTick);
-    _ctrl.addStatusListener(_onAnimStatus);
-  }
+    _hCtrl.addListener(() {
+      final t = Curves.easeOutCubic.transform(_hCtrl.value);
+      setState(() => _dragX = _hS + (_hE - _hS) * t);
+    });
+    _hCtrl.addStatusListener((s) {
+      if (s != AnimationStatus.completed) return;
+      setState(() {
+        if (_hE < 0 && _slotIdx < widget.slots.length - 1) _slotIdx++;
+        else if (_hE > 0 && _slotIdx > 0)                  _slotIdx--;
+        _dragX = 0;
+      });
+    });
 
-  void _onAnimTick() {
-    final t = Curves.easeOutCubic.transform(_ctrl.value);
-    setState(() => _dragX = _animStart + (_animEnd - _animStart) * t);
-  }
-
-  void _onAnimStatus(AnimationStatus s) {
-    if (s != AnimationStatus.completed) return;
-    setState(() {
-      if (_animEnd < 0 && _currentIdx < widget.slots.length - 1) {
-        _currentIdx++;
-      } else if (_animEnd > 0 && _currentIdx > 0) {
-        _currentIdx--;
-      }
-      _dragX = 0;
+    _vCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 280));
+    _vCtrl.addListener(() {
+      final t = Curves.easeOutCubic.transform(_vCtrl.value);
+      setState(() => _dragY = _vS + (_vE - _vS) * t);
+    });
+    _vCtrl.addStatusListener((s) {
+      if (s != AnimationStatus.completed) return;
+      setState(() {
+        final cnt = widget.suggestions[widget.slots[_slotIdx]]!.length;
+        final cur = _optIdxs[_slotIdx];
+        if (_vE < 0 && cur < cnt - 1) _optIdxs[_slotIdx] = cur + 1;
+        else if (_vE > 0 && cur > 0)  _optIdxs[_slotIdx] = cur - 1;
+        _dragY = 0;
+      });
     });
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _hCtrl.dispose();
+    _vCtrl.dispose();
     super.dispose();
   }
 
-  void _animateTo(double target) {
-    _animStart = _dragX;
-    _animEnd   = target;
-    _ctrl
-      ..reset()
-      ..forward();
+  void _hTo(double t) { _hS = _dragX; _hE = t; _hCtrl..reset()..forward(); }
+  void _vTo(double t) { _vS = _dragY; _vE = t; _vCtrl..reset()..forward(); }
+
+  void _onPanStart(DragStartDetails _) {
+    _isHoriz = null;
+    if (_hCtrl.isAnimating) _hCtrl.stop();
+    if (_vCtrl.isAnimating) _vCtrl.stop();
   }
 
-  void _onHorizStart(DragStartDetails _) {
-    if (_ctrl.isAnimating) _ctrl.stop();
+  void _onPanUpdate(DragUpdateDetails d) {
+    _isHoriz ??= d.delta.dx.abs() >= d.delta.dy.abs();
+    if (_isHoriz!) setState(() => _dragX += d.delta.dx);
+    else           setState(() => _dragY += d.delta.dy);
   }
 
-  void _onHorizUpdate(DragUpdateDetails d) {
-    if (_ctrl.isAnimating) return;
-    setState(() => _dragX += d.delta.dx);
-  }
+  void _onPanEnd(DragEndDetails d) {
+    final vx    = d.velocity.pixelsPerSecond.dx;
+    final vy    = d.velocity.pixelsPerSecond.dy;
+    final horiz = _isHoriz == true || (_isHoriz == null && vx.abs() >= vy.abs());
+    _isHoriz = null;
 
-  void _onHorizEnd(DragEndDetails d) {
-    if (_ctrl.isAnimating) return;
-    final vx = d.velocity.pixelsPerSecond.dx;
-    if ((_dragX < -48 || vx < -500) && _currentIdx < widget.slots.length - 1) {
-      _animateTo(-_cardW);
-    } else if ((_dragX > 48 || vx > 500) && _currentIdx > 0) {
-      _animateTo(_cardW);
+    if (horiz) {
+      if ((_dragX < -48 || vx < -500) && _slotIdx < widget.slots.length - 1) {
+        _hTo(-_cardW);
+      } else if ((_dragX > 48 || vx > 500) && _slotIdx > 0) {
+        _hTo(_cardW);
+      } else {
+        _hTo(0);
+      }
     } else {
-      _animateTo(0);
+      final cnt = widget.suggestions[widget.slots[_slotIdx]]!.length;
+      final cur = _optIdxs[_slotIdx];
+      if ((_dragY < -48 || vy < -500) && cur < cnt - 1) {
+        _vTo(-_cardH);
+      } else if ((_dragY > 48 || vy > 500) && cur > 0) {
+        _vTo(_cardH);
+      } else {
+        _vTo(0);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = AppColorScheme.of(context);
-    return LayoutBuilder(builder: (_, constraints) {
-      _cardW = constraints.maxWidth - 2 * _kPeek;
-
-      return Column(
-        children: [
-          const SizedBox(height: 12),
-          SizedBox(
-            height: _kCardH,
-            child: GestureDetector(
-              onHorizontalDragStart:  _onHorizStart,
-              onHorizontalDragUpdate: _onHorizUpdate,
-              onHorizontalDragEnd:    _onHorizEnd,
+    return Column(
+      children: [
+        const SizedBox(height: 12),
+        Expanded(
+          child: LayoutBuilder(builder: (_, box) {
+            _cardW = box.maxWidth  - 2 * _kPeek;
+            _cardH = box.maxHeight - 2 * _kPeekV;
+            return GestureDetector(
+              onPanStart:  _onPanStart,
+              onPanUpdate: _onPanUpdate,
+              onPanEnd:    _onPanEnd,
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  for (int i = 0; i < widget.slots.length; i++)
-                    _buildCard(i),
+                  for (int si = 0; si < widget.slots.length; si++)
+                    _buildSlot(context, si),
                 ],
               ),
-            ),
+            );
+          }),
+        ),
+        if (widget.slots.length > 1) ...[
+          const SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(widget.slots.length, (i) {
+              final active = i == _slotIdx;
+              final color  = _mealColor(widget.slots[i]);
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOut,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: active ? 20 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: active ? color : cs.border,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              );
+            }),
           ),
-          if (widget.slots.length > 1) ...[
-            const SizedBox(height: 14),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(widget.slots.length, (i) {
-                final active = i == _currentIdx;
-                final color  = _mealColor(widget.slots[i]);
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOut,
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: active ? 20 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: active ? color : cs.border,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                );
-              }),
-            ),
-          ],
-          const Spacer(),
-          const _InfoRow(),
-          const SizedBox(height: 20),
         ],
-      );
-    });
+        const _InfoRow(),
+        const SizedBox(height: 20),
+      ],
+    );
   }
 
-  Widget _buildCard(int i) {
-    final left       = _kPeek + (i - _currentIdx) * _cardW + _dragX;
-    final containerW = 2 * _kPeek + _cardW;
+  Widget _buildSlot(BuildContext context, int si) {
+    final left = _kPeek + (si - _slotIdx) * _cardW + _dragX;
+    final cW   = 2 * _kPeek + _cardW;
+    if (left >= cW + 4 || left + _cardW <= -4) return const SizedBox.shrink();
 
-    // Cull cards that are entirely off-screen
-    if (left >= containerW + 4 || left + _cardW <= -4) {
-      return const SizedBox.shrink();
-    }
+    final slot   = widget.slots[si];
+    final opts   = widget.suggestions[slot]!;
+    final curOpt = _optIdxs[si];
 
-    final slot = widget.slots[i];
     return Positioned(
       left: left,
       top: 0,
       width: _cardW,
-      height: _kCardH,
+      bottom: 0,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          for (int oi = 0; oi < opts.length; oi++)
+            _buildOption(si, oi, slot, opts, curOpt),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOption(
+      int si, int oi, String slot, List<MealInsight> opts, int curOpt) {
+    final dy  = si == _slotIdx ? _dragY : 0.0;
+    final top = _kPeekV + (oi - curOpt) * _cardH + dy;
+    final cH  = 2 * _kPeekV + _cardH;
+    if (top >= cH + 4 || top + _cardH <= -4) return const SizedBox.shrink();
+
+    final insight = opts[oi];
+    return Positioned(
+      left: 0,
+      right: 0,
+      top: top,
+      height: _cardH,
       child: _MealSlotCard(
         meal: slot,
-        suggestions: widget.suggestions[slot]!,
-        onViewDetail: (insight) =>
+        insight: insight,
+        optionIdx: oi,
+        optionCount: opts.length,
+        onViewDetail: () =>
             _showMealDetailSheet(widget.parentContext, widget.ref, insight),
       ),
     );
@@ -330,191 +388,139 @@ class _CardDeckState extends State<_CardDeck>
 }
 
 // ---------------------------------------------------------------------------
-// Single meal slot card (manages suggestion cycling internally)
+// Individual meal option card — stateless, all navigation in _CardDeck
 // ---------------------------------------------------------------------------
 
-class _MealSlotCard extends StatefulWidget {
+class _MealSlotCard extends StatelessWidget {
   const _MealSlotCard({
     required this.meal,
-    required this.suggestions,
+    required this.insight,
+    required this.optionIdx,
+    required this.optionCount,
     required this.onViewDetail,
   });
 
   final String meal;
-  final List<MealInsight> suggestions;
-  final void Function(MealInsight) onViewDetail;
-
-  @override
-  State<_MealSlotCard> createState() => _MealSlotCardState();
-}
-
-class _MealSlotCardState extends State<_MealSlotCard> {
-  int _idx = 0;
-
-  MealInsight get _current => widget.suggestions[_idx];
+  final MealInsight insight;
+  final int optionIdx;
+  final int optionCount;
+  final VoidCallback onViewDetail;
 
   @override
   Widget build(BuildContext context) {
-    final cs      = AppColorScheme.of(context);
-    final color   = _mealColor(widget.meal);
-    final m       = _current.totalMacros;
-    final count   = widget.suggestions.length;
-
-    final names   = _current.items.take(3).map((i) => i.food.name).join(', ');
-    final extra   = _current.items.length > 3
-        ? ' +${_current.items.length - 3} more' : '';
+    final cs    = AppColorScheme.of(context);
+    final color = _mealColor(meal);
+    final m     = insight.totalMacros;
+    final names = insight.items.take(3).map((i) => i.food.name).join(', ');
+    final extra = insight.items.length > 3
+        ? ' +${insight.items.length - 3} more' : '';
 
     return GestureDetector(
-      onTap: () => widget.onViewDetail(_current),
-      child: Container(
-        decoration: BoxDecoration(
-          color: cs.card,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withValues(alpha: 0.30), width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.07),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Top section ────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Icon
-                  Container(
-                    width: 48, height: 48,
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(13),
-                    ),
-                    child: Icon(_mealIcon(widget.meal), color: color, size: 24),
-                  ),
-                  const SizedBox(width: 12),
-                  // Text
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          mealLabels[widget.meal] ?? widget.meal,
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                            color: cs.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _mealTagline(widget.meal),
-                          style: TextStyle(fontSize: 12, color: cs.textMuted),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          names + extra,
-                          style: TextStyle(fontSize: 12, color: cs.textMuted),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(Icons.chevron_right_rounded,
-                      color: color.withValues(alpha: 0.7), size: 20),
-                ],
+      onTap: onViewDetail,
+      child: SizedBox.expand(
+        child: Container(
+          decoration: BoxDecoration(
+            color: cs.card,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: color.withValues(alpha: 0.30), width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.07),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
               ),
-            ),
-
-            // ── Suggestion navigator (only when count > 1) ─────────
-            if (count > 1)
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _CycleBtn(
-                      icon: Icons.chevron_left_rounded,
-                      enabled: _idx > 0,
-                      color: color,
-                      onTap: () => setState(() => _idx--),
+                    Container(
+                      width: 48, height: 48,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                      child: Icon(_mealIcon(meal), color: color, size: 24),
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Option ${_idx + 1} of $count',
-                      style: TextStyle(fontSize: 11, color: cs.textMuted),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            mealLabels[meal] ?? meal,
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: cs.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _mealTagline(meal),
+                            style: TextStyle(fontSize: 12, color: cs.textMuted),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            names + extra,
+                            style: TextStyle(fontSize: 12, color: cs.textMuted),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(width: 6),
-                    _CycleBtn(
-                      icon: Icons.chevron_right_rounded,
-                      enabled: _idx < count - 1,
-                      color: color,
-                      onTap: () => setState(() => _idx++),
-                    ),
+                    Icon(Icons.chevron_right_rounded,
+                        color: color.withValues(alpha: 0.7), size: 20),
                   ],
                 ),
               ),
-
-            // ── Macro strip ────────────────────────────────────────
-            Container(
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.09),
-                borderRadius: const BorderRadius.vertical(
-                    bottom: Radius.circular(19)),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-              child: Row(
-                children: [
-                  _MacroPill('P', '${m.protein.round()}g', AppColors.protein),
-                  const SizedBox(width: 10),
-                  _MacroPill('C', '${m.carbs.round()}g', AppColors.carbs),
-                  const SizedBox(width: 10),
-                  _MacroPill('F', '${m.fat.round()}g', AppColors.fat),
-                  const Spacer(),
-                  Text(
-                    '${m.kcal.round()} kcal',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColorScheme.of(context).kcalColor,
+              const Spacer(),
+              Container(
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.09),
+                  borderRadius: const BorderRadius.vertical(
+                      bottom: Radius.circular(19)),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                child: Row(
+                  children: [
+                    _MacroPill('P', '${m.protein.round()}g', AppColors.protein),
+                    const SizedBox(width: 10),
+                    _MacroPill('C', '${m.carbs.round()}g', AppColors.carbs),
+                    const SizedBox(width: 10),
+                    _MacroPill('F', '${m.fat.round()}g', AppColors.fat),
+                    const Spacer(),
+                    Text(
+                      '${m.kcal.round()} kcal',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: cs.kcalColor,
+                      ),
                     ),
-                  ),
-                ],
+                    if (optionCount > 1) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '${optionIdx + 1}/$optionCount',
+                        style: TextStyle(fontSize: 10, color: cs.textMuted),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
-}
-
-class _CycleBtn extends StatelessWidget {
-  const _CycleBtn({
-    required this.icon,
-    required this.enabled,
-    required this.color,
-    required this.onTap,
-  });
-  final IconData icon;
-  final bool enabled;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: enabled ? onTap : null,
-        child: Icon(icon,
-            size: 18,
-            color: enabled
-                ? color.withValues(alpha: 0.8)
-                : AppColorScheme.of(context).border),
-      );
 }
 
 class _MacroPill extends StatelessWidget {
