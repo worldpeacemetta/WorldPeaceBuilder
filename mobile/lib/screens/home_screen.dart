@@ -141,8 +141,8 @@ class _ArchNavBar extends StatelessWidget {
                               behavior: HitTestBehavior.opaque,
                               child: Center(
                                 child: SizedBox(
-                                  width: 24,
-                                  height: 24,
+                                  width: 32,
+                                  height: 32,
                                   child: Lottie.asset(
                                     'assets/lottie/AI generating.json',
                                     repeat: true,

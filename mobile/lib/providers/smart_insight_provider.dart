@@ -9,6 +9,7 @@ import 'settings_provider.dart';
 
 const _kMinLoggedDays = 14;
 const _kHistoryDays   = 90;
+const _kMaxSuggestions = 3;
 const kSmartInsightMealSlots = ['breakfast', 'lunch', 'dinner', 'snack'];
 
 // ---------------------------------------------------------------------------
@@ -38,7 +39,9 @@ class MealInsight {
 class SmartInsightResult {
   final bool available;
   final int loggedDays;
-  final Map<String, MealInsight?> suggestions;
+  /// Up to 3 suggestions per meal slot, sorted best-first.
+  /// Empty list means meal is already logged today or has no history.
+  final Map<String, List<MealInsight>> suggestions;
 
   const SmartInsightResult({
     required this.available,
@@ -61,8 +64,8 @@ final smartInsightProvider = FutureProvider.autoDispose<SmartInsightResult>((ref
   final user = Supabase.instance.client.auth.currentUser;
   if (user == null) return SmartInsightResult.empty;
 
-  final today = todayISO();
-  final cutoff  = DateTime.now().subtract(const Duration(days: _kHistoryDays));
+  final today    = todayISO();
+  final cutoff   = DateTime.now().subtract(const Duration(days: _kHistoryDays));
   final startISO = _isoDate(cutoff);
 
   final history = await ref.watch(entriesInRangeProvider(startISO).future);
@@ -83,14 +86,13 @@ final smartInsightProvider = FutureProvider.autoDispose<SmartInsightResult>((ref
   }
 
   // Today's already-logged entries (reactive — recomputes when user logs)
-  final todayEntries = ref.watch(entriesProvider(today)).valueOrNull ?? [];
+  final todayEntries     = ref.watch(entriesProvider(today)).valueOrNull ?? [];
   final loggedMealsToday = todayEntries.map((e) => e.meal).toSet();
 
   // Remaining macro targets for today
-  final settings = ref.read(settingsProvider);
-  final goals    = settings.goalsForDate(today);
-  final totals   = MacroValues.sum(todayEntries.map((e) => e.macros));
-
+  final settings      = ref.read(settingsProvider);
+  final goals         = settings.goalsForDate(today);
+  final totals        = MacroValues.sum(todayEntries.map((e) => e.macros));
   final remainKcal    = (goals.kcal    - totals.kcal).clamp(0.0, double.infinity);
   final remainProtein = (goals.protein - totals.protein).clamp(0.0, double.infinity);
   final remainCarbs   = (goals.carbs   - totals.carbs).clamp(0.0, double.infinity);
@@ -103,18 +105,17 @@ final smartInsightProvider = FutureProvider.autoDispose<SmartInsightResult>((ref
     index[e.date]![e.meal]!.add(e);
   }
 
-  // Find best-scoring historical combo for each unlogged meal slot
-  final suggestions = <String, MealInsight?>{};
+  // Find top-3 unique combos per meal slot
+  final suggestions = <String, List<MealInsight>>{};
 
   for (final meal in kSmartInsightMealSlots) {
     if (loggedMealsToday.contains(meal)) {
-      suggestions[meal] = null;
+      suggestions[meal] = const [];
       continue;
     }
 
-    MealInsight? best;
-    double bestScore = double.negativeInfinity;
-
+    // Score every historical combo
+    final scored = <({String key, double score, MealInsight insight})>[];
     for (final dateMap in index.values) {
       final entries = dateMap[meal];
       if (entries == null || entries.isEmpty) continue;
@@ -133,22 +134,27 @@ final smartInsightProvider = FutureProvider.autoDispose<SmartInsightResult>((ref
         remainCarbs: remainCarbs,
         remainFat: remainFat,
       );
-
-      if (score > bestScore) {
-        bestScore = score;
-        best = MealInsight(
-          meal: meal,
-          items: items,
-          totalMacros: combo,
-          score: score,
-        );
-      }
+      // Dedup key: sorted food IDs (same food set = same combo, regardless of qty)
+      final key = (items.map((i) => i.food.id).toList()..sort()).join('|');
+      scored.add((key: key, score: score,
+          insight: MealInsight(meal: meal, items: items,
+              totalMacros: combo, score: score)));
     }
 
-    suggestions[meal] = best;
+    // Sort descending, keep top-3 unique food sets
+    scored.sort((a, b) => b.score.compareTo(a.score));
+    final seen  = <String>{};
+    final top3  = <MealInsight>[];
+    for (final s in scored) {
+      if (seen.add(s.key)) {
+        top3.add(s.insight);
+        if (top3.length >= _kMaxSuggestions) break;
+      }
+    }
+    suggestions[meal] = top3;
   }
 
-  final hasAnySuggestion = suggestions.values.any((v) => v != null);
+  final hasAnySuggestion = suggestions.values.any((v) => v.isNotEmpty);
   return SmartInsightResult(
     available: hasAnySuggestion,
     loggedDays: loggedDays,
@@ -165,9 +171,9 @@ String _isoDate(DateTime dt) =>
     '${dt.month.toString().padLeft(2, '0')}-'
     '${dt.day.toString().padLeft(2, '0')}';
 
-// Gap-closing score: how well a combo closes remaining macro targets.
+// Gap-closing score: higher is better.
 // Protein weighted 2×, kcal 1×, carbs + fat 0.8× each.
-// Overshoot is penalised at 50% of the excess ratio.
+// Overshoot penalised at 50% of the excess ratio.
 double _gapScore(
   MacroValues combo, {
   required double remainKcal,

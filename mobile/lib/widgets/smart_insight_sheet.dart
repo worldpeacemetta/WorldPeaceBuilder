@@ -35,10 +35,10 @@ void showSmartInsightSheet(BuildContext context, WidgetRef ref) {
 // ---------------------------------------------------------------------------
 
 Color _mealColor(String meal) => switch (meal) {
-  'breakfast' => AppColors.kcal,    // lavender
-  'lunch'     => AppColors.carbs,   // rose
-  'dinner'    => AppColors.protein, // teal mist
-  'snack'     => AppColors.fat,     // peach
+  'breakfast' => AppColors.kcal,
+  'lunch'     => AppColors.carbs,
+  'dinner'    => AppColors.protein,
+  'snack'     => AppColors.fat,
   _           => AppColors.textMuted,
 };
 
@@ -80,7 +80,7 @@ class _SmartInsightSheet extends ConsumerWidget {
 
     return DraggableScrollableSheet(
       expand: false,
-      initialChildSize: 0.65,
+      initialChildSize: 0.72,
       maxChildSize: 0.92,
       builder: (ctx, scrollCtrl) => Column(
         children: [
@@ -104,13 +104,11 @@ class _SmartInsightSheet extends ConsumerWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Smart Insight',
-                      style: Theme.of(context).textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700),
-                    ),
+                    Text('Smart Insight',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700)),
                     if (insightAsync.valueOrNull?.loggedDays != null &&
-                        insightAsync.valueOrNull!.loggedDays > 0)
+                        insightAsync.value!.loggedDays > 0)
                       Text(
                         'Based on ${insightAsync.value!.loggedDays} days of history',
                         style: TextStyle(fontSize: 12, color: cs.textMuted),
@@ -130,40 +128,23 @@ class _SmartInsightSheet extends ConsumerWidget {
           Expanded(
             child: insightAsync.when(
               loading: () => const Center(
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
+                  child: CircularProgressIndicator(strokeWidth: 2)),
               error: (_, __) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Text(
-                    'Unable to load insights',
-                    style: TextStyle(color: cs.textMuted),
-                  ),
-                ),
+                child: Text('Unable to load insights',
+                    style: TextStyle(color: cs.textMuted)),
               ),
               data: (result) {
-                final cards = kSmartInsightMealSlots
-                    .where((m) => result.suggestions[m] != null)
-                    .map((m) => result.suggestions[m]!)
+                final slots = kSmartInsightMealSlots
+                    .where((m) => result.suggestions[m]?.isNotEmpty == true)
                     .toList();
-
-                if (!result.available || cards.isEmpty) {
+                if (!result.available || slots.isEmpty) {
                   return _EmptyState(loggedDays: result.loggedDays);
                 }
-
-                return ListView.separated(
-                  controller: scrollCtrl,
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                  itemCount: cards.length + 1, // +1 for info row
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (ctx, i) {
-                    if (i == cards.length) return const _InfoRow();
-                    final insight = cards[i];
-                    return _MealCard(
-                      insight: insight,
-                      onTap: () => _showMealDetailSheet(context, ref, insight),
-                    );
-                  },
+                return _CardStack(
+                  slots: slots,
+                  suggestions: result.suggestions,
+                  parentContext: context,
+                  ref: ref,
                 );
               },
             ),
@@ -175,75 +156,196 @@ class _SmartInsightSheet extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Meal card
+// Stacked wallet card PageView
 // ---------------------------------------------------------------------------
 
-class _MealCard extends StatelessWidget {
-  const _MealCard({required this.insight, required this.onTap});
-  final MealInsight insight;
-  final VoidCallback onTap;
+class _CardStack extends StatefulWidget {
+  const _CardStack({
+    required this.slots,
+    required this.suggestions,
+    required this.parentContext,
+    required this.ref,
+  });
+
+  final List<String> slots;
+  final Map<String, List<MealInsight>> suggestions;
+  final BuildContext parentContext;
+  final WidgetRef ref;
+
+  @override
+  State<_CardStack> createState() => _CardStackState();
+}
+
+class _CardStackState extends State<_CardStack> {
+  late final PageController _ctrl;
+  double _page = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = PageController(viewportFraction: 0.88);
+    _ctrl.addListener(() {
+      if (mounted) setState(() => _page = _ctrl.page ?? 0);
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final cs    = AppColorScheme.of(context);
-    final color = _mealColor(insight.meal);
-    final m     = insight.totalMacros;
+    final cs = AppColorScheme.of(context);
+    return Column(
+      children: [
+        const SizedBox(height: 20),
+        // Card deck
+        SizedBox(
+          height: 248,
+          child: PageView.builder(
+            controller: _ctrl,
+            itemCount: widget.slots.length,
+            itemBuilder: (ctx, i) {
+              final dist  = (_page - i).abs();
+              final scale = (1.0 - dist * 0.05).clamp(0.88, 1.0);
+              return Transform.scale(
+                scale: scale,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  child: _MealSlotCard(
+                    meal: widget.slots[i],
+                    suggestions: widget.suggestions[widget.slots[i]]!,
+                    onViewDetail: (insight) =>
+                        _showMealDetailSheet(widget.parentContext, widget.ref, insight),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        // Page indicator pills
+        if (widget.slots.length > 1) ...[
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(widget.slots.length, (i) {
+              final active = _page.round() == i;
+              final color  = _mealColor(widget.slots[i]);
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOut,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: active ? 20 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: active ? color : cs.border,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              );
+            }),
+          ),
+        ],
+        const Spacer(),
+        // Info row
+        const _InfoRow(),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+}
 
-    // Food preview — first 3 food names
-    final names    = insight.items.take(3).map((i) => i.food.name).join(', ');
-    final overflow = insight.items.length > 3
-        ? ' +${insight.items.length - 3} more'
-        : '';
-    final preview = names + overflow;
+// ---------------------------------------------------------------------------
+// Single meal slot card (manages suggestion cycling internally)
+// ---------------------------------------------------------------------------
+
+class _MealSlotCard extends StatefulWidget {
+  const _MealSlotCard({
+    required this.meal,
+    required this.suggestions,
+    required this.onViewDetail,
+  });
+
+  final String meal;
+  final List<MealInsight> suggestions;
+  final void Function(MealInsight) onViewDetail;
+
+  @override
+  State<_MealSlotCard> createState() => _MealSlotCardState();
+}
+
+class _MealSlotCardState extends State<_MealSlotCard> {
+  int _idx = 0;
+
+  MealInsight get _current => widget.suggestions[_idx];
+
+  @override
+  Widget build(BuildContext context) {
+    final cs      = AppColorScheme.of(context);
+    final color   = _mealColor(widget.meal);
+    final m       = _current.totalMacros;
+    final count   = widget.suggestions.length;
+
+    final names   = _current.items.take(3).map((i) => i.food.name).join(', ');
+    final extra   = _current.items.length > 3
+        ? ' +${_current.items.length - 3} more' : '';
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: () => widget.onViewDetail(_current),
       child: Container(
         decoration: BoxDecoration(
           color: cs.card,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: 0.35), width: 1),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withValues(alpha: 0.30), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.07),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Main content row
+            // ── Top section ────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Icon box
+                  // Icon
                   Container(
                     width: 48, height: 48,
                     decoration: BoxDecoration(
                       color: color.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(13),
                     ),
-                    child: Icon(_mealIcon(insight.meal), color: color, size: 24),
+                    child: Icon(_mealIcon(widget.meal), color: color, size: 24),
                   ),
                   const SizedBox(width: 12),
-                  // Text column
+                  // Text
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          mealLabels[insight.meal] ?? insight.meal,
+                          mealLabels[widget.meal] ?? widget.meal,
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 17,
                             fontWeight: FontWeight.w700,
                             color: cs.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          _mealTagline(insight.meal),
+                          _mealTagline(widget.meal),
                           style: TextStyle(fontSize: 12, color: cs.textMuted),
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
                         Text(
-                          preview,
+                          names + extra,
                           style: TextStyle(fontSize: 12, color: cs.textMuted),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -256,13 +358,43 @@ class _MealCard extends StatelessWidget {
                 ],
               ),
             ),
-            // Macro strip
+
+            // ── Suggestion navigator (only when count > 1) ─────────
+            if (count > 1)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+                child: Row(
+                  children: [
+                    _CycleBtn(
+                      icon: Icons.chevron_left_rounded,
+                      enabled: _idx > 0,
+                      color: color,
+                      onTap: () => setState(() => _idx--),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Option ${_idx + 1} of $count',
+                      style: TextStyle(fontSize: 11, color: cs.textMuted),
+                    ),
+                    const SizedBox(width: 6),
+                    _CycleBtn(
+                      icon: Icons.chevron_right_rounded,
+                      enabled: _idx < count - 1,
+                      color: color,
+                      onTap: () => setState(() => _idx++),
+                    ),
+                  ],
+                ),
+              ),
+
+            // ── Macro strip ────────────────────────────────────────
             Container(
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.08),
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(15)),
+                color: color.withValues(alpha: 0.09),
+                borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.circular(19)),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
               child: Row(
                 children: [
                   _MacroPill('P', '${m.protein.round()}g', AppColors.protein),
@@ -289,6 +421,29 @@ class _MealCard extends StatelessWidget {
   }
 }
 
+class _CycleBtn extends StatelessWidget {
+  const _CycleBtn({
+    required this.icon,
+    required this.enabled,
+    required this.color,
+    required this.onTap,
+  });
+  final IconData icon;
+  final bool enabled;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: enabled ? onTap : null,
+        child: Icon(icon,
+            size: 18,
+            color: enabled
+                ? color.withValues(alpha: 0.8)
+                : AppColorScheme.of(context).border),
+      );
+}
+
 class _MacroPill extends StatelessWidget {
   const _MacroPill(this.label, this.value, this.color);
   final String label;
@@ -296,20 +451,20 @@ class _MacroPill extends StatelessWidget {
   final Color color;
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(label,
-            style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
-        const SizedBox(width: 3),
-        Text(value,
-            style: TextStyle(
-                fontSize: 12, color: AppColorScheme.of(context).textPrimary,
-                fontWeight: FontWeight.w500)),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label,
+              style: TextStyle(
+                  fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+          const SizedBox(width: 3),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 12,
+                  color: AppColorScheme.of(context).textPrimary,
+                  fontWeight: FontWeight.w500)),
+        ],
+      );
 }
 
 // ---------------------------------------------------------------------------
@@ -322,27 +477,23 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = AppColorScheme.of(context);
+    final cs        = AppColorScheme.of(context);
     final remaining = (14 - loggedDays).clamp(0, 14);
-
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.auto_awesome_rounded, size: 48,
-                color: AppColors.kcal.withValues(alpha: 0.6)),
+            Icon(Icons.auto_awesome_rounded,
+                size: 48, color: AppColors.kcal.withValues(alpha: 0.6)),
             const SizedBox(height: 16),
             Text(
-              loggedDays < 14
-                  ? 'Almost there'
-                  : 'All meals logged today',
+              loggedDays < 14 ? 'Almost there' : 'All meals logged today',
               style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: cs.textPrimary,
-              ),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: cs.textPrimary),
             ),
             const SizedBox(height: 8),
             Text(
@@ -350,7 +501,8 @@ class _EmptyState extends StatelessWidget {
                   ? 'Log $remaining more day${remaining == 1 ? '' : 's'} to unlock Smart Insight'
                   : 'Come back tomorrow for your next suggestions',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: cs.textMuted, height: 1.4),
+              style:
+                  TextStyle(fontSize: 13, color: cs.textMuted, height: 1.4),
             ),
             if (loggedDays < 14) ...[
               const SizedBox(height: 20),
@@ -364,10 +516,8 @@ class _EmptyState extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              Text(
-                '$loggedDays / 14 days',
-                style: TextStyle(fontSize: 11, color: cs.textMuted),
-              ),
+              Text('$loggedDays / 14 days',
+                  style: TextStyle(fontSize: 11, color: cs.textMuted)),
             ],
           ],
         ),
@@ -377,7 +527,7 @@ class _EmptyState extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Info row (tutorial placeholder)
+// Info row
 // ---------------------------------------------------------------------------
 
 class _InfoRow extends StatelessWidget {
@@ -412,10 +562,8 @@ class _InfoRow extends StatelessWidget {
           children: [
             Icon(Icons.info_outline_rounded, size: 14, color: cs.textMuted),
             const SizedBox(width: 6),
-            Text(
-              'What is Smart Insight?',
-              style: TextStyle(fontSize: 12, color: cs.textMuted),
-            ),
+            Text('What is Smart Insight?',
+                style: TextStyle(fontSize: 12, color: cs.textMuted)),
           ],
         ),
       ),
@@ -468,7 +616,6 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
     final today    = todayISO();
     final notifier = ref.read(entriesProvider(today).notifier);
     bool allOk = true;
-
     for (final item in widget.insight.items) {
       final ok = await notifier.addEntry(
         foodId: item.food.id,
@@ -477,15 +624,13 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
       );
       if (!ok) allOk = false;
     }
-
     if (mounted) {
       final messenger = ScaffoldMessenger.of(widget.parentContext);
       setAllDates(ref, today);
       Navigator.pop(context);
       if (!allOk) {
         messenger.showSnackBar(
-          const SnackBar(content: Text('Some items failed to log')),
-        );
+            const SnackBar(content: Text('Some items failed to log')));
       }
     }
   }
@@ -508,9 +653,8 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
               margin: const EdgeInsets.only(top: 10, bottom: 4),
               width: 40, height: 4,
               decoration: BoxDecoration(
-                color: cs.border,
-                borderRadius: BorderRadius.circular(2),
-              ),
+                  color: cs.border,
+                  borderRadius: BorderRadius.circular(2)),
             ),
           ),
           // Header
@@ -524,12 +668,15 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
                     color: color.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(_mealIcon(widget.insight.meal), color: color, size: 18),
+                  child: Icon(_mealIcon(widget.insight.meal),
+                      color: color, size: 18),
                 ),
                 const SizedBox(width: 10),
                 Text(
                   mealLabels[widget.insight.meal] ?? widget.insight.meal,
-                  style: Theme.of(context).textTheme.titleMedium
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
                       ?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const Spacer(),
@@ -541,12 +688,12 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
             ),
           ),
           Divider(height: 1, color: cs.border),
-          // Food list
+          // Food list + macro summary
           Expanded(
             child: ListView.separated(
               controller: scrollCtrl,
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              itemCount: widget.insight.items.length + 1, // +1 for macro summary
+              itemCount: widget.insight.items.length + 1,
               separatorBuilder: (_, i) =>
                   i < widget.insight.items.length - 1
                       ? Divider(height: 24, color: cs.border)
@@ -564,32 +711,25 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            item.food.name,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: cs.textPrimary,
-                            ),
-                          ),
+                          Text(item.food.name,
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: cs.textPrimary)),
                           if (item.food.brand != null)
-                            Text(
-                              item.food.brand!,
-                              style: TextStyle(fontSize: 12, color: cs.textMuted),
-                            ),
+                            Text(item.food.brand!,
+                                style: TextStyle(
+                                    fontSize: 12, color: cs.textMuted)),
                           const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              _SmallMacroPill(
-                                  'P ${im.protein.round()}g', AppColors.protein),
-                              const SizedBox(width: 6),
-                              _SmallMacroPill(
-                                  'C ${im.carbs.round()}g', AppColors.carbs),
-                              const SizedBox(width: 6),
-                              _SmallMacroPill(
-                                  'F ${im.fat.round()}g', AppColors.fat),
-                            ],
-                          ),
+                          Row(children: [
+                            _SmallPill('P ${im.protein.round()}g',
+                                AppColors.protein),
+                            const SizedBox(width: 6),
+                            _SmallPill(
+                                'C ${im.carbs.round()}g', AppColors.carbs),
+                            const SizedBox(width: 6),
+                            _SmallPill('F ${im.fat.round()}g', AppColors.fat),
+                          ]),
                         ],
                       ),
                     ),
@@ -599,15 +739,13 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
                         Text(
                           _qtyLabel(item.food.unit, item.qty),
                           style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: cs.textPrimary,
-                          ),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: cs.textPrimary),
                         ),
-                        Text(
-                          '${im.kcal.round()} kcal',
-                          style: TextStyle(fontSize: 12, color: cs.kcalColor),
-                        ),
+                        Text('${im.kcal.round()} kcal',
+                            style: TextStyle(
+                                fontSize: 12, color: cs.kcalColor)),
                       ],
                     ),
                   ],
@@ -623,10 +761,10 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
               onPressed: _logging ? null : _logAll,
               child: _logging
                   ? const SizedBox(
-                      height: 20, width: 20,
+                      height: 20,
+                      width: 20,
                       child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text(
-                      'Log ${mealLabels[widget.insight.meal] ?? widget.insight.meal}'),
+                  : Text('Log ${mealLabels[widget.insight.meal] ?? widget.insight.meal}'),
             ),
           ),
         ],
@@ -634,6 +772,10 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Macro summary row (detail sheet footer)
+// ---------------------------------------------------------------------------
 
 class _MacroSummaryRow extends StatelessWidget {
   const _MacroSummaryRow({required this.macros, required this.color});
@@ -653,10 +795,12 @@ class _MacroSummaryRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _SummaryMacro('Protein', '${macros.protein.round()}g', AppColors.protein),
-          _SummaryMacro('Carbs',   '${macros.carbs.round()}g',   AppColors.carbs),
-          _SummaryMacro('Fat',     '${macros.fat.round()}g',     AppColors.fat),
-          _SummaryMacro('Calories','${macros.kcal.round()}',     cs.kcalColor),
+          _SummaryMacro('Protein', '${macros.protein.round()}g',
+              AppColors.protein),
+          _SummaryMacro('Carbs', '${macros.carbs.round()}g', AppColors.carbs),
+          _SummaryMacro('Fat', '${macros.fat.round()}g', AppColors.fat),
+          _SummaryMacro(
+              'Calories', '${macros.kcal.round()}', cs.kcalColor),
         ],
       ),
     );
@@ -670,33 +814,27 @@ class _SummaryMacro extends StatelessWidget {
   final Color color;
 
   @override
-  Widget build(BuildContext context) {
-    final cs = AppColorScheme.of(context);
-    return Column(
-      children: [
-        Text(value,
-            style: TextStyle(
-                fontSize: 15, fontWeight: FontWeight.w700, color: color)),
-        const SizedBox(height: 2),
-        Text(label,
-            style: TextStyle(fontSize: 10, color: cs.textMuted)),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => Column(
+        children: [
+          Text(value,
+              style: TextStyle(
+                  fontSize: 15, fontWeight: FontWeight.w700, color: color)),
+          const SizedBox(height: 2),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 10,
+                  color: AppColorScheme.of(context).textMuted)),
+        ],
+      );
 }
 
-class _SmallMacroPill extends StatelessWidget {
-  const _SmallMacroPill(this.text, this.color);
+class _SmallPill extends StatelessWidget {
+  const _SmallPill(this.text, this.color);
   final String text;
   final Color color;
 
   @override
-  Widget build(BuildContext context) => Text(
-        text,
-        style: TextStyle(
-          fontSize: 11,
-          color: color,
-          fontWeight: FontWeight.w500,
-        ),
-      );
+  Widget build(BuildContext context) => Text(text,
+      style: TextStyle(
+          fontSize: 11, color: color, fontWeight: FontWeight.w500));
 }
