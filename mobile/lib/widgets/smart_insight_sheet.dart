@@ -275,13 +275,12 @@ class _CardDeckState extends State<_CardDeck> with TickerProviderStateMixin {
         _hTo(0);
       }
     } else {
-      final cnt   = widget.suggestions[widget.slots[_slotIdx]]!.length;
-      final cur   = _optIdxs[_slotIdx];
-      final cardH = _availH - (cnt - 1) * _kPeekH;
+      final cnt = widget.suggestions[widget.slots[_slotIdx]]!.length;
+      final cur = _optIdxs[_slotIdx];
       if ((_dragY < -48 || vy < -500) && cur < cnt - 1) {
-        _vTo(-cardH);
+        _vTo(-_kPeekH);
       } else if ((_dragY > 48 || vy > 500) && cur > 0) {
-        _vTo(cardH);
+        _vTo(_kPeekH);
       } else {
         _vTo(0);
       }
@@ -349,8 +348,14 @@ class _CardDeckState extends State<_CardDeck> with TickerProviderStateMixin {
     final n      = opts.length;
     final curOpt = _optIdxs[si];
     final dy     = si == _slotIdx ? _dragY : 0.0;
-    // Front card fills the space; each additional option adds one kPeekH peek
-    final cardH  = _availH - (n - 1) * _kPeekH;
+    // All cards share the same height; each peek adds kPeekH below the front card.
+    final slotH  = _availH - (n - 1) * _kPeekH;
+
+    // Z-order: cards behind front (far → near), cards above front, then front on top.
+    final order = <int>[];
+    for (int i = n - 1; i > curOpt; i--) order.add(i);
+    for (int i = 0; i < curOpt; i++) order.add(i);
+    order.add(curOpt);
 
     return Positioned(
       left: left,
@@ -359,10 +364,9 @@ class _CardDeckState extends State<_CardDeck> with TickerProviderStateMixin {
       height: _availH,
       child: ClipRect(
         child: Stack(
-          // Render back-to-front: lowest oi painted last = highest z-order
           children: [
-            for (int oi = n - 1; oi >= 0; oi--)
-              _buildWalletCard(oi, curOpt, cardH, dy, slot, opts),
+            for (final oi in order)
+              _buildWalletCard(oi, curOpt, slotH, dy, slot, opts),
           ],
         ),
       ),
@@ -370,17 +374,18 @@ class _CardDeckState extends State<_CardDeck> with TickerProviderStateMixin {
   }
 
   Widget _buildWalletCard(
-      int oi, int curOpt, double cardH, double dy,
+      int oi, int curOpt, double slotH, double dy,
       String slot, List<MealInsight> opts) {
-    final top = (oi - curOpt) * cardH + dy;
-    if (top >= _availH + 4 || top + cardH <= -4) return const SizedBox.shrink();
+    // Cards are spaced only kPeekH apart so they overlap — wallet stack effect.
+    final top = (oi - curOpt) * _kPeekH + dy;
+    if (top >= _availH + 4 || top + slotH <= -4) return const SizedBox.shrink();
 
     final insight = opts[oi];
     return Positioned(
       left: 0,
       right: 0,
       top: top,
-      height: cardH,
+      height: slotH,
       child: _MealSlotCard(
         meal: slot,
         insight: insight,
