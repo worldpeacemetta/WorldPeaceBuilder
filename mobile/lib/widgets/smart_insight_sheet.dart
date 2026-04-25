@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/utils.dart';
 import '../models/entry.dart';
+import '../models/food.dart';
 import '../providers/date_provider.dart';
 import '../providers/entries_provider.dart';
 import '../providers/smart_insight_provider.dart';
