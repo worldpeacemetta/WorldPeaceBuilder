@@ -157,16 +157,11 @@ class _SmartInsightSheet extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Stacked wallet card PageView
+// Bidirectional wallet-style card carousel
 // ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-// Wallet-style card deck — front card is draggable, next card peeks behind
-// ---------------------------------------------------------------------------
-
-const _kPeek  = 30.0;   // px of next card peeking behind front card
+const _kPeek  = 28.0;   // px each side — prev/next card peeks on both edges
 const _kCardH = 228.0;  // fixed card height
-const _kYStep =  9.0;   // vertical stagger per depth level
 
 class _CardDeck extends StatefulWidget {
   const _CardDeck({
@@ -187,46 +182,72 @@ class _CardDeck extends StatefulWidget {
 
 class _CardDeckState extends State<_CardDeck>
     with SingleTickerProviderStateMixin {
-  int _top = 0;
-  double _dragX = 0;
-  bool _exiting = false;
-  late final AnimationController _exitCtrl;
+  int _currentIdx = 0;
+  double _dragX   = 0;
+  double _cardW   = 300; // updated each build via LayoutBuilder
+
+  double _animStart = 0;
+  double _animEnd   = 0;
+  late final AnimationController _ctrl;
 
   @override
   void initState() {
     super.initState();
-    _exitCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 320));
-    _exitCtrl.addStatusListener((s) {
-      if (s == AnimationStatus.completed) {
-        setState(() {
-          _top++;
-          _dragX = 0;
-          _exiting = false;
-        });
-        _exitCtrl.reset();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 280));
+    _ctrl.addListener(_onAnimTick);
+    _ctrl.addStatusListener(_onAnimStatus);
+  }
+
+  void _onAnimTick() {
+    final t = Curves.easeOutCubic.transform(_ctrl.value);
+    setState(() => _dragX = _animStart + (_animEnd - _animStart) * t);
+  }
+
+  void _onAnimStatus(AnimationStatus s) {
+    if (s != AnimationStatus.completed) return;
+    setState(() {
+      if (_animEnd < 0 && _currentIdx < widget.slots.length - 1) {
+        _currentIdx++;
+      } else if (_animEnd > 0 && _currentIdx > 0) {
+        _currentIdx--;
       }
+      _dragX = 0;
     });
   }
 
   @override
   void dispose() {
-    _exitCtrl.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
-  void _onPanUpdate(DragUpdateDetails d) {
-    if (!_exiting) setState(() => _dragX += d.delta.dx);
+  void _animateTo(double target) {
+    _animStart = _dragX;
+    _animEnd   = target;
+    _ctrl
+      ..reset()
+      ..forward();
   }
 
-  void _onPanEnd(DragEndDetails d) {
-    if (_exiting) return;
+  void _onHorizStart(DragStartDetails _) {
+    if (_ctrl.isAnimating) _ctrl.stop();
+  }
+
+  void _onHorizUpdate(DragUpdateDetails d) {
+    if (_ctrl.isAnimating) return;
+    setState(() => _dragX += d.delta.dx);
+  }
+
+  void _onHorizEnd(DragEndDetails d) {
+    if (_ctrl.isAnimating) return;
     final vx = d.velocity.pixelsPerSecond.dx;
-    if (_top < widget.slots.length - 1 && (_dragX < -72 || vx < -600)) {
-      setState(() => _exiting = true);
-      _exitCtrl.forward();
+    if ((_dragX < -48 || vx < -500) && _currentIdx < widget.slots.length - 1) {
+      _animateTo(-_cardW);
+    } else if ((_dragX > 48 || vx > 500) && _currentIdx > 0) {
+      _animateTo(_cardW);
     } else {
-      setState(() => _dragX = 0);
+      _animateTo(0);
     }
   }
 
@@ -234,40 +255,32 @@ class _CardDeckState extends State<_CardDeck>
   Widget build(BuildContext context) {
     final cs = AppColorScheme.of(context);
     return LayoutBuilder(builder: (_, constraints) {
-      // Cards are narrower than the container — the remaining space lets the
-      // next card's right edge peek out from behind the front card.
-      final cardW = constraints.maxWidth - _kPeek;
+      _cardW = constraints.maxWidth - 2 * _kPeek;
 
       return Column(
         children: [
           const SizedBox(height: 12),
-          // Deck area: fixed height to accommodate vertical stagger
           SizedBox(
-            height: _kCardH + _kYStep * 2 + 8,
-            child: AnimatedBuilder(
-              animation: _exitCtrl,
-              builder: (ctx, _) {
-                final p = Curves.easeInCubic.transform(_exitCtrl.value);
-                return Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    // Render furthest-back cards first so front card paints on top
-                    for (int i = (_top + 2).clamp(0, widget.slots.length - 1);
-                        i >= _top;
-                        i--)
-                      _buildCard(i, cardW, p),
-                  ],
-                );
-              },
+            height: _kCardH,
+            child: GestureDetector(
+              onHorizontalDragStart:  _onHorizStart,
+              onHorizontalDragUpdate: _onHorizUpdate,
+              onHorizontalDragEnd:    _onHorizEnd,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  for (int i = 0; i < widget.slots.length; i++)
+                    _buildCard(i),
+                ],
+              ),
             ),
           ),
-          // Page dots
           if (widget.slots.length > 1) ...[
             const SizedBox(height: 14),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(widget.slots.length, (i) {
-                final active = i == _top;
+                final active = i == _currentIdx;
                 final color  = _mealColor(widget.slots[i]);
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
@@ -291,60 +304,26 @@ class _CardDeckState extends State<_CardDeck>
     });
   }
 
-  Widget _buildCard(int idx, double cardW, double exitP) {
-    final rel     = idx - _top; // 0 = front, 1 = next, 2 = further back
-    final isFront = rel == 0;
+  Widget _buildCard(int i) {
+    final left       = _kPeek + (i - _currentIdx) * _cardW + _dragX;
+    final containerW = 2 * _kPeek + _cardW;
 
-    // How far through the swipe/exit are we? (0–1)
-    final dragP = _exiting ? exitP : (-_dragX / 130.0).clamp(0.0, 1.0);
-
-    // Each card interpolates between its current depth position and the
-    // position one level closer (as the front card exits).
-    final fromLeft  = _kPeek  * rel;
-    final fromTop   = _kYStep * rel;
-    final fromScale = 1.0 - 0.045 * rel;
-
-    final toLeft  = _kPeek  * (rel - 1).clamp(0, 99);
-    final toTop   = _kYStep * (rel - 1).clamp(0, 99);
-    final toScale = 1.0 - 0.045 * (rel - 1).clamp(0, 99);
-
-    final double left, top, scale;
-
-    if (isFront) {
-      // Front card follows the drag and exits off the left edge
-      left  = _exiting ? -(cardW + 80) * exitP : _dragX.clamp(-double.infinity, 8);
-      top   = 0;
-      scale = 1.0;
-    } else {
-      left  = fromLeft  + (toLeft  - fromLeft)  * dragP;
-      top   = fromTop   + (toTop   - fromTop)   * dragP;
-      scale = fromScale + (toScale - fromScale) * dragP;
+    // Cull cards that are entirely off-screen
+    if (left >= containerW + 4 || left + _cardW <= -4) {
+      return const SizedBox.shrink();
     }
 
-    final slot = widget.slots[idx];
+    final slot = widget.slots[i];
     return Positioned(
       left: left,
-      top: top,
-      width: cardW,
+      top: 0,
+      width: _cardW,
       height: _kCardH,
-      child: GestureDetector(
-        onPanUpdate: isFront ? _onPanUpdate : null,
-        onPanEnd:   isFront ? _onPanEnd   : null,
-        onTap: isFront
-            ? () => _showMealDetailSheet(
-                widget.parentContext, widget.ref,
-                widget.suggestions[slot]!.first)
-            : null,
-        child: Transform.scale(
-          scale: scale,
-          alignment: Alignment.topLeft,
-          child: _MealSlotCard(
-            meal: slot,
-            suggestions: widget.suggestions[slot]!,
-            onViewDetail: (insight) =>
-                _showMealDetailSheet(widget.parentContext, widget.ref, insight),
-          ),
-        ),
+      child: _MealSlotCard(
+        meal: slot,
+        suggestions: widget.suggestions[slot]!,
+        onViewDetail: (insight) =>
+            _showMealDetailSheet(widget.parentContext, widget.ref, insight),
       ),
     );
   }
