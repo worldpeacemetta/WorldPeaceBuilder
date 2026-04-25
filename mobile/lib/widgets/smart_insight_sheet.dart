@@ -161,7 +161,7 @@ class _SmartInsightSheet extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 
 const _kPeek  = 28.0;  // horizontal: adjacent slot visible on each side
-const _kPeekV = 18.0;  // vertical: adjacent option visible on each side
+const _kPeekH = 72.0;  // vertical: how much of the next option card peeks below
 
 class _CardDeck extends StatefulWidget {
   const _CardDeck({
@@ -197,8 +197,8 @@ class _CardDeckState extends State<_CardDeck> with TickerProviderStateMixin {
   bool? _isHoriz;
 
   // ── Layout (set by LayoutBuilder each frame) ──────────────────────────────
-  double _cardW = 300;
-  double _cardH = 200;
+  double _cardW  = 300;
+  double _availH = 300; // full slot area height; card height = availH - (n-1)*kPeekH
 
   @override
   void initState() {
@@ -275,12 +275,13 @@ class _CardDeckState extends State<_CardDeck> with TickerProviderStateMixin {
         _hTo(0);
       }
     } else {
-      final cnt = widget.suggestions[widget.slots[_slotIdx]]!.length;
-      final cur = _optIdxs[_slotIdx];
+      final cnt   = widget.suggestions[widget.slots[_slotIdx]]!.length;
+      final cur   = _optIdxs[_slotIdx];
+      final cardH = _availH - (cnt - 1) * _kPeekH;
       if ((_dragY < -48 || vy < -500) && cur < cnt - 1) {
-        _vTo(-_cardH);
+        _vTo(-cardH);
       } else if ((_dragY > 48 || vy > 500) && cur > 0) {
-        _vTo(_cardH);
+        _vTo(cardH);
       } else {
         _vTo(0);
       }
@@ -295,8 +296,8 @@ class _CardDeckState extends State<_CardDeck> with TickerProviderStateMixin {
         const SizedBox(height: 12),
         Expanded(
           child: LayoutBuilder(builder: (_, box) {
-            _cardW = box.maxWidth  - 2 * _kPeek;
-            _cardH = box.maxHeight - 2 * _kPeekV;
+            _cardW  = box.maxWidth  - 2 * _kPeek;
+            _availH = box.maxHeight;
             return GestureDetector(
               onPanStart:  _onPanStart,
               onPanUpdate: _onPanUpdate,
@@ -345,36 +346,41 @@ class _CardDeckState extends State<_CardDeck> with TickerProviderStateMixin {
 
     final slot   = widget.slots[si];
     final opts   = widget.suggestions[slot]!;
+    final n      = opts.length;
     final curOpt = _optIdxs[si];
+    final dy     = si == _slotIdx ? _dragY : 0.0;
+    // Front card fills the space; each additional option adds one kPeekH peek
+    final cardH  = _availH - (n - 1) * _kPeekH;
 
     return Positioned(
       left: left,
       top: 0,
       width: _cardW,
-      bottom: 0,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          for (int oi = 0; oi < opts.length; oi++)
-            _buildOption(si, oi, slot, opts, curOpt),
-        ],
+      height: _availH,
+      child: ClipRect(
+        child: Stack(
+          // Render back-to-front: lowest oi painted last = highest z-order
+          children: [
+            for (int oi = n - 1; oi >= 0; oi--)
+              _buildWalletCard(oi, curOpt, cardH, dy, slot, opts),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildOption(
-      int si, int oi, String slot, List<MealInsight> opts, int curOpt) {
-    final dy  = si == _slotIdx ? _dragY : 0.0;
-    final top = _kPeekV + (oi - curOpt) * _cardH + dy;
-    final cH  = 2 * _kPeekV + _cardH;
-    if (top >= cH + 4 || top + _cardH <= -4) return const SizedBox.shrink();
+  Widget _buildWalletCard(
+      int oi, int curOpt, double cardH, double dy,
+      String slot, List<MealInsight> opts) {
+    final top = (oi - curOpt) * cardH + dy;
+    if (top >= _availH + 4 || top + cardH <= -4) return const SizedBox.shrink();
 
     final insight = opts[oi];
     return Positioned(
       left: 0,
       right: 0,
       top: top,
-      height: _cardH,
+      height: cardH,
       child: _MealSlotCard(
         meal: slot,
         insight: insight,
