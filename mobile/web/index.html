@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="MacroTracker Mobile">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="MacroTracker">
+  <link rel="icon" type="image/png" href="favicon.png"/>
+  <title>MacroTracker</title>
+  <link rel="manifest" href="manifest.json">
+  <!-- Simulate phone viewport so Chrome shows mobile UI at ~390px width -->
+  <meta name="viewport" content="width=390, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background-color: #0f1117; }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+    }
+    #flutter_target {
+      width: 390px;
+      height: 844px; /* iPhone 14 viewport */
+      max-height: 100vh;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 0 60px rgba(0,0,0,0.9);
+    }
+    @media (max-width: 430px) {
+      body { display: block; }
+      #flutter_target { width: 100vw; height: 100vh; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="flutter_target"></div>
+  <script>
+    window.addEventListener('load', function(ev) {
+      _flutter.loader.load({
+        onEntrypointLoaded: async function(engineInitializer) {
+          let appRunner = await engineInitializer.initializeEngine({
+            hostElement: document.getElementById("flutter_target"),
+          });
+          await appRunner.runApp();
+        }
+      });
+    });
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

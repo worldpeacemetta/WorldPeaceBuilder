@@ -15,7 +15,11 @@ export function formatNumber(value: number, decimals: number = 0): string {
   });
 }
 
-/** Returns today's date as an ISO string (YYYY-MM-DD). */
+/** Returns today's date as an ISO string (YYYY-MM-DD) in local time. */
 export function todayISO(): string {
-  return new Date().toISOString().split("T")[0];
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
