@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lottie/lottie.dart';
 
 import '../core/utils.dart';
 import '../providers/date_provider.dart';
+import '../providers/smart_insight_provider.dart';
 import '../theme.dart';
 import '../widgets/add_entry_sheet.dart';
+import '../widgets/smart_insight_sheet.dart';
 
 // Dashboard branch index in the StatefulNavigationShell
 const _kDashboardIndex = 1;
@@ -42,11 +45,15 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final hasInsight =
+        ref.watch(smartInsightProvider).valueOrNull?.available ?? false;
+
     return Scaffold(
       body: shell,
       // No floatingActionButton — FAB lives inside the arch bar
       bottomNavigationBar: _ArchNavBar(
         currentIndex: shell.currentIndex,
+        hasInsight: hasInsight,
         onTabSelected: (i) {
           if (i == _kDashboardIndex) {
             ref.read(dashboardActivationProvider.notifier).state++;
@@ -60,6 +67,7 @@ class HomeScreen extends ConsumerWidget {
           setAllDates(ref, today);
           showAddEntrySheet(context, ref, today);
         },
+        onInsightTap: () => showSmartInsightSheet(context, ref),
       ),
     );
   }
@@ -72,11 +80,15 @@ class _ArchNavBar extends StatelessWidget {
     required this.currentIndex,
     required this.onTabSelected,
     required this.onFabTap,
+    required this.hasInsight,
+    required this.onInsightTap,
   });
 
   final int currentIndex;
   final void Function(int) onTabSelected;
   final VoidCallback onFabTap;
+  final bool hasInsight;
+  final VoidCallback onInsightTap;
 
   static const _archRise   = 22.0;  // how much center lifts above edges
   static const _barH       = 62.0;  // nav content height (excl. safe area)
@@ -120,8 +132,27 @@ class _ArchNavBar extends StatelessWidget {
                         onTap: () => onTabSelected(item.index),
                       ),
                     )),
-                    // Centre gap for FAB
-                    const SizedBox(width: _fabD + 16),
+                    // Centre gap for FAB — shows Smart Insight indicator when available
+                    SizedBox(
+                      width: _fabD + 16,
+                      child: hasInsight
+                          ? GestureDetector(
+                              onTap: onInsightTap,
+                              behavior: HitTestBehavior.opaque,
+                              child: Center(
+                                child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: Lottie.asset(
+                                    'assets/lottie/AI generating.json',
+                                    repeat: true,
+                                    fit: BoxFit.contain,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
                     // Right items
                     ..._rightItems.map((item) => Expanded(
                       child: _NavBtn(
