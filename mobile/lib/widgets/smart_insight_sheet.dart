@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -381,6 +383,9 @@ class _CardDeckState extends State<_CardDeck> with TickerProviderStateMixin {
     if (top >= _availH + 4 || top + slotH <= -4) return const SizedBox.shrink();
 
     final insight = opts[oi];
+    final today   = todayISO();
+    final current = widget.ref.read(macroTotalsProvider(today));
+    final goals   = widget.ref.read(settingsProvider).goalsForDate(today);
     return Positioned(
       left: 0,
       right: 0,
@@ -393,6 +398,8 @@ class _CardDeckState extends State<_CardDeck> with TickerProviderStateMixin {
         optionCount: opts.length,
         onViewDetail: () =>
             _showMealDetailSheet(widget.parentContext, widget.ref, insight),
+        currentMacros: current,
+        goals: goals,
       ),
     );
   }
@@ -409,6 +416,8 @@ class _MealSlotCard extends StatelessWidget {
     required this.optionIdx,
     required this.optionCount,
     required this.onViewDetail,
+    required this.currentMacros,
+    required this.goals,
   });
 
   final String meal;
@@ -416,6 +425,8 @@ class _MealSlotCard extends StatelessWidget {
   final int optionIdx;
   final int optionCount;
   final VoidCallback onViewDetail;
+  final MacroValues currentMacros;
+  final MacroGoals goals;
 
   @override
   Widget build(BuildContext context) {
@@ -451,27 +462,53 @@ class _MealSlotCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      width: 48, height: 48,
+                      width: 64, height: 64,
                       decoration: BoxDecoration(
                         color: color.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(13),
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                      child: Icon(_mealIcon(meal), color: color, size: 24),
+                      child: Icon(_mealIcon(meal), color: color, size: 32),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            mealLabels[meal] ?? meal,
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                              color: cs.textPrimary,
-                            ),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  mealLabels[meal] ?? meal,
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w700,
+                                    color: cs.textPrimary,
+                                  ),
+                                ),
+                              ),
+                              if (optionCount > 1) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 9, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: color.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    'Option ${optionIdx + 1}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: color,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 3),
                           Text(
                             _mealTagline(meal),
                             style: TextStyle(fontSize: 12, color: cs.textMuted),
@@ -480,49 +517,58 @@ class _MealSlotCard extends StatelessWidget {
                           Text(
                             names + extra,
                             style: TextStyle(fontSize: 12, color: cs.textMuted),
-                            maxLines: 3,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
                     ),
-                    Icon(Icons.chevron_right_rounded,
-                        color: color.withValues(alpha: 0.7), size: 20),
                   ],
                 ),
               ),
               const Spacer(),
               Container(
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.09),
+                  color: color.withValues(alpha: 0.07),
                   borderRadius: const BorderRadius.vertical(
                       bottom: Radius.circular(19)),
                 ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _MacroPill('P', '${m.protein.round()}g', AppColors.protein),
-                    const SizedBox(width: 10),
-                    _MacroPill('C', '${m.carbs.round()}g', AppColors.carbs),
-                    const SizedBox(width: 10),
-                    _MacroPill('F', '${m.fat.round()}g', AppColors.fat),
-                    const Spacer(),
-                    Text(
-                      '${m.kcal.round()} kcal',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: cs.kcalColor,
-                      ),
+                    _MacroDonut(
+                      label: 'Protein',
+                      addition: m.protein,
+                      current: currentMacros.protein,
+                      goal: goals.protein,
+                      color: AppColors.protein,
+                      unit: 'g',
                     ),
-                    if (optionCount > 1) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        '${optionIdx + 1}/$optionCount',
-                        style: TextStyle(fontSize: 10, color: cs.textMuted),
-                      ),
-                    ],
+                    _MacroDonut(
+                      label: 'Carbs',
+                      addition: m.carbs,
+                      current: currentMacros.carbs,
+                      goal: goals.carbs,
+                      color: AppColors.carbs,
+                      unit: 'g',
+                    ),
+                    _MacroDonut(
+                      label: 'Fat',
+                      addition: m.fat,
+                      current: currentMacros.fat,
+                      goal: goals.fat,
+                      color: AppColors.fat,
+                      unit: 'g',
+                    ),
+                    _MacroDonut(
+                      label: 'Kcal',
+                      addition: m.kcal,
+                      current: currentMacros.kcal,
+                      goal: goals.kcal,
+                      color: cs.kcalColor,
+                      unit: '',
+                    ),
                   ],
                 ),
               ),
@@ -1098,4 +1144,151 @@ class _SmallPill extends StatelessWidget {
   Widget build(BuildContext context) => Text(text,
       style: TextStyle(
           fontSize: 11, color: color, fontWeight: FontWeight.w500));
+}
+
+// ---------------------------------------------------------------------------
+// Donut chart — shows current macro fill + projected addition
+// ---------------------------------------------------------------------------
+
+class _MacroDonut extends StatelessWidget {
+  const _MacroDonut({
+    required this.label,
+    required this.addition,
+    required this.current,
+    required this.goal,
+    required this.color,
+    required this.unit,
+  });
+
+  final String label;
+  final double addition;
+  final double current;
+  final double goal;
+  final Color color;
+  final String unit;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs        = AppColorScheme.of(context);
+    final projected = current + addition;
+    final overGoal  = goal > 0 && projected > goal;
+    final dotColor  = overGoal ? AppColors.danger : color;
+    final addStr    = '+${addition.round()}$unit';
+    final totalStr  = goal > 0
+        ? '${projected.round()}/${goal.round()}'
+        : '${projected.round()}';
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 58,
+          height: 58,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              CustomPaint(
+                size: const Size(58, 58),
+                painter: _DonutPainter(
+                  current: current,
+                  addition: addition,
+                  goal: goal,
+                  color: dotColor,
+                ),
+              ),
+              Text(
+                addStr,
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  color: dotColor,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 8,
+            fontWeight: FontWeight.w600,
+            color: cs.textMuted,
+            letterSpacing: 0.2,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          totalStr,
+          style: TextStyle(fontSize: 8, color: cs.textMuted),
+        ),
+      ],
+    );
+  }
+}
+
+class _DonutPainter extends CustomPainter {
+  _DonutPainter({
+    required this.current,
+    required this.addition,
+    required this.goal,
+    required this.color,
+  });
+
+  final double current;
+  final double addition;
+  final double goal;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (goal <= 0) return;
+
+    final center  = Offset(size.width / 2, size.height / 2);
+    final radius  = size.width / 2 - 5;
+    const stroke  = 5.0;
+    const start   = -pi / 2;
+    const full    = pi * 2;
+
+    final bg = Paint()
+      ..style       = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..color       = color.withValues(alpha: 0.12);
+    canvas.drawCircle(center, radius, bg);
+
+    final currentFrac   = (current / goal).clamp(0.0, 1.0);
+    final projectedFrac = ((current + addition) / goal).clamp(0.0, 1.0);
+    final currentSweep  = currentFrac * full;
+    final addSweep      = (projectedFrac - currentFrac) * full;
+    final rect          = Rect.fromCircle(center: center, radius: radius);
+
+    if (currentSweep > 0.01) {
+      canvas.drawArc(
+        rect, start, currentSweep, false,
+        Paint()
+          ..style       = PaintingStyle.stroke
+          ..strokeWidth = stroke
+          ..strokeCap   = StrokeCap.butt
+          ..color       = color.withValues(alpha: 0.38),
+      );
+    }
+    if (addSweep > 0.01) {
+      canvas.drawArc(
+        rect, start + currentSweep, addSweep, false,
+        Paint()
+          ..style       = PaintingStyle.stroke
+          ..strokeWidth = stroke
+          ..strokeCap   = StrokeCap.butt
+          ..color       = color,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DonutPainter old) =>
+      old.current  != current  ||
+      old.addition != addition ||
+      old.goal     != goal     ||
+      old.color    != color;
 }
