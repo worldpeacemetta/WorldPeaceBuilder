@@ -132,27 +132,8 @@ class _ArchNavBar extends StatelessWidget {
                         onTap: () => onTabSelected(item.index),
                       ),
                     )),
-                    // Centre gap for FAB — shows Smart Insight indicator when available
-                    SizedBox(
-                      width: _fabD + 16,
-                      child: hasInsight
-                          ? GestureDetector(
-                              onTap: onInsightTap,
-                              behavior: HitTestBehavior.opaque,
-                              child: Center(
-                                child: SizedBox(
-                                  width: 32,
-                                  height: 32,
-                                  child: Lottie.asset(
-                                    'assets/lottie/AI generating.json',
-                                    repeat: true,
-                                    fit: BoxFit.contain,
-                                  ),
-                                ),
-                              ),
-                            )
-                          : const SizedBox.shrink(),
-                    ),
+                    // Centre gap for FAB
+                    const SizedBox(width: _fabD + 16),
                     // Right items
                     ..._rightItems.map((item) => Expanded(
                       child: _NavBtn(
@@ -166,6 +147,27 @@ class _ArchNavBar extends StatelessWidget {
               ),
             ),
           ),
+
+          // ── Smart Insight animation — sits just below the FAB ──
+          if (hasInsight)
+            Positioned(
+              top: _fabD,        // start exactly at FAB bottom edge
+              left: 0,
+              right: 0,
+              height: 72,
+              child: Center(
+                child: GestureDetector(
+                  onTap: onInsightTap,
+                  child: Lottie.asset(
+                    'assets/lottie/AI generating.json',
+                    width: 72,
+                    height: 72,
+                    repeat: true,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+            ),
 
           // ── FAB at arch peak ───────────────────────────────────
           Positioned(
