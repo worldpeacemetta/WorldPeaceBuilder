@@ -884,14 +884,27 @@ class _MealDetailSheet extends ConsumerStatefulWidget {
 
 class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
   bool _logging = false;
+  late Set<int> _selectedIndices;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndices = Set<int>.from(
+        Iterable.generate(widget.insight.items.length));
+  }
+
+  MacroValues get _selectedMacros => MacroValues.sum(
+      _selectedIndices.map((i) => widget.insight.items[i].macros));
 
   Future<void> _logAll() async {
     setState(() => _logging = true);
     final today    = todayISO();
     final notifier = ref.read(entriesProvider(today).notifier);
     bool allOk = true;
-    for (final item in widget.insight.items) {
-      final ok = await notifier.addEntry(
+    final indices  = _selectedIndices.toList()..sort();
+    for (final i in indices) {
+      final item = widget.insight.items[i];
+      final ok   = await notifier.addEntry(
         foodId: item.food.id,
         qty: item.qty,
         meal: widget.insight.meal,
@@ -913,7 +926,19 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
   Widget build(BuildContext context) {
     final cs    = AppColorScheme.of(context);
     final color = _mealColor(widget.insight.meal);
-    final m     = widget.insight.totalMacros;
+    final n     = widget.insight.items.length;
+    final sel   = _selectedIndices.length;
+
+    final String buttonLabel;
+    if (_logging) {
+      buttonLabel = '';
+    } else if (sel == 0) {
+      buttonLabel = 'Select items to log';
+    } else if (sel == n) {
+      buttonLabel = 'Log ${mealLabels[widget.insight.meal] ?? widget.insight.meal}';
+    } else {
+      buttonLabel = 'Log $sel item${sel == 1 ? '' : 's'}';
+    }
 
     return DraggableScrollableSheet(
       expand: false,
@@ -967,80 +992,112 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
             child: ListView.separated(
               controller: scrollCtrl,
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              itemCount: widget.insight.items.length + 1,
+              itemCount: n + 1,
               separatorBuilder: (_, i) =>
-                  i < widget.insight.items.length - 1
+                  i < n - 1
                       ? Divider(height: 24, color: cs.border)
                       : const SizedBox(height: 16),
               itemBuilder: (ctx, i) {
-                if (i == widget.insight.items.length) {
-                  return _MacroSummaryRow(macros: m, color: color);
+                if (i == n) {
+                  return _MacroSummaryRow(
+                      macros: _selectedMacros, color: color);
                 }
-                final item = widget.insight.items[i];
-                final im   = item.macros;
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(item.food.name,
-                              style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: cs.textPrimary)),
-                          if (item.food.brand != null)
-                            Text(item.food.brand!,
-                                style: TextStyle(
-                                    fontSize: 12, color: cs.textMuted)),
-                          const SizedBox(height: 4),
-                          Row(children: [
-                            _SmallPill('P ${im.protein.round()}g',
-                                AppColors.protein),
-                            const SizedBox(width: 6),
-                            _SmallPill(
-                                'C ${im.carbs.round()}g', AppColors.carbs),
-                            const SizedBox(width: 6),
-                            _SmallPill('F ${im.fat.round()}g', AppColors.fat),
-                          ]),
-                        ],
-                      ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                final item     = widget.insight.items[i];
+                final im       = item.macros;
+                final selected = _selectedIndices.contains(i);
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => setState(() {
+                    if (selected) {
+                      _selectedIndices.remove(i);
+                    } else {
+                      _selectedIndices.add(i);
+                    }
+                  }),
+                  child: AnimatedOpacity(
+                    opacity: selected ? 1.0 : 0.38,
+                    duration: const Duration(milliseconds: 180),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Text(
-                          _qtyLabel(item.food.unit, item.qty),
-                          style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: cs.textPrimary),
+                        // Selection indicator
+                        Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 180),
+                            child: Icon(
+                              selected
+                                  ? Icons.check_circle_rounded
+                                  : Icons.radio_button_unchecked_rounded,
+                              key: ValueKey(selected),
+                              size: 20,
+                              color: selected ? color : cs.border,
+                            ),
+                          ),
                         ),
-                        Text('${im.kcal.round()} kcal',
-                            style: TextStyle(
-                                fontSize: 12, color: cs.kcalColor)),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(item.food.name,
+                                  style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: cs.textPrimary)),
+                              if (item.food.brand != null)
+                                Text(item.food.brand!,
+                                    style: TextStyle(
+                                        fontSize: 12, color: cs.textMuted)),
+                              const SizedBox(height: 4),
+                              Row(children: [
+                                _SmallPill('P ${im.protein.round()}g',
+                                    AppColors.protein),
+                                const SizedBox(width: 6),
+                                _SmallPill('C ${im.carbs.round()}g',
+                                    AppColors.carbs),
+                                const SizedBox(width: 6),
+                                _SmallPill(
+                                    'F ${im.fat.round()}g', AppColors.fat),
+                              ]),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              _qtyLabel(item.food.unit, item.qty),
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: cs.textPrimary),
+                            ),
+                            Text('${im.kcal.round()} kcal',
+                                style:
+                                    TextStyle(fontSize: 12, color: cs.kcalColor)),
+                          ],
+                        ),
                       ],
                     ),
-                  ],
+                  ),
                 );
               },
             ),
           ),
-          // Macro impact preview
-          _DonutImpactSection(suggestion: widget.insight.totalMacros),
+          // Macro impact — driven by selected items only
+          _DonutImpactSection(suggestion: _selectedMacros),
           // Log button
           Padding(
             padding: EdgeInsets.fromLTRB(
                 16, 8, 16, MediaQuery.of(context).padding.bottom + 16),
             child: ElevatedButton(
-              onPressed: _logging ? null : _logAll,
+              onPressed: (_logging || sel == 0) ? null : _logAll,
               child: _logging
                   ? const SizedBox(
                       height: 20,
                       width: 20,
                       child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text('Log ${mealLabels[widget.insight.meal] ?? widget.insight.meal}'),
+                  : Text(buttonLabel),
             ),
           ),
         ],
