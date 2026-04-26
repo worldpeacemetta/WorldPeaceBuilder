@@ -328,36 +328,26 @@ class _OptionCarousel extends StatefulWidget {
 
 class _OptionCarouselState extends State<_OptionCarousel>
     with SingleTickerProviderStateMixin {
-  /// Fractional page: 0 = card 0 active, 1 = card 1 active, etc.
-  /// Unbounded to support rubber-band over-drag at the edges.
   late final AnimationController _ctrl;
 
-  /// Height of one card — set by LayoutBuilder each frame.
   double _cardHeight = 300.0;
 
-  // ── Steady-state geometry ─────────────────────────────────────────────────
+  // Accumulated raw (un-rubber-banded) position during an active drag.
+  // Using accumulated raw prevents the rubber-band formula from converging
+  // toward maxPage when the user holds the swipe past the boundary.
+  double _dragRaw = 0.0;
 
-  /// Y-coordinate of card [i] when card [activePage] is the active (top) card.
-  ///   active card  →  top = 0
-  ///   cards below  →  top = rel * _kPeekH   (peek progressively)
-  ///   cards above  →  top = rel * _cardHeight (off-screen, hidden above)
-  double _steadyTopAt(int i, int activePage) {
-    final rel = i - activePage;
-    if (rel == 0) return 0.0;
-    if (rel < 0)  return rel * _cardHeight;  // negative → above viewport
-    return rel * _kPeekH;                    // positive → peeking below
-  }
+  // ── Geometry ──────────────────────────────────────────────────────────────
 
-  /// Smooth interpolation of [_steadyTopAt] for the current fractional page.
+  /// Direct Y-position for card [i] at the current fractional page.
+  /// rel < 0 → card is above the viewport (slides off upward).
+  /// rel > 0 → card peeks below the active card.
+  /// rel = 0 → card is active (top = 0).
   double _topFor(int i) {
     final n    = widget.options.length;
     final page = _ctrl.value.clamp(0.0, (n - 1).toDouble());
-    final lo   = page.floor();
-    final hi   = (lo + 1).clamp(0, n - 1);
-    final frac = page - lo;
-    final a    = _steadyTopAt(i, lo);
-    final b    = _steadyTopAt(i, hi);
-    return a + (b - a) * frac;
+    final rel  = i - page;
+    return rel <= 0 ? rel * _cardHeight : rel * _kPeekH;
   }
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -379,39 +369,45 @@ class _OptionCarouselState extends State<_OptionCarousel>
 
   void _onPanStart(DragStartDetails _) {
     if (_ctrl.isAnimating) _ctrl.stop();
+    // Seed the accumulator from the current (possibly spring-settled) position.
+    _dragRaw = _ctrl.value;
   }
 
   void _onPanUpdate(DragUpdateDetails d) {
     if (_cardHeight <= 0) return;
     final maxPage = (widget.options.length - 1).toDouble();
-    // Swipe UP (dy < 0) → next card → page increases.
-    final raw = _ctrl.value - d.delta.dy / _cardHeight;
-    if (raw < 0) {
-      _ctrl.value = raw * 0.25;          // rubber-band before first card
-    } else if (raw > maxPage) {
-      _ctrl.value = maxPage + (raw - maxPage) * 0.25; // rubber-band after last
+    // Swipe UP (dy < 0) → page increases → next card.
+    _dragRaw -= d.delta.dy / _cardHeight;
+    // Apply rubber-band to the accumulated raw position, not the previous
+    // ctrl value. This avoids the fixed-point convergence bug where
+    // incremental rubber-band calculations compress toward maxPage.
+    if (_dragRaw < 0) {
+      _ctrl.value = _dragRaw * 0.2;
+    } else if (_dragRaw > maxPage) {
+      _ctrl.value = maxPage + (_dragRaw - maxPage) * 0.2;
     } else {
-      _ctrl.value = raw;
+      _ctrl.value = _dragRaw;
     }
   }
 
   void _onPanEnd(DragEndDetails d) {
     if (_cardHeight <= 0) return;
-    // Upward flick (negative dy/s) → positive page-velocity → next card.
     final velocity = -d.velocity.pixelsPerSecond.dy / _cardHeight;
     final maxPage  = widget.options.length - 1;
 
     final int target;
     if (velocity > 1.2 && _ctrl.value < maxPage) {
-      target = _ctrl.value.floor() + 1;   // flick up → next
+      target = _ctrl.value.floor() + 1;
     } else if (velocity < -1.2 && _ctrl.value > 0) {
-      target = _ctrl.value.ceil()  - 1;   // flick down → previous
+      target = (_ctrl.value.ceil() - 1).clamp(0, maxPage);
     } else {
       target = _ctrl.value.round().clamp(0, maxPage);
     }
 
+    // Slightly over-damped spring (damping > 2√k) — reaches target without
+    // oscillation, so cards don't bounce back past page boundaries.
     _ctrl.animateWith(SpringSimulation(
-      const SpringDescription(mass: 1, stiffness: 700, damping: 42),
+      const SpringDescription(mass: 1, stiffness: 600, damping: 60),
       _ctrl.value,
       target.toDouble(),
       velocity,
@@ -429,20 +425,28 @@ class _OptionCarouselState extends State<_OptionCarousel>
     final goals         = widget.ref.read(settingsProvider).goalsForDate(today);
     final n             = widget.options.length;
 
-    // Paint cards from furthest-behind to active so the active card is on top.
+    // Use the clamped page for z-order so it matches _topFor exactly.
+    // Cards furthest from the current page are painted first (deepest),
+    // the active card is painted last (on top).
+    final page    = _ctrl.value.clamp(0.0, (n - 1).toDouble());
     final ordered = List.generate(n, (i) => i)
-      ..sort((a, b) => (b - _ctrl.value)
-          .abs()
-          .compareTo((a - _ctrl.value).abs()));
+      ..sort((a, b) {
+        final da = (a - page).abs();
+        final db = (b - page).abs();
+        // Stable tie-break: lower index goes deeper (further from viewer).
+        if ((da - db).abs() > 1e-9) return da.compareTo(db);
+        return a.compareTo(b);
+      });
 
-    final activeDot = _ctrl.value.round().clamp(0, n - 1);
+    final activeDot = page.round().clamp(0, n - 1);
 
     return Column(
       children: [
         Expanded(
           child: LayoutBuilder(builder: (_, box) {
             // Active card fills the area minus the peek strips below it.
-            _cardHeight = box.maxHeight - max(0, n - 1) * _kPeekH;
+            // Floor at 80 to prevent zero/negative heights on tiny screens.
+            _cardHeight = max(80.0, box.maxHeight - max(0, n - 1) * _kPeekH);
             return GestureDetector(
               behavior:    HitTestBehavior.opaque,
               onPanStart:  _onPanStart,
@@ -450,6 +454,7 @@ class _OptionCarouselState extends State<_OptionCarousel>
               onPanEnd:    _onPanEnd,
               child: ClipRect(
                 child: Stack(
+                  fit: StackFit.expand,
                   children: [
                     for (final i in ordered)
                       _buildCard(i, box.maxHeight, currentMacros, goals),
@@ -496,7 +501,9 @@ class _OptionCarouselState extends State<_OptionCarousel>
     // Cull cards that are entirely outside the visible area.
     if (top > availH + 4 || top + _cardHeight < -4) return const SizedBox.shrink();
 
-    final absRel     = (i - _ctrl.value).abs().clamp(0.0, 1.0);
+    final n      = widget.options.length;
+    final page   = _ctrl.value.clamp(0.0, (n - 1).toDouble());
+    final absRel = (i - page).abs().clamp(0.0, 1.0);
     final scale      = 1.0 - absRel * (1.0 - _kBackScale); // 1.0 → _kBackScale
     final shadowBlur  = lerpDouble(20.0, 4.0,  absRel)!;
     final shadowAlpha = lerpDouble(0.12, 0.03, absRel)!;
