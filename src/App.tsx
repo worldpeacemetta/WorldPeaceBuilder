@@ -5905,7 +5905,7 @@ function RecipeIngredientsEditor({ ingredients, onChange, foods, ownerId }) {
       {ingredients.map((item) => {
         const selected = foods.find((f) => f.id === item.foodId) || null;
         const macros = selected ? scaleMacros(selected, toNumber(item.quantity, 0)) : null;
-        const quantityUnit = selected ? (selected.unit === "perServing" ? "servings" : "g") : "";
+        const quantityUnit = selected ? (selected.unit === "perServing" ? "serving" : "g") : "";
         return (
           <div key={item.id} className="space-y-2 rounded-lg border border-slate-200 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/40">
             <div className="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto] items-end">
