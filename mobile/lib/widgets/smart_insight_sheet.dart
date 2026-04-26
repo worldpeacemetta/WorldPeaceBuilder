@@ -1223,7 +1223,6 @@ class _MacroDonut extends StatelessWidget {
     final cs        = AppColorScheme.of(context);
     final projected = current + addition;
     final overGoal  = goal > 0 && projected > goal;
-    final dotColor  = overGoal ? AppColors.danger : color;
     final addStr    = '+${addition.round()}$unit';
     final totalStr  = goal > 0
         ? '${projected.round()}/${goal.round()}'
@@ -1236,9 +1235,28 @@ class _MacroDonut extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
+        Container(
           width: size,
           height: size,
+          // Soft red glow on overshoot — keeps macro color intact,
+          // two shadow layers fade the warning outward.
+          decoration: overGoal
+              ? BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.danger.withValues(alpha: 0.28),
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                    ),
+                    BoxShadow(
+                      color: AppColors.danger.withValues(alpha: 0.10),
+                      blurRadius: 20,
+                      spreadRadius: 6,
+                    ),
+                  ],
+                )
+              : null,
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -1248,7 +1266,7 @@ class _MacroDonut extends StatelessWidget {
                   current: current,
                   addition: addition,
                   goal: goal,
-                  color: dotColor,
+                  color: color,
                   strokeWidth: stroke,
                 ),
               ),
@@ -1257,7 +1275,7 @@ class _MacroDonut extends StatelessWidget {
                 style: TextStyle(
                   fontSize: innerFont,
                   fontWeight: FontWeight.w700,
-                  color: dotColor,
+                  color: color,
                 ),
                 textAlign: TextAlign.center,
               ),
