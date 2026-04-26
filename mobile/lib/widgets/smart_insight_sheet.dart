@@ -1028,7 +1028,7 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
             ),
           ),
           // Macro impact preview
-          _MacroImpactSection(suggestion: widget.insight.totalMacros),
+          _DonutImpactSection(suggestion: widget.insight.totalMacros),
           // Log button
           Padding(
             padding: EdgeInsets.fromLTRB(
@@ -1050,11 +1050,11 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
 }
 
 // ---------------------------------------------------------------------------
-// Macro impact section — shows current progress + what this meal would add
+// Macro impact section — donut view, matches carousel card style
 // ---------------------------------------------------------------------------
 
-class _MacroImpactSection extends ConsumerWidget {
-  const _MacroImpactSection({required this.suggestion});
+class _DonutImpactSection extends ConsumerWidget {
+  const _DonutImpactSection({required this.suggestion});
   final MacroValues suggestion;
 
   @override
@@ -1063,6 +1063,7 @@ class _MacroImpactSection extends ConsumerWidget {
     final today   = todayISO();
     final current = ref.watch(macroTotalsProvider(today));
     final goals   = ref.read(settingsProvider).goalsForDate(today);
+    final m       = suggestion;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -1079,141 +1080,51 @@ class _MacroImpactSection extends ConsumerWidget {
               letterSpacing: 0.4,
             ),
           ),
-          const SizedBox(height: 12),
-          _ImpactBar(
-            label: 'Protein',
-            current: current.protein,
-            addition: suggestion.protein,
-            goal: goals.protein,
-            color: AppColors.protein,
-            unit: 'g',
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _MacroDonut(
+                label: 'Protein',
+                addition: m.protein,
+                current: current.protein,
+                goal: goals.protein,
+                color: AppColors.protein,
+                unit: 'g',
+                size: 76.0,
+              ),
+              _MacroDonut(
+                label: 'Carbs',
+                addition: m.carbs,
+                current: current.carbs,
+                goal: goals.carbs,
+                color: AppColors.carbs,
+                unit: 'g',
+                size: 76.0,
+              ),
+              _MacroDonut(
+                label: 'Fat',
+                addition: m.fat,
+                current: current.fat,
+                goal: goals.fat,
+                color: AppColors.fat,
+                unit: 'g',
+                size: 76.0,
+              ),
+              _MacroDonut(
+                label: 'Kcal',
+                addition: m.kcal,
+                current: current.kcal,
+                goal: goals.kcal,
+                color: AppColorScheme.of(context).kcalColor,
+                unit: '',
+                size: 76.0,
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          _ImpactBar(
-            label: 'Carbs',
-            current: current.carbs,
-            addition: suggestion.carbs,
-            goal: goals.carbs,
-            color: AppColors.carbs,
-            unit: 'g',
-          ),
-          const SizedBox(height: 10),
-          _ImpactBar(
-            label: 'Fat',
-            current: current.fat,
-            addition: suggestion.fat,
-            goal: goals.fat,
-            color: AppColors.fat,
-            unit: 'g',
-          ),
-          const SizedBox(height: 10),
-          _ImpactBar(
-            label: 'Calories',
-            current: current.kcal,
-            addition: suggestion.kcal,
-            goal: goals.kcal,
-            color: AppColorScheme.of(context).kcalColor,
-            unit: ' kcal',
-          ),
+          const SizedBox(height: 8),
         ],
       ),
-    );
-  }
-}
-
-class _ImpactBar extends StatelessWidget {
-  const _ImpactBar({
-    required this.label,
-    required this.current,
-    required this.addition,
-    required this.goal,
-    required this.color,
-    required this.unit,
-  });
-
-  final String label;
-  final double current;
-  final double addition;
-  final double goal;
-  final Color color;
-  final String unit;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs             = AppColorScheme.of(context);
-    final projected      = current + addition;
-    final currentRatio   = goal > 0 ? (current   / goal).clamp(0.0, 1.0) : 0.0;
-    final projectedRatio = goal > 0 ? (projected / goal).clamp(0.0, 1.0) : 0.0;
-    final addRatio       = projectedRatio - currentRatio;
-    final overGoal       = projected > goal;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label,
-                style: TextStyle(fontSize: 12, color: cs.textMuted)),
-            RichText(
-              text: TextSpan(
-                style: DefaultTextStyle.of(context).style,
-                children: [
-                  TextSpan(
-                    text: '+${addition.round()}$unit  ',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: color,
-                        fontWeight: FontWeight.w600),
-                  ),
-                  TextSpan(
-                    text: '→ ${projected.round()} / ${goal.round()}$unit',
-                    style: TextStyle(fontSize: 11, color: cs.textMuted),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 5),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: SizedBox(
-            height: 7,
-            child: LayoutBuilder(
-              builder: (_, constraints) {
-                final w = constraints.maxWidth;
-                return Stack(
-                  children: [
-                    // Background track
-                    Container(color: cs.border),
-                    // Current portion (muted)
-                    Positioned(
-                      left: 0,
-                      child: Container(
-                        width: currentRatio * w,
-                        height: 7,
-                        color: color.withValues(alpha: 0.40),
-                      ),
-                    ),
-                    // Addition portion (full color)
-                    Positioned(
-                      left: currentRatio * w,
-                      child: Container(
-                        width: addRatio * w,
-                        height: 7,
-                        color: overGoal
-                            ? AppColors.danger.withValues(alpha: 0.8)
-                            : color,
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1296,6 +1207,7 @@ class _MacroDonut extends StatelessWidget {
     required this.goal,
     required this.color,
     required this.unit,
+    this.size = 58.0,
   });
 
   final String label;
@@ -1304,6 +1216,7 @@ class _MacroDonut extends StatelessWidget {
   final double goal;
   final Color color;
   final String unit;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -1316,28 +1229,33 @@ class _MacroDonut extends StatelessWidget {
         ? '${projected.round()}/${goal.round()}'
         : '${projected.round()}';
 
+    final innerFont = (size * 9 / 58).floorToDouble();
+    final labelFont = (size * 8 / 58).floorToDouble();
+    final stroke    = size * 5 / 58;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          width: 58,
-          height: 58,
+          width: size,
+          height: size,
           child: Stack(
             alignment: Alignment.center,
             children: [
               CustomPaint(
-                size: const Size(58, 58),
+                size: Size(size, size),
                 painter: _DonutPainter(
                   current: current,
                   addition: addition,
                   goal: goal,
                   color: dotColor,
+                  strokeWidth: stroke,
                 ),
               ),
               Text(
                 addStr,
                 style: TextStyle(
-                  fontSize: 9,
+                  fontSize: innerFont,
                   fontWeight: FontWeight.w700,
                   color: dotColor,
                 ),
@@ -1350,7 +1268,7 @@ class _MacroDonut extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            fontSize: 8,
+            fontSize: labelFont,
             fontWeight: FontWeight.w600,
             color: cs.textMuted,
             letterSpacing: 0.2,
@@ -1359,7 +1277,7 @@ class _MacroDonut extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           totalStr,
-          style: TextStyle(fontSize: 8, color: cs.textMuted),
+          style: TextStyle(fontSize: labelFont, color: cs.textMuted),
         ),
       ],
     );
@@ -1372,20 +1290,22 @@ class _DonutPainter extends CustomPainter {
     required this.addition,
     required this.goal,
     required this.color,
+    this.strokeWidth = 5.0,
   });
 
   final double current;
   final double addition;
   final double goal;
   final Color color;
+  final double strokeWidth;
 
   @override
   void paint(Canvas canvas, Size size) {
     if (goal <= 0) return;
 
-    final center  = Offset(size.width / 2, size.height / 2);
-    final radius  = size.width / 2 - 5;
-    const stroke  = 5.0;
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - strokeWidth;
+    final stroke = strokeWidth;
     const start   = -pi / 2;
     const full    = pi * 2;
 
@@ -1425,8 +1345,9 @@ class _DonutPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DonutPainter old) =>
-      old.current  != current  ||
-      old.addition != addition ||
-      old.goal     != goal     ||
-      old.color    != color;
+      old.current     != current     ||
+      old.addition    != addition    ||
+      old.goal        != goal        ||
+      old.color       != color       ||
+      old.strokeWidth != strokeWidth;
 }
