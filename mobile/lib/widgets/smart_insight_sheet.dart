@@ -250,6 +250,15 @@ class _CardDeckState extends State<_CardDeck> with TickerProviderStateMixin {
   void _hTo(double t) { _hS = _dragX; _hE = t; _hCtrl..reset()..forward(); }
   void _vTo(double t) { _vS = _dragY; _vE = t; _vCtrl..reset()..forward(); }
 
+  // Steady-state top position of card [oi] when [curOpt] is the front card.
+  // Past cards (oi < curOpt) peek above the front card.
+  // Future cards (oi > curOpt) peek below the front card.
+  double _steadyTop(int oi, int curOpt, double slotH) {
+    if (oi == curOpt) return curOpt * _kPeekH;
+    if (oi < curOpt)  return (curOpt - oi) * _kPeekH - slotH;
+    return slotH + (oi - 1) * _kPeekH;  // oi > curOpt
+  }
+
   void _onPanStart(DragStartDetails _) {
     _isHoriz = null;
     if (_hCtrl.isAnimating) _hCtrl.stop();
@@ -277,12 +286,13 @@ class _CardDeckState extends State<_CardDeck> with TickerProviderStateMixin {
         _hTo(0);
       }
     } else {
-      final cnt = widget.suggestions[widget.slots[_slotIdx]]!.length;
-      final cur = _optIdxs[_slotIdx];
-      if ((_dragY < -48 || vy < -500) && cur < cnt - 1) {
-        _vTo(-_kPeekH);
-      } else if ((_dragY > 48 || vy > 500) && cur > 0) {
-        _vTo(_kPeekH);
+      final cnt   = widget.suggestions[widget.slots[_slotIdx]]!.length;
+      final cur   = _optIdxs[_slotIdx];
+      final slotH = _availH - (cnt - 1) * _kPeekH;
+      if ((_dragY < -slotH / 3 || vy < -500) && cur < cnt - 1) {
+        _vTo(-slotH);
+      } else if ((_dragY > slotH / 3 || vy > 500) && cur > 0) {
+        _vTo(slotH);
       } else {
         _vTo(0);
       }
@@ -386,8 +396,19 @@ class _CardDeckState extends State<_CardDeck> with TickerProviderStateMixin {
   Widget _buildWalletCard(
       int oi, int curOpt, double slotH, double dy,
       String slot, List<MealInsight> opts) {
-    // Cards are spaced only kPeekH apart so they overlap — wallet stack effect.
-    final top = (oi - curOpt) * _kPeekH + dy;
+    // Interpolate between steady states based on drag progress.
+    // p > 0 → advancing to curOpt+1, p < 0 → retreating to curOpt-1.
+    final p      = slotH > 0 ? (-dy / slotH).clamp(-1.0, 1.0) : 0.0;
+    final before = _steadyTop(oi, curOpt, slotH);
+    final double after;
+    if (p > 0 && curOpt < opts.length - 1) {
+      after = _steadyTop(oi, curOpt + 1, slotH);
+    } else if (p < 0 && curOpt > 0) {
+      after = _steadyTop(oi, curOpt - 1, slotH);
+    } else {
+      after = before;
+    }
+    final top = before + (after - before) * p.abs();
     if (top >= _availH + 4 || top + slotH <= -4) return const SizedBox.shrink();
 
     final insight = opts[oi];
