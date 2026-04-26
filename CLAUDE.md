@@ -164,38 +164,41 @@ mobile/lib/
 
 `theme.dart` defines `AppColorScheme` as a `ThemeExtension` with `card`, `border`, `textPrimary`, `textMuted`, `kcalColor` fields. Access via `AppColorScheme.of(context)`. Named colors (protein, carbs, fat, kcal, danger) live in `AppColors`.
 
-### Smart Insight feature — current state and active work
+### Smart Insight feature
 
 **File:** `mobile/lib/widgets/smart_insight_sheet.dart`  
 **Branch:** `claude/meal-card-carousel-7EWwK`
 
 Smart Insight analyses 90 days of meal history (minimum 14 logged days), scores food combinations by how well they close today's remaining macro gaps, and surfaces up to 3 ranked suggestions per meal slot (breakfast / lunch / dinner / snack).
 
-#### What is complete and working
+#### Complete widget tree
 
-- `smartInsightProvider` — computes `SmartInsightResult` with `Map<String, List<MealInsight>>` (up to `_kMaxSuggestions = 3` per slot).
-- `_SmartInsightSheet` — modal bottom sheet entry point (`showSmartInsightSheet()`).
-- `_SlotSelector` — horizontal scrollable pill tabs that switch between meal slots (breakfast / lunch / dinner / snack). Confirmed working.
-- `_OptionCarousel` — spring-physics vertical stacked-card carousel for the 3 options within a slot. Swipe up → next option; swipe down → previous. Options 1↔2 transitions confirmed working.
-- `_MealSlotCard` — individual option card with meal icon, "Option N" badge, macro donut charts (`_MacroDonut` / `_DonutPainter`), food list preview.
-- `_MealDetailSheet` — tap-to-expand detail bottom sheet with full food list, macro impact bars, and "Log Meal" button.
-- `_MacroImpactSection` / `_ImpactBar` — shows current macros + projected addition for each nutrient.
-- Pagination dots animate alongside the swipe.
+| Class | Role |
+|---|---|
+| `_SmartInsightSheet` | Modal bottom sheet entry point (`showSmartInsightSheet()`). Reads `smartInsightProvider`. |
+| `_CardDeck` | Slot selector + carousel shell. Holds `_slotIndex` state; rebuilds carousel with `ValueKey` on slot change. |
+| `_SlotSelector` | Horizontal scrollable pill tabs (breakfast / lunch / dinner / snack). |
+| `_OptionCarousel` / `_OptionCarouselState` | Spring-physics vertical stacked-card carousel. Swipe up → next option; swipe down → previous. |
+| `_MealSlotCard` | Individual option card. Meal icon, "Option N" badge, 4× `_MacroDonut` in footer. Tap → opens `_MealDetailSheet`. |
+| `_MealDetailSheet` / `_MealDetailSheetState` | Full detail bottom sheet. Food item list with per-item selection toggle, `_DonutImpactSection`, Log button. |
+| `_DonutImpactSection` | Macro impact row using `_MacroDonut` at `size: 76`. Reacts live to item selection. |
+| `_MacroDonut` / `_DonutPainter` | Donut ring showing current fill (muted arc) + projected addition (full-color arc). Parameterised by `size` (default 58 for carousel, 76 for detail sheet). Overshoot signalled by a soft red `BoxShadow` glow — macro color is never overridden. |
+| `_MacroSummaryRow` | Compact macro total strip at the foot of the food list. Driven by selected items only. |
+| `_EmptyState` | Shown when `loggedDays < 14` or all meals already logged today. |
 
-#### Known bug — UNRESOLVED (as of last session)
+#### Carousel mechanics (all working, no known bugs)
 
-**Symptom:** Swiping up from Option 2 to reach Option 3 renders a white screen instead of Option 3's card. Option 1↔2 swipe and slot navigation work correctly.
-
-**Carousel mechanics:**
 - `_ctrl` is an `AnimationController.unbounded()` — fractional page value (0 = card 0, 1 = card 1, 2 = card 2).
-- `_cardHeight = box.maxHeight - max(0, n-1) * _kPeekH` (active card fills all but the peek strips).
-- `_steadyTopAt(i, activePage)` returns the resting Y for card `i` when `activePage` is active: `0` for active, `rel * _kPeekH` for cards below, `rel * _cardHeight` for cards above (off-screen).
-- `_topFor(i)` interpolates between floor/ceil steady states using `_ctrl.value`.
-- Cards are sorted furthest-first and painted so the active card is on top.
-- Spring: `SpringDescription(mass:1, stiffness:700, damping:42)` — under-damped, will overshoot.
+- `_dragRaw` accumulates raw (un-rubber-banded) drag position. Rubber-band (`×0.2`) is applied once at output, preventing fixed-point convergence that previously froze Option 3.
+- `_topFor(i)` uses the clamped page: `rel ≤ 0 → rel * _cardHeight`, `rel > 0 → rel * _kPeekH`.
+- Z-order: cards sorted furthest-from-page first (deepest), active card last (on top). Clamped page used throughout for consistency.
+- `_cardHeight` floored at 80 dp to prevent zero/negative heights on small screens.
+- Spring: `SpringDescription(mass:1, stiffness:600, damping:60)` — over-damped, no oscillation.
 
-**Suspected causes to investigate:**
-1. `_topFor` clamps `_ctrl.value` to `[0, n-1]` but the `ordered` sort uses the raw (unclamped) value — inconsistency during spring overshoot past page 2.
-2. When `lo == hi == n-1` (at the boundary page=2), the interpolation degenerates and z-order may place card 2 off-screen.
-3. `_cardHeight` could go negative on small screens (when `box.maxHeight < (n-1) * _kPeekH = 144`), causing Positioned to have negative height.
-4. Z-order tie-break at `_ctrl.value ≈ 1.5` is unstable — Dart's sort is stable but the result may bury the incoming card under the outgoing one.
+#### Detail sheet selection model
+
+`_MealDetailSheetState` holds `Set<int> _selectedIndices` (all selected by default). The computed getter `_selectedMacros` sums `MacroValues` for selected items only via `MacroValues.sum()`. Both `_DonutImpactSection` and `_MacroSummaryRow` receive `_selectedMacros`, so donuts and totals update immediately on each tap. `_logAll()` iterates `_selectedIndices.toList()..sort()` — only selected items are sent to `entriesProvider`. The Log button is disabled when the selection is empty and shows "Log N items" for partial selections.
+
+#### Overshoot indicator
+
+When `current + addition > goal` for a macro, `_MacroDonut` keeps its attributed color and adds two `BoxShadow` layers (`AppColors.danger` at alpha 0.28/blurRadius 10 and alpha 0.10/blurRadius 20) on a `BoxShape.circle` container, producing a soft red glow. The painter arcs clamp at 100% fill. No class-wide color override occurs, so multiple overshooting donuts each carry an independent soft glow rather than all turning solid red.
