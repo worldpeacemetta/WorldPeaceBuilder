@@ -300,6 +300,7 @@ class _CardDeckState extends State<_CardDeck> with TickerProviderStateMixin {
             _cardW  = box.maxWidth  - 2 * _kPeek;
             _availH = box.maxHeight;
             return GestureDetector(
+              behavior:    HitTestBehavior.opaque,
               onPanStart:  _onPanStart,
               onPanUpdate: _onPanUpdate,
               onPanEnd:    _onPanEnd,
@@ -343,7 +344,14 @@ class _CardDeckState extends State<_CardDeck> with TickerProviderStateMixin {
   Widget _buildSlot(BuildContext context, int si) {
     final left = _kPeek + (si - _slotIdx) * _cardW + _dragX;
     final cW   = 2 * _kPeek + _cardW;
-    if (left >= cW + 4 || left + _cardW <= -4) return const SizedBox.shrink();
+
+    // Always return a Positioned so the outer Stack has only Positioned children.
+    // A Stack with any non-positioned child (e.g. SizedBox.shrink) collapses to
+    // zero width under loose constraints, shifting all cards off-centre.
+    if (left >= cW + 4 || left + _cardW <= -4) {
+      return Positioned(left: left, top: 0, width: _cardW, height: _availH,
+          child: const SizedBox.shrink());
+    }
 
     final slot   = widget.slots[si];
     final opts   = widget.suggestions[slot]!;
