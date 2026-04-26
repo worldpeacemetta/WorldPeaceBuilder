@@ -164,14 +164,10 @@ class _SmartInsightSheet extends ConsumerWidget {
 // Carousel constants
 // ---------------------------------------------------------------------------
 
-/// How many dp of an adjacent card peek from the container wall at rest.
-const _kPeekSide    = 22.0;
-/// Gap between the active-card edge and the container wall (adds to peek area).
-const _kPeekGap     = 8.0;
-/// Scale factor for non-active (background) cards.
-const _kBackScale   = 0.88;
-/// Opacity for non-active (background) cards.
-const _kBackOpacity = 0.72;
+/// Height (dp) each subsequent card peeks below the active card at rest.
+const _kPeekH     = 72.0;
+/// Horizontal scale for non-active cards — subtle inward shrink signals depth.
+const _kBackScale = 0.96;
 
 // ---------------------------------------------------------------------------
 // Card deck — slot selector + option carousel
@@ -305,7 +301,11 @@ class _SlotSelector extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Option carousel — spring-driven stacked-card carousel
+// Option carousel — spring-driven vertical stacked-card carousel
+//
+// Layout: the active card occupies the full height minus the peek strip.
+// Each subsequent card peeks [_kPeekH] dp below the one above it.
+// Swipe UP → advance to next option.  Swipe DOWN → return to previous.
 // ---------------------------------------------------------------------------
 
 class _OptionCarousel extends StatefulWidget {
@@ -328,15 +328,39 @@ class _OptionCarousel extends StatefulWidget {
 
 class _OptionCarouselState extends State<_OptionCarousel>
     with SingleTickerProviderStateMixin {
-  /// Fractional page position: 0 = card 0 centred, 1 = card 1 centred, etc.
-  /// Driven by spring physics; unbounded to allow rubber-band overscroll.
+  /// Fractional page: 0 = card 0 active, 1 = card 1 active, etc.
+  /// Unbounded to support rubber-band over-drag at the edges.
   late final AnimationController _ctrl;
 
-  double _cardWidth = 300.0;
+  /// Height of one card — set by LayoutBuilder each frame.
+  double _cardHeight = 300.0;
 
-  /// Distance between adjacent card centres when the carousel is at rest.
-  /// Derived so the back card peeks exactly [_kPeekSide] dp from the wall.
-  double get _stride => _cardWidth * (1 + _kBackScale) / 2 + _kPeekGap;
+  // ── Steady-state geometry ─────────────────────────────────────────────────
+
+  /// Y-coordinate of card [i] when card [activePage] is the active (top) card.
+  ///   active card  →  top = 0
+  ///   cards below  →  top = rel * _kPeekH   (peek progressively)
+  ///   cards above  →  top = rel * _cardHeight (off-screen, hidden above)
+  double _steadyTopAt(int i, int activePage) {
+    final rel = i - activePage;
+    if (rel == 0) return 0.0;
+    if (rel < 0)  return rel * _cardHeight;  // negative → above viewport
+    return rel * _kPeekH;                    // positive → peeking below
+  }
+
+  /// Smooth interpolation of [_steadyTopAt] for the current fractional page.
+  double _topFor(int i) {
+    final n    = widget.options.length;
+    final page = _ctrl.value.clamp(0.0, (n - 1).toDouble());
+    final lo   = page.floor();
+    final hi   = (lo + 1).clamp(0, n - 1);
+    final frac = page - lo;
+    final a    = _steadyTopAt(i, lo);
+    final b    = _steadyTopAt(i, hi);
+    return a + (b - a) * frac;
+  }
+
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   @override
   void initState() {
@@ -358,34 +382,34 @@ class _OptionCarouselState extends State<_OptionCarousel>
   }
 
   void _onPanUpdate(DragUpdateDetails d) {
-    if (_cardWidth <= 0) return;
+    if (_cardHeight <= 0) return;
     final maxPage = (widget.options.length - 1).toDouble();
-    final raw     = _ctrl.value - d.delta.dx / _cardWidth;
-    // Rubber-band resistance at both edges (25 % of over-drag applied).
+    // Swipe UP (dy < 0) → next card → page increases.
+    final raw = _ctrl.value - d.delta.dy / _cardHeight;
     if (raw < 0) {
-      _ctrl.value = raw * 0.25;
+      _ctrl.value = raw * 0.25;          // rubber-band before first card
     } else if (raw > maxPage) {
-      _ctrl.value = maxPage + (raw - maxPage) * 0.25;
+      _ctrl.value = maxPage + (raw - maxPage) * 0.25; // rubber-band after last
     } else {
       _ctrl.value = raw;
     }
   }
 
   void _onPanEnd(DragEndDetails d) {
-    if (_cardWidth <= 0) return;
-    final velocity = -d.velocity.pixelsPerSecond.dx / _cardWidth;
+    if (_cardHeight <= 0) return;
+    // Upward flick (negative dy/s) → positive page-velocity → next card.
+    final velocity = -d.velocity.pixelsPerSecond.dy / _cardHeight;
     final maxPage  = widget.options.length - 1;
 
     final int target;
-    if (velocity < -1.2 && _ctrl.value < maxPage) {
-      target = _ctrl.value.floor() + 1;         // flick forward
-    } else if (velocity > 1.2 && _ctrl.value > 0) {
-      target = _ctrl.value.ceil()  - 1;         // flick backward
+    if (velocity > 1.2 && _ctrl.value < maxPage) {
+      target = _ctrl.value.floor() + 1;   // flick up → next
+    } else if (velocity < -1.2 && _ctrl.value > 0) {
+      target = _ctrl.value.ceil()  - 1;   // flick down → previous
     } else {
       target = _ctrl.value.round().clamp(0, maxPage);
     }
 
-    // Spring snap: stiffness 700 / damping 42 → snappy but not bouncy.
     _ctrl.animateWith(SpringSimulation(
       const SpringDescription(mass: 1, stiffness: 700, damping: 42),
       _ctrl.value,
@@ -405,7 +429,7 @@ class _OptionCarouselState extends State<_OptionCarousel>
     final goals         = widget.ref.read(settingsProvider).goalsForDate(today);
     final n             = widget.options.length;
 
-    // Render cards furthest from active first so the active card paints on top.
+    // Paint cards from furthest-behind to active so the active card is on top.
     final ordered = List.generate(n, (i) => i)
       ..sort((a, b) => (b - _ctrl.value)
           .abs()
@@ -417,7 +441,8 @@ class _OptionCarouselState extends State<_OptionCarousel>
       children: [
         Expanded(
           child: LayoutBuilder(builder: (_, box) {
-            _cardWidth = box.maxWidth - 2 * (_kPeekSide + _kPeekGap);
+            // Active card fills the area minus the peek strips below it.
+            _cardHeight = box.maxHeight - max(0, n - 1) * _kPeekH;
             return GestureDetector(
               behavior:    HitTestBehavior.opaque,
               onPanStart:  _onPanStart,
@@ -425,8 +450,6 @@ class _OptionCarouselState extends State<_OptionCarousel>
               onPanEnd:    _onPanEnd,
               child: ClipRect(
                 child: Stack(
-                  alignment:    Alignment.center,
-                  clipBehavior: Clip.none,
                   children: [
                     for (final i in ordered)
                       _buildCard(i, box.maxHeight, currentMacros, goals),
@@ -468,52 +491,44 @@ class _OptionCarouselState extends State<_OptionCarousel>
     MacroValues currentMacros,
     MacroGoals goals,
   ) {
-    final rel    = i.toDouble() - _ctrl.value;
-    final absRel = rel.abs().clamp(0.0, 1.0);
+    final top = _topFor(i);
 
-    // Subtle parallax: back cards are compressed 6 % toward centre, so the
-    // active card appears to "roll over" the stack during the transition.
-    final compress  = 1.0 - absRel * 0.06;
-    final tx        = rel * _stride * compress;
+    // Cull cards that are entirely outside the visible area.
+    if (top > availH + 4 || top + _cardHeight < -4) return const SizedBox.shrink();
 
-    // Cull cards that are entirely off-screen.
-    if (tx.abs() > _cardWidth * 1.8) return const SizedBox.shrink();
+    final absRel     = (i - _ctrl.value).abs().clamp(0.0, 1.0);
+    final scale      = 1.0 - absRel * (1.0 - _kBackScale); // 1.0 → _kBackScale
+    final shadowBlur  = lerpDouble(20.0, 4.0,  absRel)!;
+    final shadowAlpha = lerpDouble(0.12, 0.03, absRel)!;
 
-    final scale       = lerpDouble(1.0, _kBackScale,   absRel)!;
-    final opacity     = lerpDouble(1.0, _kBackOpacity, absRel)!;
-    final shadowBlur  = lerpDouble(22.0, 4.0,  absRel)!;
-    final shadowAlpha = lerpDouble(0.14, 0.03, absRel)!;
-
-    return Transform.translate(
-      offset: Offset(tx, 0),
+    return Positioned(
+      top:    top,
+      left:   0,
+      right:  0,
+      height: _cardHeight,
       child: Transform.scale(
         scale: scale,
-        child: Opacity(
-          opacity: opacity.clamp(0.0, 1.0),
-          child: Container(
-            width:  _cardWidth,
-            height: availH,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color:        Colors.black.withValues(alpha: shadowAlpha),
-                  blurRadius:   shadowBlur,
-                  offset:       const Offset(0, 6),
-                  spreadRadius: 1,
-                ),
-              ],
-            ),
-            child: _MealSlotCard(
-              meal:          widget.slot,
-              insight:       widget.options[i],
-              optionIdx:     i,
-              optionCount:   widget.options.length,
-              onViewDetail:  () => _showMealDetailSheet(
-                  widget.parentContext, widget.ref, widget.options[i]),
-              currentMacros: currentMacros,
-              goals:         goals,
-            ),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color:        Colors.black.withValues(alpha: shadowAlpha),
+                blurRadius:   shadowBlur,
+                offset:       const Offset(0, 4),
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: _MealSlotCard(
+            meal:          widget.slot,
+            insight:       widget.options[i],
+            optionIdx:     i,
+            optionCount:   widget.options.length,
+            onViewDetail:  () => _showMealDetailSheet(
+                widget.parentContext, widget.ref, widget.options[i]),
+            currentMacros: currentMacros,
+            goals:         goals,
           ),
         ),
       ),
