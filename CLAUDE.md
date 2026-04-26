@@ -95,3 +95,107 @@ VITE_SUPABASE_ANON_KEY=
 ### Barcode scanning
 
 Uses `@zxing/browser` + Open Food Facts API. Triggered from the Food Database tab's "Add Food" modal.
+
+---
+
+## Flutter Mobile App
+
+Located in `mobile/`. A companion app to the web MacroTracker, sharing the same Supabase backend.
+
+### Commands
+
+```bash
+cd mobile
+flutter run                  # Run on connected device / emulator
+flutter build apk            # Android release build
+flutter analyze              # Static analysis (run before committing)
+flutter pub get              # Install dependencies after pubspec changes
+```
+
+No test suite is configured beyond `flutter_test` stubs in `test/`.
+
+### Stack
+
+Flutter + Dart, `flutter_riverpod` for state, `go_router` for navigation, `supabase_flutter` SDK (unlike the web app which uses raw REST), `fl_chart` for charts, `mobile_scanner` for barcode, `lottie` for animations.
+
+### Code layout
+
+```
+mobile/lib/
+  main.dart                  # App entry, Supabase.initialize, badge-unlock listener
+  router.dart                # go_router config — auth guard, named routes
+  theme.dart                 # AppTheme (light/dark), AppColorScheme extension, AppColors
+  core/
+    utils.dart               # todayISO(), formatNumber(), mealLabels, etc.
+    constants.dart           # App-wide constants
+    open_food_facts.dart     # Open Food Facts API client
+    recipe_utils.dart        # computeRecipeTotals()
+  models/
+    food.dart                # Food, MacroValues, scaledMacros()
+    entry.dart               # Entry, MacroValues, MacroGoals, sumMacros()
+    badge.dart               # Badge definitions
+  providers/
+    settings_provider.dart   # settingsProvider (goals, schedule, profile) — syncs with Supabase
+    entries_provider.dart    # entriesProvider(date) + macroTotalsProvider(date)
+    foods_provider.dart      # foodsProvider — food database
+    smart_insight_provider.dart  # smartInsightProvider — AI meal suggestions
+    date_provider.dart       # currentDateProvider — app-wide selected date
+    badges_provider.dart     # earnedBadgesProvider, badgeUnlockQueueProvider
+    auth_provider.dart       # authStateProvider
+  screens/
+    home_screen.dart         # Bottom nav shell (Daily Log / Dashboard / Food DB / Profile)
+    auth_screen.dart         # Sign-in / sign-up
+    daily_log/               # Daily entry list + food logging
+    dashboard/               # Charts, macro rings, history
+    food_db/                 # Food search, add, edit
+    onboarding/              # Goal setup wizard
+    profile/                 # Weight log, body stats, badge gallery
+  widgets/
+    smart_insight_sheet.dart # ← ACTIVE WORK (see below)
+    macro_progress_card.dart
+    weekly_chart.dart
+    add_entry_sheet.dart
+    barcode_scanner_sheet.dart
+    badge_unlock_dialog.dart
+    (and others — mostly self-contained modal bottom sheets)
+```
+
+### Theme system
+
+`theme.dart` defines `AppColorScheme` as a `ThemeExtension` with `card`, `border`, `textPrimary`, `textMuted`, `kcalColor` fields. Access via `AppColorScheme.of(context)`. Named colors (protein, carbs, fat, kcal, danger) live in `AppColors`.
+
+### Smart Insight feature — current state and active work
+
+**File:** `mobile/lib/widgets/smart_insight_sheet.dart`  
+**Branch:** `claude/meal-card-carousel-7EWwK`
+
+Smart Insight analyses 90 days of meal history (minimum 14 logged days), scores food combinations by how well they close today's remaining macro gaps, and surfaces up to 3 ranked suggestions per meal slot (breakfast / lunch / dinner / snack).
+
+#### What is complete and working
+
+- `smartInsightProvider` — computes `SmartInsightResult` with `Map<String, List<MealInsight>>` (up to `_kMaxSuggestions = 3` per slot).
+- `_SmartInsightSheet` — modal bottom sheet entry point (`showSmartInsightSheet()`).
+- `_SlotSelector` — horizontal scrollable pill tabs that switch between meal slots (breakfast / lunch / dinner / snack). Confirmed working.
+- `_OptionCarousel` — spring-physics vertical stacked-card carousel for the 3 options within a slot. Swipe up → next option; swipe down → previous. Options 1↔2 transitions confirmed working.
+- `_MealSlotCard` — individual option card with meal icon, "Option N" badge, macro donut charts (`_MacroDonut` / `_DonutPainter`), food list preview.
+- `_MealDetailSheet` — tap-to-expand detail bottom sheet with full food list, macro impact bars, and "Log Meal" button.
+- `_MacroImpactSection` / `_ImpactBar` — shows current macros + projected addition for each nutrient.
+- Pagination dots animate alongside the swipe.
+
+#### Known bug — UNRESOLVED (as of last session)
+
+**Symptom:** Swiping up from Option 2 to reach Option 3 renders a white screen instead of Option 3's card. Option 1↔2 swipe and slot navigation work correctly.
+
+**Carousel mechanics:**
+- `_ctrl` is an `AnimationController.unbounded()` — fractional page value (0 = card 0, 1 = card 1, 2 = card 2).
+- `_cardHeight = box.maxHeight - max(0, n-1) * _kPeekH` (active card fills all but the peek strips).
+- `_steadyTopAt(i, activePage)` returns the resting Y for card `i` when `activePage` is active: `0` for active, `rel * _kPeekH` for cards below, `rel * _cardHeight` for cards above (off-screen).
+- `_topFor(i)` interpolates between floor/ceil steady states using `_ctrl.value`.
+- Cards are sorted furthest-first and painted so the active card is on top.
+- Spring: `SpringDescription(mass:1, stiffness:700, damping:42)` — under-damped, will overshoot.
+
+**Suspected causes to investigate:**
+1. `_topFor` clamps `_ctrl.value` to `[0, n-1]` but the `ordered` sort uses the raw (unclamped) value — inconsistency during spring overshoot past page 2.
+2. When `lo == hi == n-1` (at the boundary page=2), the interpolation degenerates and z-order may place card 2 off-screen.
+3. `_cardHeight` could go negative on small screens (when `box.maxHeight < (n-1) * _kPeekH = 144`), causing Positioned to have negative height.
+4. Z-order tie-break at `_ctrl.value ≈ 1.5` is unstable — Dart's sort is stable but the result may bury the incoming card under the outgoing one.
