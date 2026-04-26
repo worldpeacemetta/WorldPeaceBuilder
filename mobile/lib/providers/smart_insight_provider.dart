@@ -109,7 +109,9 @@ final smartInsightProvider = FutureProvider.autoDispose<SmartInsightResult>((ref
   final suggestions = <String, List<MealInsight>>{};
 
   for (final meal in kSmartInsightMealSlots) {
-    if (loggedMealsToday.contains(meal)) {
+    // Snacks repeat throughout the day — never suppress them.
+    // Breakfast / lunch / dinner are suppressed once logged.
+    if (meal != 'snack' && loggedMealsToday.contains(meal)) {
       suggestions[meal] = const [];
       continue;
     }
