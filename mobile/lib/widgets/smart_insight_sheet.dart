@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/utils.dart';
@@ -159,11 +160,21 @@ class _SmartInsightSheet extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Card carousel — H-swipe navigates meal slots, V-swipe navigates options
+// Carousel constants
 // ---------------------------------------------------------------------------
 
-const _kPeek  = 28.0;  // horizontal: adjacent slot visible on each side
-const _kPeekH = 72.0;  // vertical: how much of the next option card peeks below
+/// How many dp of an adjacent card peek from the container wall at rest.
+const _kPeekSide    = 22.0;
+/// Gap between the active-card edge and the container wall (adds to peek area).
+const _kPeekGap     = 8.0;
+/// Scale factor for non-active (background) cards.
+const _kBackScale   = 0.88;
+/// Opacity for non-active (background) cards.
+const _kBackOpacity = 0.72;
+
+// ---------------------------------------------------------------------------
+// Card deck — slot selector + option carousel
+// ---------------------------------------------------------------------------
 
 class _CardDeck extends StatefulWidget {
   const _CardDeck({
@@ -182,253 +193,328 @@ class _CardDeck extends StatefulWidget {
   State<_CardDeck> createState() => _CardDeckState();
 }
 
-class _CardDeckState extends State<_CardDeck> with TickerProviderStateMixin {
-  // ── Slot (horizontal) ────────────────────────────────────────────────────
-  int _slotIdx = 0;
-  double _dragX = 0;
-  double _hS = 0, _hE = 0;
-  late final AnimationController _hCtrl;
-
-  // ── Option (vertical) ────────────────────────────────────────────────────
-  late List<int> _optIdxs;
-  double _dragY = 0;
-  double _vS = 0, _vE = 0;
-  late final AnimationController _vCtrl;
-
-  // ── Gesture direction lock ────────────────────────────────────────────────
-  bool? _isHoriz;
-
-  // ── Layout (set by LayoutBuilder each frame) ──────────────────────────────
-  double _cardW  = 300;
-  double _availH = 300; // full slot area height; card height = availH - (n-1)*kPeekH
+class _CardDeckState extends State<_CardDeck> {
+  int _slotIndex = 0;
 
   @override
-  void initState() {
-    super.initState();
-    _optIdxs = List.filled(widget.slots.length, 0);
+  Widget build(BuildContext context) {
+    final currentSlot = widget.slots[_slotIndex];
+    final options     = widget.suggestions[currentSlot]!;
 
-    _hCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 280));
-    _hCtrl.addListener(() {
-      final t = Curves.easeOutCubic.transform(_hCtrl.value);
-      setState(() => _dragX = _hS + (_hE - _hS) * t);
-    });
-    _hCtrl.addStatusListener((s) {
-      if (s != AnimationStatus.completed) return;
-      setState(() {
-        if (_hE < 0 && _slotIdx < widget.slots.length - 1) _slotIdx++;
-        else if (_hE > 0 && _slotIdx > 0)                  _slotIdx--;
-        _dragX = 0;
-      });
-    });
-
-    _vCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 280));
-    _vCtrl.addListener(() {
-      final t = Curves.easeOutCubic.transform(_vCtrl.value);
-      setState(() => _dragY = _vS + (_vE - _vS) * t);
-    });
-    _vCtrl.addStatusListener((s) {
-      if (s != AnimationStatus.completed) return;
-      setState(() {
-        final cnt = widget.suggestions[widget.slots[_slotIdx]]!.length;
-        final cur = _optIdxs[_slotIdx];
-        if (_vE < 0 && cur < cnt - 1) _optIdxs[_slotIdx] = cur + 1;
-        else if (_vE > 0 && cur > 0)  _optIdxs[_slotIdx] = cur - 1;
-        _dragY = 0;
-      });
-    });
+    return Column(
+      children: [
+        const SizedBox(height: 8),
+        if (widget.slots.length > 1) ...[
+          _SlotSelector(
+            slots:          widget.slots,
+            selectedIndex:  _slotIndex,
+            onSlotSelected: (i) => setState(() => _slotIndex = i),
+          ),
+          const SizedBox(height: 12),
+        ] else
+          const SizedBox(height: 4),
+        Expanded(
+          child: _OptionCarousel(
+            key:           ValueKey('slot_$_slotIndex'),
+            options:       options,
+            slot:          currentSlot,
+            parentContext: widget.parentContext,
+            ref:           widget.ref,
+          ),
+        ),
+        const _InfoRow(),
+        const SizedBox(height: 20),
+      ],
+    );
   }
+}
 
-  @override
-  void dispose() {
-    _hCtrl.dispose();
-    _vCtrl.dispose();
-    super.dispose();
-  }
+// ---------------------------------------------------------------------------
+// Slot selector — horizontal pill tabs
+// ---------------------------------------------------------------------------
 
-  void _hTo(double t) { _hS = _dragX; _hE = t; _hCtrl..reset()..forward(); }
-  void _vTo(double t) { _vS = _dragY; _vE = t; _vCtrl..reset()..forward(); }
+class _SlotSelector extends StatelessWidget {
+  const _SlotSelector({
+    required this.slots,
+    required this.selectedIndex,
+    required this.onSlotSelected,
+  });
 
-  // Steady-state top position of card [oi] when [curOpt] is the front card.
-  // Past cards (oi < curOpt) peek above the front card.
-  // Future cards (oi > curOpt) peek below the front card.
-  double _steadyTop(int oi, int curOpt, double slotH) {
-    if (oi == curOpt) return curOpt * _kPeekH;
-    if (oi < curOpt)  return (curOpt - oi) * _kPeekH - slotH;
-    return slotH + (oi - 1) * _kPeekH;  // oi > curOpt
-  }
-
-  void _onPanStart(DragStartDetails _) {
-    _isHoriz = null;
-    if (_hCtrl.isAnimating) _hCtrl.stop();
-    if (_vCtrl.isAnimating) _vCtrl.stop();
-  }
-
-  void _onPanUpdate(DragUpdateDetails d) {
-    _isHoriz ??= d.delta.dx.abs() >= d.delta.dy.abs();
-    if (_isHoriz!) setState(() => _dragX += d.delta.dx);
-    else           setState(() => _dragY += d.delta.dy);
-  }
-
-  void _onPanEnd(DragEndDetails d) {
-    final vx    = d.velocity.pixelsPerSecond.dx;
-    final vy    = d.velocity.pixelsPerSecond.dy;
-    final horiz = _isHoriz == true || (_isHoriz == null && vx.abs() >= vy.abs());
-    _isHoriz = null;
-
-    if (horiz) {
-      if ((_dragX < -48 || vx < -500) && _slotIdx < widget.slots.length - 1) {
-        _hTo(-_cardW);
-      } else if ((_dragX > 48 || vx > 500) && _slotIdx > 0) {
-        _hTo(_cardW);
-      } else {
-        _hTo(0);
-      }
-    } else {
-      final cnt   = widget.suggestions[widget.slots[_slotIdx]]!.length;
-      final cur   = _optIdxs[_slotIdx];
-      final slotH = _availH - (cnt - 1) * _kPeekH;
-      if ((_dragY < -slotH / 3 || vy < -500) && cur < cnt - 1) {
-        _vTo(-slotH);
-      } else if ((_dragY > slotH / 3 || vy > 500) && cur > 0) {
-        _vTo(slotH);
-      } else {
-        _vTo(0);
-      }
-    }
-  }
+  final List<String>      slots;
+  final int               selectedIndex;
+  final ValueChanged<int> onSlotSelected;
 
   @override
   Widget build(BuildContext context) {
     final cs = AppColorScheme.of(context);
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection:  Axis.horizontal,
+        padding:          const EdgeInsets.symmetric(horizontal: 16),
+        itemCount:        slots.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
+          final slot       = slots[i];
+          final isSelected = i == selectedIndex;
+          final color      = _mealColor(slot);
+          return GestureDetector(
+            onTap: () => onSlotSelected(i),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve:    Curves.easeOut,
+              padding:  const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? color.withValues(alpha: 0.15)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isSelected
+                      ? color.withValues(alpha: 0.60)
+                      : cs.border,
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _mealIcon(slot),
+                    size:  13,
+                    color: isSelected ? color : cs.textMuted,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    mealLabels[slot] ?? slot,
+                    style: TextStyle(
+                      fontSize:   13,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color:      isSelected ? color : cs.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Option carousel — spring-driven stacked-card carousel
+// ---------------------------------------------------------------------------
+
+class _OptionCarousel extends StatefulWidget {
+  const _OptionCarousel({
+    super.key,
+    required this.options,
+    required this.slot,
+    required this.parentContext,
+    required this.ref,
+  });
+
+  final List<MealInsight> options;
+  final String            slot;
+  final BuildContext      parentContext;
+  final WidgetRef         ref;
+
+  @override
+  State<_OptionCarousel> createState() => _OptionCarouselState();
+}
+
+class _OptionCarouselState extends State<_OptionCarousel>
+    with SingleTickerProviderStateMixin {
+  /// Fractional page position: 0 = card 0 centred, 1 = card 1 centred, etc.
+  /// Driven by spring physics; unbounded to allow rubber-band overscroll.
+  late final AnimationController _ctrl;
+
+  double _cardWidth = 300.0;
+
+  /// Distance between adjacent card centres when the carousel is at rest.
+  /// Derived so the back card peeks exactly [_kPeekSide] dp from the wall.
+  double get _stride => _cardWidth * (1 + _kBackScale) / 2 + _kPeekGap;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController.unbounded(vsync: this);
+    _ctrl.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  // ── Gesture handlers ─────────────────────────────────────────────────────
+
+  void _onPanStart(DragStartDetails _) {
+    if (_ctrl.isAnimating) _ctrl.stop();
+  }
+
+  void _onPanUpdate(DragUpdateDetails d) {
+    if (_cardWidth <= 0) return;
+    final maxPage = (widget.options.length - 1).toDouble();
+    final raw     = _ctrl.value - d.delta.dx / _cardWidth;
+    // Rubber-band resistance at both edges (25 % of over-drag applied).
+    if (raw < 0) {
+      _ctrl.value = raw * 0.25;
+    } else if (raw > maxPage) {
+      _ctrl.value = maxPage + (raw - maxPage) * 0.25;
+    } else {
+      _ctrl.value = raw;
+    }
+  }
+
+  void _onPanEnd(DragEndDetails d) {
+    if (_cardWidth <= 0) return;
+    final velocity = -d.velocity.pixelsPerSecond.dx / _cardWidth;
+    final maxPage  = widget.options.length - 1;
+
+    final int target;
+    if (velocity < -1.2 && _ctrl.value < maxPage) {
+      target = _ctrl.value.floor() + 1;         // flick forward
+    } else if (velocity > 1.2 && _ctrl.value > 0) {
+      target = _ctrl.value.ceil()  - 1;         // flick backward
+    } else {
+      target = _ctrl.value.round().clamp(0, maxPage);
+    }
+
+    // Spring snap: stiffness 700 / damping 42 → snappy but not bouncy.
+    _ctrl.animateWith(SpringSimulation(
+      const SpringDescription(mass: 1, stiffness: 700, damping: 42),
+      _ctrl.value,
+      target.toDouble(),
+      velocity,
+    ));
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final cs    = AppColorScheme.of(context);
+    final color = _mealColor(widget.slot);
+    final today = todayISO();
+    final currentMacros = widget.ref.read(macroTotalsProvider(today));
+    final goals         = widget.ref.read(settingsProvider).goalsForDate(today);
+    final n             = widget.options.length;
+
+    // Render cards furthest from active first so the active card paints on top.
+    final ordered = List.generate(n, (i) => i)
+      ..sort((a, b) => (b - _ctrl.value)
+          .abs()
+          .compareTo((a - _ctrl.value).abs()));
+
+    final activeDot = _ctrl.value.round().clamp(0, n - 1);
+
     return Column(
       children: [
-        const SizedBox(height: 12),
         Expanded(
           child: LayoutBuilder(builder: (_, box) {
-            _cardW  = box.maxWidth  - 2 * _kPeek;
-            _availH = box.maxHeight;
+            _cardWidth = box.maxWidth - 2 * (_kPeekSide + _kPeekGap);
             return GestureDetector(
               behavior:    HitTestBehavior.opaque,
               onPanStart:  _onPanStart,
               onPanUpdate: _onPanUpdate,
               onPanEnd:    _onPanEnd,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  for (int si = 0; si < widget.slots.length; si++)
-                    _buildSlot(context, si),
-                ],
+              child: ClipRect(
+                child: Stack(
+                  alignment:    Alignment.center,
+                  clipBehavior: Clip.none,
+                  children: [
+                    for (final i in ordered)
+                      _buildCard(i, box.maxHeight, currentMacros, goals),
+                  ],
+                ),
               ),
             );
           }),
         ),
-        if (widget.slots.length > 1) ...[
+        // Pagination dots
+        if (n > 1) ...[
           const SizedBox(height: 14),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(widget.slots.length, (i) {
-              final active = i == _slotIdx;
-              final color  = _mealColor(widget.slots[i]);
+            children: List.generate(n, (i) {
+              final active = i == activeDot;
               return AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeOut,
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: active ? 20 : 6,
-                height: 6,
+                duration: const Duration(milliseconds: 220),
+                curve:    Curves.easeOut,
+                margin:   const EdgeInsets.symmetric(horizontal: 3),
+                width:    active ? 20 : 6,
+                height:   6,
                 decoration: BoxDecoration(
-                  color: active ? color : cs.border,
+                  color:        active ? color : cs.border,
                   borderRadius: BorderRadius.circular(3),
                 ),
               );
             }),
           ),
         ],
-        const _InfoRow(),
-        const SizedBox(height: 20),
+        const SizedBox(height: 4),
       ],
     );
   }
 
-  Widget _buildSlot(BuildContext context, int si) {
-    final left = _kPeek + (si - _slotIdx) * _cardW + _dragX;
-    final cW   = 2 * _kPeek + _cardW;
+  Widget _buildCard(
+    int i,
+    double availH,
+    MacroValues currentMacros,
+    MacroGoals goals,
+  ) {
+    final rel    = i.toDouble() - _ctrl.value;
+    final absRel = rel.abs().clamp(0.0, 1.0);
 
-    // Always return a Positioned so the outer Stack has only Positioned children.
-    // A Stack with any non-positioned child (e.g. SizedBox.shrink) collapses to
-    // zero width under loose constraints, shifting all cards off-centre.
-    if (left >= cW + 4 || left + _cardW <= -4) {
-      return Positioned(left: left, top: 0, width: _cardW, height: _availH,
-          child: const SizedBox.shrink());
-    }
+    // Subtle parallax: back cards are compressed 6 % toward centre, so the
+    // active card appears to "roll over" the stack during the transition.
+    final compress  = 1.0 - absRel * 0.06;
+    final tx        = rel * _stride * compress;
 
-    final slot   = widget.slots[si];
-    final opts   = widget.suggestions[slot]!;
-    final n      = opts.length;
-    final curOpt = _optIdxs[si];
-    final dy     = si == _slotIdx ? _dragY : 0.0;
-    // All cards share the same height; each peek adds kPeekH below the front card.
-    final slotH  = _availH - (n - 1) * _kPeekH;
+    // Cull cards that are entirely off-screen.
+    if (tx.abs() > _cardWidth * 1.8) return const SizedBox.shrink();
 
-    // Z-order: cards behind front (far → near), cards above front, then front on top.
-    final order = <int>[];
-    for (int i = n - 1; i > curOpt; i--) order.add(i);
-    for (int i = 0; i < curOpt; i++) order.add(i);
-    order.add(curOpt);
+    final scale       = lerpDouble(1.0, _kBackScale,   absRel)!;
+    final opacity     = lerpDouble(1.0, _kBackOpacity, absRel)!;
+    final shadowBlur  = lerpDouble(22.0, 4.0,  absRel)!;
+    final shadowAlpha = lerpDouble(0.14, 0.03, absRel)!;
 
-    return Positioned(
-      left: left,
-      top: 0,
-      width: _cardW,
-      height: _availH,
-      child: ClipRect(
-        child: Stack(
-          children: [
-            for (final oi in order)
-              _buildWalletCard(oi, curOpt, slotH, dy, slot, opts),
-          ],
+    return Transform.translate(
+      offset: Offset(tx, 0),
+      child: Transform.scale(
+        scale: scale,
+        child: Opacity(
+          opacity: opacity.clamp(0.0, 1.0),
+          child: Container(
+            width:  _cardWidth,
+            height: availH,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color:        Colors.black.withValues(alpha: shadowAlpha),
+                  blurRadius:   shadowBlur,
+                  offset:       const Offset(0, 6),
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+            child: _MealSlotCard(
+              meal:          widget.slot,
+              insight:       widget.options[i],
+              optionIdx:     i,
+              optionCount:   widget.options.length,
+              onViewDetail:  () => _showMealDetailSheet(
+                  widget.parentContext, widget.ref, widget.options[i]),
+              currentMacros: currentMacros,
+              goals:         goals,
+            ),
+          ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildWalletCard(
-      int oi, int curOpt, double slotH, double dy,
-      String slot, List<MealInsight> opts) {
-    // Interpolate between steady states based on drag progress.
-    // p > 0 → advancing to curOpt+1, p < 0 → retreating to curOpt-1.
-    final p      = slotH > 0 ? (-dy / slotH).clamp(-1.0, 1.0) : 0.0;
-    final before = _steadyTop(oi, curOpt, slotH);
-    final double after;
-    if (p > 0 && curOpt < opts.length - 1) {
-      after = _steadyTop(oi, curOpt + 1, slotH);
-    } else if (p < 0 && curOpt > 0) {
-      after = _steadyTop(oi, curOpt - 1, slotH);
-    } else {
-      after = before;
-    }
-    final top = before + (after - before) * p.abs();
-    if (top >= _availH + 4 || top + slotH <= -4) return const SizedBox.shrink();
-
-    final insight = opts[oi];
-    final today   = todayISO();
-    final current = widget.ref.read(macroTotalsProvider(today));
-    final goals   = widget.ref.read(settingsProvider).goalsForDate(today);
-    return Positioned(
-      left: 0,
-      right: 0,
-      top: top,
-      height: slotH,
-      child: _MealSlotCard(
-        meal: slot,
-        insight: insight,
-        optionIdx: oi,
-        optionCount: opts.length,
-        onViewDetail: () =>
-            _showMealDetailSheet(widget.parentContext, widget.ref, insight),
-        currentMacros: current,
-        goals: goals,
       ),
     );
   }
