@@ -154,14 +154,14 @@ class _ArchNavBar extends StatelessWidget {
               top: _fabD,        // start exactly at FAB bottom edge
               left: 0,
               right: 0,
-              height: 72,
+              height: 86,
               child: Center(
                 child: GestureDetector(
                   onTap: onInsightTap,
                   child: Lottie.asset(
                     'assets/lottie/AI generating.json',
-                    width: 72,
-                    height: 72,
+                    width: 86,
+                    height: 86,
                     repeat: true,
                     fit: BoxFit.contain,
                   ),
