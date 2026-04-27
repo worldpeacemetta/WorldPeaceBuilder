@@ -542,7 +542,7 @@ class _OptionCarouselState extends State<_OptionCarousel>
             optionIdx:     i,
             optionCount:   widget.options.length,
             onViewDetail:  () => _showMealDetailSheet(
-                widget.parentContext, widget.ref, widget.options[i]),
+                widget.parentContext, widget.ref, widget.options[i], i + 1),
             currentMacros: currentMacros,
             goals:         goals,
           ),
@@ -862,6 +862,7 @@ void _showMealDetailSheet(
   BuildContext context,
   WidgetRef ref,
   MealInsight insight,
+  int optionNumber,
 ) {
   final container = ProviderScope.containerOf(context);
   final cardColor  = Theme.of(context).extension<AppColorScheme>()!.card;
@@ -874,7 +875,10 @@ void _showMealDetailSheet(
     ),
     builder: (ctx) => ProviderScope(
       parent: container,
-      child: _MealDetailSheet(insight: insight, parentContext: context),
+      child: _MealDetailSheet(
+          insight: insight,
+          parentContext: context,
+          optionNumber: optionNumber),
     ),
   );
 }
@@ -883,9 +887,11 @@ class _MealDetailSheet extends ConsumerStatefulWidget {
   const _MealDetailSheet({
     required this.insight,
     required this.parentContext,
+    required this.optionNumber,
   });
   final MealInsight insight;
   final BuildContext parentContext;
+  final int optionNumber;
 
   @override
   ConsumerState<_MealDetailSheet> createState() => _MealDetailSheetState();
@@ -980,14 +986,27 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
                       color: color, size: 18),
                 ),
                 const SizedBox(width: 10),
-                Text(
-                  mealLabels[widget.insight.meal] ?? widget.insight.meal,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w700),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Text(
+                        mealLabels[widget.insight.meal] ?? widget.insight.meal,
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Option ${widget.optionNumber}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: color,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ],
+                  ),
                 ),
-                const Spacer(),
                 TextButton(
                   onPressed: Navigator.of(context).pop,
                   child: const Text('Cancel'),
@@ -996,21 +1015,15 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
             ),
           ),
           Divider(height: 1, color: cs.border),
-          // Food list + macro summary
+          // Food list
           Expanded(
             child: ListView.separated(
               controller: scrollCtrl,
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              itemCount: n + 1,
+              itemCount: n,
               separatorBuilder: (_, i) =>
-                  i < n - 1
-                      ? Divider(height: 24, color: cs.border)
-                      : const SizedBox(height: 16),
+                  Divider(height: 24, color: cs.border),
               itemBuilder: (ctx, i) {
-                if (i == n) {
-                  return _MacroSummaryRow(
-                      macros: _selectedMacros, color: color);
-                }
                 final item     = widget.insight.items[i];
                 final im       = item.macros;
                 final selected = _selectedIndices.contains(i);
