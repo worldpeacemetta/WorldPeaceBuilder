@@ -164,10 +164,14 @@ class _SmartInsightSheet extends ConsumerWidget {
 // Carousel constants
 // ---------------------------------------------------------------------------
 
-/// Height (dp) each subsequent card peeks below the active card at rest.
-const _kPeekH     = 72.0;
+/// How much the previous card's bottom strip peeks above the active card.
+const _kPeekAbove  = 20.0;
+/// How much the first behind-below card peeks below the active card.
+const _kPeekBelow1 = 32.0;
+/// How much the second behind-below card peeks below the first behind card.
+const _kPeekBelow2 = 20.0;
 /// Horizontal scale for non-active cards — subtle inward shrink signals depth.
-const _kBackScale = 0.96;
+const _kBackScale  = 0.95;
 
 // ---------------------------------------------------------------------------
 // Card deck — slot selector + option carousel
@@ -303,9 +307,9 @@ class _SlotSelector extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Option carousel — spring-driven vertical stacked-card carousel
 //
-// Layout: the active card occupies the full height minus the peek strip.
-// Each subsequent card peeks [_kPeekH] dp below the one above it.
-// Swipe UP → advance to next option.  Swipe DOWN → return to previous.
+// Three cards remain in a compact stacked deck at all times.  The active card
+// is fully visible in front; the others peek above/below it.
+// Swipe DOWN → next option rises to front.  Swipe UP → previous returns.
 // ---------------------------------------------------------------------------
 
 class _OptionCarousel extends StatefulWidget {
@@ -331,35 +335,35 @@ class _OptionCarouselState extends State<_OptionCarousel>
   late final AnimationController _ctrl;
 
   double _cardHeight = 300.0;
+  double _dragRaw    = 0.0;
 
-  // Accumulated raw (un-rubber-banded) position during an active drag.
-  // Using accumulated raw prevents the rubber-band formula from converging
-  // toward maxPage when the user holds the swipe past the boundary.
-  double _dragRaw = 0.0;
+  int get _n => widget.options.length;
 
   // ── Geometry ──────────────────────────────────────────────────────────────
 
-  /// Y-position for card [i] at the current fractional page.
-  /// Blends from a linear stacked layout at p=0 (no card above) to a
-  /// circular deck at p≥1 (previous peeks above, next peeks below).
+  /// Y-position for card [i] in the stacked deck at the current fractional page.
+  ///
+  /// Three regions:
+  ///   rel ≤ 0  — active / previous: bottom edge sits at activeTop, peek strip
+  ///              visible at the top edge of the container.
+  ///   0 < rel ≤ 1 — first below: smooth lerp from active pos to first-peek pos.
+  ///   rel > 1  — deeper below: each card adds kPeekBelow2 of visible strip.
+  ///
+  /// Setting kPeekAbove == kPeekBelow2 keeps total deck height == availH for
+  /// every active page, so the ClipRect never cuts off a visible peek strip.
   double _topFor(int i) {
-    final n = widget.options.length;
-    final p = _ctrl.value;
+    final p         = _ctrl.value;
+    final rel       = i.toDouble() - p;
+    // Shift active card down by kPeekAbove once a previous card exists (p ≥ 1).
+    final activeTop = p.clamp(0.0, 1.0) * _kPeekAbove;
 
-    // Circular relative position in (-n/2, n/2].
-    final circPage = ((p % n) + n) % n;
-    double circRel = ((i - circPage + n) % n);
-    if (circRel > n / 2.0) circRel -= n;
-    // Circular layout: center sits at _kPeekH; each step is _cardHeight.
-    final circTop = _kPeekH + circRel * _cardHeight;
-
-    // Linear layout (initial state): center at 0, below cards step by _kPeekH.
-    final linRel = i.toDouble() - p;
-    final linTop = linRel <= 0 ? linRel * _cardHeight : linRel * _kPeekH;
-
-    // Blend: fully linear at p=0, fully circular at p≥1.
-    final blend = p.clamp(0.0, 1.0);
-    return lerpDouble(linTop, circTop, blend)!;
+    if (rel <= 0) {
+      return activeTop + rel * _cardHeight;
+    } else if (rel <= 1) {
+      return activeTop + rel * (_cardHeight - _kPeekBelow1);
+    } else {
+      return activeTop + (_cardHeight - _kPeekBelow1) + (rel - 1) * _kPeekBelow2;
+    }
   }
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -381,18 +385,18 @@ class _OptionCarouselState extends State<_OptionCarousel>
 
   void _onPanStart(DragStartDetails _) {
     if (_ctrl.isAnimating) _ctrl.stop();
-    // Seed the accumulator from the current (possibly spring-settled) position.
     _dragRaw = _ctrl.value;
   }
 
   void _onPanUpdate(DragUpdateDetails d) {
     if (_cardHeight <= 0) return;
-    // Swipe UP (dy < 0) → page increases → next card.
-    _dragRaw -= d.delta.dy / _cardHeight;
-    // Rubber-band only at the bottom boundary (can't go before card 0).
-    // No upper limit — allow unbounded upward rotation for circular wrap.
+    // Swipe DOWN (dy > 0) → page increases → next card rises to front.
+    _dragRaw += d.delta.dy / _cardHeight;
+    final maxPage = (_n - 1).toDouble();
     if (_dragRaw < 0) {
       _ctrl.value = _dragRaw * 0.2;
+    } else if (_dragRaw > maxPage) {
+      _ctrl.value = maxPage + (_dragRaw - maxPage) * 0.2;
     } else {
       _ctrl.value = _dragRaw;
     }
@@ -400,19 +404,16 @@ class _OptionCarouselState extends State<_OptionCarousel>
 
   void _onPanEnd(DragEndDetails d) {
     if (_cardHeight <= 0) return;
-    final velocity = -d.velocity.pixelsPerSecond.dy / _cardHeight;
-
-    // Snap to nearest integer page; clamp only at 0 (no card before the first).
-    // No upper clamp — circular rotation continues indefinitely upward.
+    final velocity = d.velocity.pixelsPerSecond.dy / _cardHeight;
+    final maxPage  = _n - 1;
     final int target;
     if (velocity > 1.2) {
-      target = _ctrl.value.floor() + 1;
-    } else if (velocity < -1.2 && _ctrl.value > 0) {
-      target = (_ctrl.value.ceil() - 1).clamp(0, 9999);
+      target = (_ctrl.value.floor() + 1).clamp(0, maxPage);
+    } else if (velocity < -1.2) {
+      target = (_ctrl.value.ceil() - 1).clamp(0, maxPage);
     } else {
-      target = _ctrl.value.round().clamp(0, 9999);
+      target = _ctrl.value.round().clamp(0, maxPage);
     }
-
     _ctrl.animateWith(SpringSimulation(
       const SpringDescription(mass: 1, stiffness: 600, damping: 60),
       _ctrl.value,
@@ -425,35 +426,34 @@ class _OptionCarouselState extends State<_OptionCarousel>
 
   @override
   Widget build(BuildContext context) {
-    final cs    = AppColorScheme.of(context);
-    final color = _mealColor(widget.slot);
-    final today = todayISO();
+    final cs            = AppColorScheme.of(context);
+    final color         = _mealColor(widget.slot);
+    final today         = todayISO();
     final currentMacros = widget.ref.read(macroTotalsProvider(today));
     final goals         = widget.ref.read(settingsProvider).goalsForDate(today);
     final n             = widget.options.length;
+    final p             = _ctrl.value;
+    final activeDot     = p.round().clamp(0, n - 1);
 
-    // Use circular distance for z-order: card closest to current page is on top.
-    final circPage = (((_ctrl.value % n) + n) % n);
-    final ordered  = List.generate(n, (i) => i)
+    // Render back-to-front: furthest from active page drawn first (behind).
+    // Equal-distance tie: more-negative rel card drawn first, so the incoming
+    // card (positive rel approaching 0) always lands visually on top.
+    final ordered = List.generate(n, (i) => i)
       ..sort((a, b) {
-        double ra = ((a - circPage + n) % n);
-        if (ra > n / 2.0) ra -= n;
-        double rb = ((b - circPage + n) % n);
-        if (rb > n / 2.0) rb -= n;
+        final ra = a.toDouble() - p;
+        final rb = b.toDouble() - p;
         final da = ra.abs(), db = rb.abs();
-        if ((da - db).abs() > 1e-9) return da.compareTo(db);
-        return a.compareTo(b);
+        if ((da - db).abs() > 1e-9) return db.compareTo(da);
+        return rb.compareTo(ra);
       });
-
-    final activeDot = circPage.round() % n;
 
     return Column(
       children: [
         Expanded(
           child: LayoutBuilder(builder: (_, box) {
-            // Active card fills the area minus the peek strips below it.
-            // Floor at 80 to prevent zero/negative heights on tiny screens.
-            _cardHeight = max(80.0, box.maxHeight - max(0, n - 1) * _kPeekH);
+            // cardH fills availH minus the two peek strips so the deck sits
+            // flush at page=0.  Floor at 80 dp for tiny screens.
+            _cardHeight = max(80.0, box.maxHeight - _kPeekBelow1 - _kPeekBelow2);
             return GestureDetector(
               behavior:    HitTestBehavior.opaque,
               onPanStart:  _onPanStart,
@@ -471,7 +471,6 @@ class _OptionCarouselState extends State<_OptionCarousel>
             );
           }),
         ),
-        // Pagination dots
         if (n > 1) ...[
           const SizedBox(height: 14),
           Row(
@@ -504,16 +503,10 @@ class _OptionCarouselState extends State<_OptionCarousel>
     MacroGoals goals,
   ) {
     final top = _topFor(i);
-
-    // Cull cards that are entirely outside the visible area.
     if (top > availH + 4 || top + _cardHeight < -4) return const SizedBox.shrink();
 
-    final n        = widget.options.length;
-    final circPage = (((_ctrl.value % n) + n) % n);
-    double circRel = ((i - circPage + n) % n);
-    if (circRel > n / 2.0) circRel -= n;
-    final absRel = circRel.abs().clamp(0.0, 1.0);
-    final scale      = 1.0 - absRel * (1.0 - _kBackScale); // 1.0 → _kBackScale
+    final absRel      = (i.toDouble() - _ctrl.value).abs().clamp(0.0, 1.0);
+    final scale       = 1.0 - absRel * (1.0 - _kBackScale);
     final shadowBlur  = lerpDouble(20.0, 4.0,  absRel)!;
     final shadowAlpha = lerpDouble(0.12, 0.03, absRel)!;
 
