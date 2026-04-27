@@ -195,7 +195,9 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
               child: Row(
                 children: [
                   Text(
-                    isEdit ? 'Edit Food' : (_tab == 'recipe' ? 'New Recipe' : 'New Food'),
+                    isEdit
+                        ? (widget.existing!.isRecipe ? 'Edit Recipe' : 'Edit Food')
+                        : (_tab == 'recipe' ? 'New Recipe' : 'New Food'),
                     style: Theme.of(context).textTheme.titleMedium
                         ?.copyWith(fontWeight: FontWeight.w700),
                   ),
@@ -225,8 +227,14 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
                 controller: scrollCtrl,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
-                  // ── Recipe form ───────────────────────────────────────
-                  if (!isEdit && _tab == 'recipe') ...[
+                  // ── Recipe edit form ──────────────────────────────────
+                  if (isEdit && widget.existing!.isRecipe) ...[
+                    AddRecipeForm(
+                      existing: widget.existing,
+                      onSaved: (_) => Navigator.of(context).pop(),
+                    ),
+                  // ── Recipe creation form ──────────────────────────────
+                  ] else if (!isEdit && _tab == 'recipe') ...[
                     AddRecipeForm(
                       onSaved: (food) async {
                         Navigator.of(context).pop();

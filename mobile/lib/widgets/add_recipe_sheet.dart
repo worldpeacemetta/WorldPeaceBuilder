@@ -10,9 +10,9 @@ import '../theme.dart';
 // Public entry point
 // ---------------------------------------------------------------------------
 class AddRecipeForm extends ConsumerStatefulWidget {
-  const AddRecipeForm({super.key, required this.onSaved});
-  /// Called with the saved Food after a successful save.
+  const AddRecipeForm({super.key, required this.onSaved, this.existing});
   final void Function(Food food) onSaved;
+  final Food? existing;
 
   @override
   ConsumerState<AddRecipeForm> createState() => _AddRecipeFormState();
@@ -47,6 +47,42 @@ class _AddRecipeFormState extends ConsumerState<AddRecipeForm> {
   String _unit        = 'perServing';
   bool   _saving      = false;
   final  _rows        = <_IngRow>[_IngRow()];      // at least one row
+
+  bool get _isEdit => widget.existing != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.existing;
+    if (existing == null) return;
+    _nameCtrl.text = existing.name;
+    _unit = existing.unit;
+    if (existing.unit == 'per100g' && existing.servingSize != null) {
+      _sizeCtrl.text = existing.servingSize!.toString();
+    }
+    if (existing.components.isNotEmpty) {
+      final foods = ref.read(foodListProvider);
+      for (final r in _rows) r.dispose();
+      _rows.clear();
+      for (final ing in existing.components) {
+        final row = _IngRow();
+        final food = foods.where((f) => f.id == ing.foodId).firstOrNull;
+        row.food = food;
+        if (food != null && food.unit == 'perServing') {
+          final servingSize = food.servingSize ?? 1.0;
+          final servings = ing.quantity / servingSize;
+          row.qtyCtrl.text = servings == servings.roundToDouble()
+              ? servings.toInt().toString()
+              : servings.toStringAsFixed(1);
+        } else {
+          row.qtyCtrl.text = ing.quantity == ing.quantity.roundToDouble()
+              ? ing.quantity.toInt().toString()
+              : ing.quantity.toStringAsFixed(1);
+        }
+        _rows.add(row);
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -112,15 +148,32 @@ class _AddRecipeFormState extends ConsumerState<AddRecipeForm> {
       'components':   components,
     };
 
-    final newFood = await ref.read(foodsProvider.notifier).addFood(data);
-    if (!mounted) return;
-    setState(() => _saving = false);
-    if (newFood == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to save recipe')),
-      );
+    if (_isEdit) {
+      final ok = await ref.read(foodsProvider.notifier).updateFood(
+          widget.existing!.id, data);
+      if (!mounted) return;
+      setState(() => _saving = false);
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to save recipe')),
+        );
+        return;
+      }
+      final updated = ref.read(foodListProvider)
+          .where((f) => f.id == widget.existing!.id)
+          .firstOrNull;
+      if (updated != null) widget.onSaved(updated);
     } else {
-      widget.onSaved(newFood);
+      final newFood = await ref.read(foodsProvider.notifier).addFood(data);
+      if (!mounted) return;
+      setState(() => _saving = false);
+      if (newFood == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to save recipe')),
+        );
+      } else {
+        widget.onSaved(newFood);
+      }
     }
   }
 
@@ -298,7 +351,7 @@ class _AddRecipeFormState extends ConsumerState<AddRecipeForm> {
                 ? const SizedBox(
                     height: 20, width: 20,
                     child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Save Recipe'),
+                : Text(_isEdit ? 'Save Changes' : 'Save Recipe'),
           ),
         ),
         const SizedBox(height: 24),
