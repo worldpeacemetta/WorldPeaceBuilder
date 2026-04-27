@@ -339,15 +339,27 @@ class _OptionCarouselState extends State<_OptionCarousel>
 
   // ── Geometry ──────────────────────────────────────────────────────────────
 
-  /// Direct Y-position for card [i] at the current fractional page.
-  /// rel < 0 → card is above the viewport (slides off upward).
-  /// rel > 0 → card peeks below the active card.
-  /// rel = 0 → card is active (top = 0).
+  /// Y-position for card [i] at the current fractional page.
+  /// Blends from a linear stacked layout at p=0 (no card above) to a
+  /// circular deck at p≥1 (previous peeks above, next peeks below).
   double _topFor(int i) {
-    final n    = widget.options.length;
-    final page = _ctrl.value.clamp(0.0, (n - 1).toDouble());
-    final rel  = i - page;
-    return rel <= 0 ? rel * _cardHeight : rel * _kPeekH;
+    final n = widget.options.length;
+    final p = _ctrl.value;
+
+    // Circular relative position in (-n/2, n/2].
+    final circPage = ((p % n) + n) % n;
+    double circRel = ((i - circPage + n) % n);
+    if (circRel > n / 2.0) circRel -= n;
+    // Circular layout: center sits at _kPeekH; each step is _cardHeight.
+    final circTop = _kPeekH + circRel * _cardHeight;
+
+    // Linear layout (initial state): center at 0, below cards step by _kPeekH.
+    final linRel = i.toDouble() - p;
+    final linTop = linRel <= 0 ? linRel * _cardHeight : linRel * _kPeekH;
+
+    // Blend: fully linear at p=0, fully circular at p≥1.
+    final blend = p.clamp(0.0, 1.0);
+    return lerpDouble(linTop, circTop, blend)!;
   }
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -375,16 +387,12 @@ class _OptionCarouselState extends State<_OptionCarousel>
 
   void _onPanUpdate(DragUpdateDetails d) {
     if (_cardHeight <= 0) return;
-    final maxPage = (widget.options.length - 1).toDouble();
     // Swipe UP (dy < 0) → page increases → next card.
     _dragRaw -= d.delta.dy / _cardHeight;
-    // Apply rubber-band to the accumulated raw position, not the previous
-    // ctrl value. This avoids the fixed-point convergence bug where
-    // incremental rubber-band calculations compress toward maxPage.
+    // Rubber-band only at the bottom boundary (can't go before card 0).
+    // No upper limit — allow unbounded upward rotation for circular wrap.
     if (_dragRaw < 0) {
       _ctrl.value = _dragRaw * 0.2;
-    } else if (_dragRaw > maxPage) {
-      _ctrl.value = maxPage + (_dragRaw - maxPage) * 0.2;
     } else {
       _ctrl.value = _dragRaw;
     }
@@ -393,19 +401,18 @@ class _OptionCarouselState extends State<_OptionCarousel>
   void _onPanEnd(DragEndDetails d) {
     if (_cardHeight <= 0) return;
     final velocity = -d.velocity.pixelsPerSecond.dy / _cardHeight;
-    final maxPage  = widget.options.length - 1;
 
+    // Snap to nearest integer page; clamp only at 0 (no card before the first).
+    // No upper clamp — circular rotation continues indefinitely upward.
     final int target;
-    if (velocity > 1.2 && _ctrl.value < maxPage) {
+    if (velocity > 1.2) {
       target = _ctrl.value.floor() + 1;
     } else if (velocity < -1.2 && _ctrl.value > 0) {
-      target = (_ctrl.value.ceil() - 1).clamp(0, maxPage);
+      target = (_ctrl.value.ceil() - 1).clamp(0, 9999);
     } else {
-      target = _ctrl.value.round().clamp(0, maxPage);
+      target = _ctrl.value.round().clamp(0, 9999);
     }
 
-    // Slightly over-damped spring (damping > 2√k) — reaches target without
-    // oscillation, so cards don't bounce back past page boundaries.
     _ctrl.animateWith(SpringSimulation(
       const SpringDescription(mass: 1, stiffness: 600, damping: 60),
       _ctrl.value,
@@ -425,20 +432,20 @@ class _OptionCarouselState extends State<_OptionCarousel>
     final goals         = widget.ref.read(settingsProvider).goalsForDate(today);
     final n             = widget.options.length;
 
-    // Use the clamped page for z-order so it matches _topFor exactly.
-    // Cards furthest from the current page are painted first (deepest),
-    // the active card is painted last (on top).
-    final page    = _ctrl.value.clamp(0.0, (n - 1).toDouble());
-    final ordered = List.generate(n, (i) => i)
+    // Use circular distance for z-order: card closest to current page is on top.
+    final circPage = (((_ctrl.value % n) + n) % n);
+    final ordered  = List.generate(n, (i) => i)
       ..sort((a, b) {
-        final da = (a - page).abs();
-        final db = (b - page).abs();
-        // Stable tie-break: lower index goes deeper (further from viewer).
+        double ra = ((a - circPage + n) % n);
+        if (ra > n / 2.0) ra -= n;
+        double rb = ((b - circPage + n) % n);
+        if (rb > n / 2.0) rb -= n;
+        final da = ra.abs(), db = rb.abs();
         if ((da - db).abs() > 1e-9) return da.compareTo(db);
         return a.compareTo(b);
       });
 
-    final activeDot = page.round().clamp(0, n - 1);
+    final activeDot = circPage.round() % n;
 
     return Column(
       children: [
@@ -501,9 +508,11 @@ class _OptionCarouselState extends State<_OptionCarousel>
     // Cull cards that are entirely outside the visible area.
     if (top > availH + 4 || top + _cardHeight < -4) return const SizedBox.shrink();
 
-    final n      = widget.options.length;
-    final page   = _ctrl.value.clamp(0.0, (n - 1).toDouble());
-    final absRel = (i - page).abs().clamp(0.0, 1.0);
+    final n        = widget.options.length;
+    final circPage = (((_ctrl.value % n) + n) % n);
+    double circRel = ((i - circPage + n) % n);
+    if (circRel > n / 2.0) circRel -= n;
+    final absRel = circRel.abs().clamp(0.0, 1.0);
     final scale      = 1.0 - absRel * (1.0 - _kBackScale); // 1.0 → _kBackScale
     final shadowBlur  = lerpDouble(20.0, 4.0,  absRel)!;
     final shadowAlpha = lerpDouble(0.12, 0.03, absRel)!;
