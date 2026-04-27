@@ -25,7 +25,15 @@ class _IngRow {
   Food? food;
   final TextEditingController qtyCtrl = TextEditingController();
 
-  double get grams => double.tryParse(qtyCtrl.text) ?? 0;
+  // For perServing foods the user enters servings; convert to grams so
+  // computeRecipeTotals always receives grams.
+  double get grams {
+    final qty = double.tryParse(qtyCtrl.text) ?? 0;
+    if (food?.unit == 'perServing') {
+      return qty * (food?.servingSize ?? 1.0);
+    }
+    return qty;
+  }
 
   void dispose() => qtyCtrl.dispose();
 }
@@ -131,7 +139,13 @@ class _AddRecipeFormState extends ConsumerState<AddRecipeForm> {
       ),
     );
     if (picked != null && mounted) {
-      setState(() => _rows[rowIndex].food = picked);
+      setState(() {
+        final row = _rows[rowIndex];
+        row.food = picked;
+        if (row.qtyCtrl.text.isEmpty || row.qtyCtrl.text == '0') {
+          row.qtyCtrl.text = picked.unit == 'perServing' ? '1' : '100';
+        }
+      });
     }
   }
 
@@ -242,9 +256,9 @@ class _AddRecipeFormState extends ConsumerState<AddRecipeForm> {
                     controller: row.qtyCtrl,
                     keyboardType: TextInputType.number,
                     textAlign: TextAlign.center,
-                    decoration: const InputDecoration(
-                      labelText: 'g',
-                      contentPadding: EdgeInsets.symmetric(
+                    decoration: InputDecoration(
+                      labelText: row.food?.unit == 'perServing' ? 'serving' : 'g',
+                      contentPadding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 12),
                     ),
                     onChanged: (_) => setState(() {}),
