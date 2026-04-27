@@ -151,7 +151,7 @@ class _ArchNavBar extends StatelessWidget {
           // ── Smart Insight animation — sits just below the FAB ──
           if (hasInsight)
             Positioned(
-              top: _fabD,        // start exactly at FAB bottom edge
+              top: _fabD - 12,   // raised slightly to align with nav item labels
               left: 0,
               right: 0,
               height: 86,
