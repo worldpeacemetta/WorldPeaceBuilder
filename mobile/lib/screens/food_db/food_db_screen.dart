@@ -539,11 +539,23 @@ class _FoodTileState extends ConsumerState<_FoodTile>
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          subtitle: Text(
-                            '${widget.food.kcal.round()} kcal · P ${widget.food.protein.round()}g · C ${widget.food.carbs.round()}g · F ${widget.food.fat.round()}g'
-                            '  ·  per ${widget.food.unit == 'per100g' ? '100 g' : 'serving'}',
-                            style: TextStyle(
-                                fontSize: 12, color: cs.textMuted),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${widget.food.kcal.round()} kcal · P ${widget.food.protein.round()}g · C ${widget.food.carbs.round()}g · F ${widget.food.fat.round()}g'
+                                '  ·  per ${widget.food.unit == 'per100g' ? '100 g' : 'serving'}',
+                                style: TextStyle(
+                                    fontSize: 12, color: cs.textMuted),
+                              ),
+                              const SizedBox(height: 6),
+                              _MacroRatioBar(
+                                protein: widget.food.protein,
+                                carbs: widget.food.carbs,
+                                fat: widget.food.fat,
+                              ),
+                              const SizedBox(height: 2),
+                            ],
                           ),
                         ),
                       ),
@@ -683,6 +695,56 @@ class _MorphBtn extends StatelessWidget {
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Macro ratio bar ───────────────────────────────────────────────────────────
+
+class _MacroRatioBar extends StatelessWidget {
+  const _MacroRatioBar({
+    required this.protein,
+    required this.carbs,
+    required this.fat,
+  });
+
+  final double protein;
+  final double carbs;
+  final double fat;
+
+  @override
+  Widget build(BuildContext context) {
+    final proteinKcal = protein * 4;
+    final carbsKcal = carbs * 4;
+    final fatKcal = fat * 9;
+    final total = proteinKcal + carbsKcal + fatKcal;
+
+    if (total <= 0) return const SizedBox.shrink();
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(2),
+      child: SizedBox(
+        height: 4,
+        child: Row(
+          children: [
+            if (carbsKcal > 0)
+              Expanded(
+                flex: (carbsKcal / total * 1000).round(),
+                child: const ColoredBox(color: AppColors.carbs),
+              ),
+            if (fatKcal > 0)
+              Expanded(
+                flex: (fatKcal / total * 1000).round(),
+                child: const ColoredBox(color: AppColors.fat),
+              ),
+            if (proteinKcal > 0)
+              Expanded(
+                flex: (proteinKcal / total * 1000).round(),
+                child: const ColoredBox(color: AppColors.protein),
+              ),
           ],
         ),
       ),
