@@ -95,3 +95,168 @@ VITE_SUPABASE_ANON_KEY=
 ### Barcode scanning
 
 Uses `@zxing/browser` + Open Food Facts API. Triggered from the Food Database tab's "Add Food" modal.
+
+---
+
+## Flutter Mobile App
+
+Located in `mobile/`. A companion app to the web MacroTracker, sharing the same Supabase backend.
+
+### Commands
+
+```bash
+cd mobile
+flutter run                  # Run on connected device / emulator
+flutter build apk            # Android release build
+flutter analyze              # Static analysis (run before committing)
+flutter pub get              # Install dependencies after pubspec changes
+```
+
+No test suite is configured beyond `flutter_test` stubs in `test/`.
+
+### Stack
+
+Flutter + Dart, `flutter_riverpod` for state, `go_router` for navigation, `supabase_flutter` SDK (unlike the web app which uses raw REST), `fl_chart` for charts, `mobile_scanner` for barcode, `lottie` for animations.
+
+### Code layout
+
+```
+mobile/lib/
+  main.dart                  # App entry, Supabase.initialize, badge-unlock listener
+  router.dart                # go_router config — auth guard, named routes
+  theme.dart                 # AppTheme (light/dark), AppColorScheme extension, AppColors
+  core/
+    utils.dart               # todayISO(), formatNumber(), mealLabels, etc.
+    constants.dart           # App-wide constants
+    open_food_facts.dart     # Open Food Facts API client
+    recipe_utils.dart        # computeRecipeTotals()
+  models/
+    food.dart                # Food, MacroValues, scaledMacros()
+    entry.dart               # Entry, MacroValues, MacroGoals, sumMacros()
+    badge.dart               # Badge definitions
+  providers/
+    settings_provider.dart   # settingsProvider (goals, schedule, profile) — syncs with Supabase
+    entries_provider.dart    # entriesProvider(date) + macroTotalsProvider(date)
+    foods_provider.dart      # foodsProvider — food database
+    smart_insight_provider.dart  # smartInsightProvider — AI meal suggestions
+    date_provider.dart       # currentDateProvider — app-wide selected date
+    badges_provider.dart     # earnedBadgesProvider, badgeUnlockQueueProvider
+    auth_provider.dart       # authStateProvider
+  screens/
+    home_screen.dart         # Bottom nav shell (Daily Log / Dashboard / Food DB / Profile)
+    auth_screen.dart         # Sign-in / sign-up
+    daily_log/               # Daily entry list + food logging
+    dashboard/               # Charts, macro rings, history
+    food_db/                 # Food search, add, edit
+    onboarding/              # Goal setup wizard
+    profile/                 # Weight log, body stats, badge gallery
+  widgets/
+    smart_insight_sheet.dart # Smart Insight modal (see below)
+    macro_progress_card.dart
+    weekly_chart.dart
+    add_entry_sheet.dart
+    barcode_scanner_sheet.dart
+    badge_unlock_dialog.dart
+    (and others — mostly self-contained modal bottom sheets)
+```
+
+### Theme system
+
+`theme.dart` defines `AppColorScheme` as a `ThemeExtension` with `card`, `border`, `textPrimary`, `textMuted`, `kcalColor`, and `smartInsightColor` fields. Access via `AppColorScheme.of(context)`. Named colors (protein, carbs, fat, kcal, danger) live in `AppColors`.
+
+**`smartInsightColor`** — theme-aware color for all Smart Insight icons:
+- Dark mode: `AppColors.kcal` — `Color(0xFFD0C3F1)` lavender
+- Light mode: `Color(0xFF9BC0DA)` — same soft sky blue as calories in light mode
+
+### Smart Insight feature
+
+**File:** `mobile/lib/widgets/smart_insight_sheet.dart`
+**Branch merged into main:** `claude/add-ai-icon-smart-insight-om0Rx`
+
+Smart Insight analyses 90 days of meal history (minimum 14 logged days), scores food combinations by how well they close today's remaining macro gaps, and surfaces up to 3 ranked suggestions per meal slot (breakfast / lunch / dinner / snack).
+
+#### AI icon — three locations
+
+`SpinningSparkle` (public widget, defined in `smart_insight_sheet.dart`) is used in three places, all reading `cs.smartInsightColor`:
+
+| Location | Widget | Animation |
+|---|---|---|
+| Nav bar center (below FAB) | `SpinningSparkle(size: 26)` + "Smart Insight" label | Slow 5s linear 360° rotation |
+| Main sheet header, next to "Smart Insight" title | `SpinningSparkle(size: 18)` | Slow 5s linear 360° rotation |
+| "What is Smart Insight?" dialog title | `_SequentialStarsSparkle` | 3 staggered stars pop in/out |
+
+**`SpinningSparkle`** — single `AnimationController` repeating over 5s, drives a `RotationTransition` on `Icons.auto_awesome_rounded`. Made public so `home_screen.dart` can import it.
+
+**`_SequentialStarsSparkle`** — 44×44 `Stack` of 3 stars (26/17/11dp at different positions). Single 2.4s controller with staggered `Interval` animations per star. Each star: `elasticOut` scale pop-in, opacity 0→1→0 via a 30/40/30 `TweenSequence`. Stars activate at intervals 0.00–0.45 / 0.30–0.75 / 0.58–0.98, creating a ripple effect with a brief all-dark pause before the loop repeats.
+
+#### Complete widget tree
+
+| Class | Role |
+|---|---|
+| `_SmartInsightSheet` | Modal bottom sheet entry point (`showSmartInsightSheet()`). Reads `smartInsightProvider`. |
+| `_CardDeck` | Slot selector + carousel shell. |
+| `_SlotSelector` | Horizontal scrollable pill tabs (breakfast / lunch / dinner / snack). |
+| `_OptionCarousel` / `_OptionCarouselState` | Spring-physics vertical stacked-card carousel. Swipe up → next option; swipe down → previous. |
+| `_MealSlotCard` | Individual option card. Meal icon, "Option N" badge, 4× `_MacroDonut` in footer. Tap → opens `_MealDetailSheet`. |
+| `_MealDetailSheet` / `_MealDetailSheetState` | Full detail bottom sheet. Food item list with per-item selection toggle, `_DonutImpactSection`, Log button. |
+| `_DonutImpactSection` | Macro impact row using `_MacroDonut` at `size: 76`. Reacts live to item selection. |
+| `_MacroDonut` / `_DonutPainter` | Donut ring showing current fill (muted arc) + projected addition (full-color arc). Overshoot signalled by a soft red `BoxShadow` glow. |
+| `_InfoRow` | "What is Smart Insight?" tap target at the bottom of the carousel. Opens `AlertDialog` with `_SequentialStarsSparkle`. |
+| `SpinningSparkle` / `SpinningSparkleState` | Public animated sparkle icon (rotating). Used in nav bar and sheet header. |
+| `_SequentialStarsSparkle` | Private animated 3-star pop-in. Used in info dialog only. |
+| `_EmptyState` | Shown when `loggedDays < 14` or all meals already logged today. |
+
+#### Carousel mechanics
+
+- `_ctrl` is an `AnimationController.unbounded()` — fractional page value (0 = card 0, 1 = card 1, 2 = card 2).
+- `_dragRaw` accumulates raw (un-rubber-banded) drag position. Rubber-band (`×0.2`) applied once at output.
+- `_topFor(i)` uses the clamped page: `rel ≤ 0 → rel * _cardHeight`, `rel > 0 → rel * _kPeekH`.
+- Z-order: cards sorted furthest-from-page first (deepest), active card last (on top).
+- `_cardHeight` floored at 80 dp to prevent zero/negative heights on small screens.
+- Spring: `SpringDescription(mass:1, stiffness:600, damping:60)` — over-damped, no oscillation.
+
+#### Detail sheet selection model
+
+`_MealDetailSheetState` holds `Set<int> _selectedIndices` (all selected by default). The computed getter `_selectedMacros` sums `MacroValues` for selected items only via `MacroValues.sum()`. Both `_DonutImpactSection` and `_MacroSummaryRow` receive `_selectedMacros`, so donuts and totals update immediately on each tap. `_logAll()` iterates `_selectedIndices.toList()..sort()` — only selected items are sent to `entriesProvider`. The Log button is disabled when the selection is empty and shows "Log N items" for partial selections.
+
+#### Overshoot indicator
+
+When `current + addition > goal` for a macro, `_MacroDonut` keeps its attributed color and adds two `BoxShadow` layers (`AppColors.danger` at alpha 0.28/blurRadius 10 and alpha 0.10/blurRadius 20) on a `BoxShape.circle` container, producing a soft red glow.
+
+---
+
+## Branch & Git state (as of session 2026-04-28)
+
+### Current branch structure
+
+| Branch | Status |
+|---|---|
+| `main` | **Source of truth** — fully up to date, contains all features |
+| `dev` | Keep — working branch |
+| `claude/add-ai-icon-smart-insight-om0Rx` | Last feature branch — AI icon work, fully merged into main |
+| 9 other `claude/*` branches | Have unmerged code differences vs. main — do not delete without reviewing |
+
+**Always start new sessions from `main`** — it is the most complete branch.
+
+### What was accomplished in session 2026-04-28
+
+**AI icon & animation work (Flutter mobile, merged into main):**
+
+1. Added `Icons.auto_awesome_rounded` sparkle icon in two locations:
+   - Next to "Smart Insight" title in the main bottom sheet header
+   - At the top of the "What is Smart Insight?" `AlertDialog`
+
+2. Animated both icons:
+   - Sheet header & nav bar: `SpinningSparkle` — slow 5s continuous 360° rotation
+   - Info dialog: `_SequentialStarsSparkle` — 3 staggered stars (large/medium/small) that elastically pop in and fade out sequentially over a 2.4s loop
+
+3. Replaced the Lottie animation in the nav bar center with `SpinningSparkle(size: 26)` + "Smart Insight" label, removing the `lottie` import from `home_screen.dart`
+
+4. Made `SpinningSparkle` public so it can be shared between `smart_insight_sheet.dart` and `home_screen.dart`
+
+5. Added `smartInsightColor` to `AppColorScheme` (dark: lavender / light: sky blue) and wired all three icon sites to use it, replacing hardcoded `AppColors.kcal`
+
+**Branch hygiene:**
+- Cherry-picked all 6 feature commits onto `main` (resolved 2 minor conflicts)
+- Deleted 4 fully-merged stale branches: `claude/fix-flutter-recipes-kSGH9`, `claude/profile-categories-ui-emxoo`, `claude/add-onboarding-questionnaire-9KkJu`, `claude/test-onboarding-macro-targets-z1OUc`
+- Confirmed 9 remaining `claude/*` branches have real unmerged code — preserved
