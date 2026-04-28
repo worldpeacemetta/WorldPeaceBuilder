@@ -160,14 +160,14 @@ class _ArchNavBar extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      SpinningSparkle(size: 26, color: AppColors.kcal),
+                      SpinningSparkle(size: 26, color: cs.smartInsightColor),
                       const SizedBox(height: 3),
                       Text(
                         'Smart Insight',
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.kcal,
+                          color: cs.smartInsightColor,
                         ),
                       ),
                     ],

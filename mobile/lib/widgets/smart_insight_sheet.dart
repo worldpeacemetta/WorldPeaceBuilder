@@ -107,7 +107,7 @@ class _SmartInsightSheet extends ConsumerWidget {
                   children: [
                     Row(
                       children: [
-                        SpinningSparkle(size: 18, color: AppColors.kcal),
+                        SpinningSparkle(size: 18, color: cs.smartInsightColor),
                         const SizedBox(width: 6),
                         Text('Smart Insight',
                             style: Theme.of(context).textTheme.titleMedium
@@ -635,7 +635,7 @@ class _InfoRow extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _SequentialStarsSparkle(color: AppColors.kcal),
+              _SequentialStarsSparkle(color: cs.smartInsightColor),
               const SizedBox(height: 10),
               const Text('What is Smart Insight?'),
             ],
