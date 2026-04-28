@@ -67,7 +67,7 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
     textPrimary: Color(0xFF0F172A),
     textMuted: Color(0xFF64748B),
     kcalColor: Color(0xFF9BC0DA),
-    smartInsightColor: AppColors.protein,   // teal mist
+    smartInsightColor: Color(0xFF9BC0DA),   // light kcal blue
   );
 
   @override
