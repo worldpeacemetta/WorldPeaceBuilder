@@ -1013,143 +1013,155 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
             ),
           ),
           Divider(height: 1, color: cs.border),
-          // Food list
+          // Food items, macro impact, and preference buttons all scroll together
+          // so the sheet never overflows when dragged to a small size.
           Expanded(
-            child: ListView.separated(
+            child: CustomScrollView(
               controller: scrollCtrl,
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              itemCount: n,
-              separatorBuilder: (_, i) =>
-                  Divider(height: 24, color: cs.border),
-              itemBuilder: (ctx, i) {
-                final item     = widget.insight.items[i];
-                final im       = item.macros;
-                final selected = _selectedIndices.contains(i);
-                return GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => setState(() {
-                    if (selected) {
-                      _selectedIndices.remove(i);
-                    } else {
-                      _selectedIndices.add(i);
-                    }
-                  }),
-                  child: AnimatedOpacity(
-                    opacity: selected ? 1.0 : 0.38,
-                    duration: const Duration(milliseconds: 180),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        // Selection indicator
-                        Padding(
-                          padding: const EdgeInsets.only(right: 10),
-                          child: AnimatedSwitcher(
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (ctx, i) {
+                        if (i.isOdd) return Divider(height: 24, color: cs.border);
+                        final idx      = i ~/ 2;
+                        final item     = widget.insight.items[idx];
+                        final im       = item.macros;
+                        final selected = _selectedIndices.contains(idx);
+                        return GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => setState(() {
+                            if (selected) {
+                              _selectedIndices.remove(idx);
+                            } else {
+                              _selectedIndices.add(idx);
+                            }
+                          }),
+                          child: AnimatedOpacity(
+                            opacity: selected ? 1.0 : 0.38,
                             duration: const Duration(milliseconds: 180),
-                            child: Icon(
-                              selected
-                                  ? Icons.check_circle_rounded
-                                  : Icons.radio_button_unchecked_rounded,
-                              key: ValueKey(selected),
-                              size: 20,
-                              color: selected ? color : cs.border,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 10),
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 180),
+                                    child: Icon(
+                                      selected
+                                          ? Icons.check_circle_rounded
+                                          : Icons.radio_button_unchecked_rounded,
+                                      key: ValueKey(selected),
+                                      size: 20,
+                                      color: selected ? color : cs.border,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(item.food.name,
+                                          style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: cs.textPrimary)),
+                                      if (item.food.brand != null)
+                                        Text(item.food.brand!,
+                                            style: TextStyle(
+                                                fontSize: 12, color: cs.textMuted)),
+                                      const SizedBox(height: 4),
+                                      Row(children: [
+                                        _SmallPill('P ${im.protein.round()}g',
+                                            AppColors.protein),
+                                        const SizedBox(width: 6),
+                                        _SmallPill('C ${im.carbs.round()}g',
+                                            AppColors.carbs),
+                                        const SizedBox(width: 6),
+                                        _SmallPill('F ${im.fat.round()}g',
+                                            AppColors.fat),
+                                      ]),
+                                    ],
+                                  ),
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      _qtyLabel(item.food.unit, item.qty),
+                                      style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: cs.textPrimary),
+                                    ),
+                                    Text('${im.kcal.round()} kcal',
+                                        style: TextStyle(
+                                            fontSize: 12, color: cs.kcalColor)),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(item.food.name,
-                                  style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: cs.textPrimary)),
-                              if (item.food.brand != null)
-                                Text(item.food.brand!,
-                                    style: TextStyle(
-                                        fontSize: 12, color: cs.textMuted)),
-                              const SizedBox(height: 4),
-                              Row(children: [
-                                _SmallPill('P ${im.protein.round()}g',
-                                    AppColors.protein),
-                                const SizedBox(width: 6),
-                                _SmallPill('C ${im.carbs.round()}g',
-                                    AppColors.carbs),
-                                const SizedBox(width: 6),
-                                _SmallPill(
-                                    'F ${im.fat.round()}g', AppColors.fat),
-                              ]),
-                            ],
-                          ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              _qtyLabel(item.food.unit, item.qty),
-                              style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: cs.textPrimary),
-                            ),
-                            Text('${im.kcal.round()} kcal',
-                                style:
-                                    TextStyle(fontSize: 12, color: cs.kcalColor)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          // Macro impact — driven by selected items only
-          _DonutImpactSection(suggestion: _selectedMacros),
-          // Suggestion preference buttons
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _logging ? null : () {
-                      ref.read(settingsProvider.notifier).setComboReduced(
-                        widget.insight.meal, widget.insight.comboKey);
-                      Navigator.pop(context);
-                    },
-                    icon: const Icon(Icons.trending_down_rounded, size: 14),
-                    label: const Text('Suggest less often'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: cs.textMuted,
-                      side: BorderSide(color: cs.border),
-                      textStyle: const TextStyle(fontSize: 12),
-                      visualDensity: VisualDensity.compact,
+                        );
+                      },
+                      childCount: n > 0 ? n * 2 - 1 : 0,
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _logging ? null : () {
-                      ref.read(settingsProvider.notifier).setComboBlocked(
-                        widget.insight.meal, widget.insight.comboKey);
-                      Navigator.pop(context);
-                    },
-                    icon: const Icon(Icons.block_rounded, size: 14),
-                    label: const Text('Remove from suggestions'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.danger.withValues(alpha: 0.7),
-                      side: BorderSide(color: AppColors.danger.withValues(alpha: 0.3)),
-                      textStyle: const TextStyle(fontSize: 12),
-                      visualDensity: VisualDensity.compact,
+                // Macro impact — driven by selected items only
+                SliverToBoxAdapter(
+                  child: _DonutImpactSection(suggestion: _selectedMacros),
+                ),
+                // Suggestion preference buttons
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _logging ? null : () {
+                              ref.read(settingsProvider.notifier).setComboReduced(
+                                widget.insight.meal, widget.insight.comboKey);
+                              Navigator.pop(context);
+                            },
+                            icon: const Icon(Icons.trending_down_rounded, size: 14),
+                            label: const Text('Suggest less often'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: cs.textMuted,
+                              side: BorderSide(color: cs.border),
+                              textStyle: const TextStyle(fontSize: 12),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _logging ? null : () {
+                              ref.read(settingsProvider.notifier).setComboBlocked(
+                                widget.insight.meal, widget.insight.comboKey);
+                              Navigator.pop(context);
+                            },
+                            icon: const Icon(Icons.block_rounded, size: 14),
+                            label: const Text('Remove from suggestions'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.danger.withValues(alpha: 0.7),
+                              side: BorderSide(color: AppColors.danger.withValues(alpha: 0.3)),
+                              textStyle: const TextStyle(fontSize: 12),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ],
             ),
           ),
-          // Log button
+          // Log button — pinned at bottom, always reachable regardless of sheet height
           Padding(
             padding: EdgeInsets.fromLTRB(
                 16, 8, 16, MediaQuery.of(context).padding.bottom + 16),
