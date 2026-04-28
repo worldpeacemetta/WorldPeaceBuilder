@@ -728,6 +728,7 @@ class _MacroRatioBar extends StatelessWidget {
       borderRadius: BorderRadius.circular(2),
       child: SizedBox(
         height: 4,
+        width: double.infinity,
         child: Row(
           children: [
             if (carbsKcal > 0)
