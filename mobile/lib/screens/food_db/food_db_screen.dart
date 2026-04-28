@@ -737,17 +737,17 @@ class _MacroRatioBar extends StatelessWidget {
             if (carbsKcal > 0)
               Expanded(
                 flex: (carbsKcal / total * 1000).round(),
-                child: const ColoredBox(color: AppColors.carbs),
+                child: Container(color: AppColors.carbs),
               ),
             if (fatKcal > 0)
               Expanded(
                 flex: (fatKcal / total * 1000).round(),
-                child: const ColoredBox(color: AppColors.fat),
+                child: Container(color: AppColors.fat),
               ),
             if (proteinKcal > 0)
               Expanded(
                 flex: (proteinKcal / total * 1000).round(),
-                child: const ColoredBox(color: AppColors.protein),
+                child: Container(color: AppColors.protein),
               ),
           ],
         ),
