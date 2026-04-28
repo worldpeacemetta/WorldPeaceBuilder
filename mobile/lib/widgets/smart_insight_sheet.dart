@@ -109,9 +109,19 @@ class _SmartInsightSheet extends ConsumerWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Smart Insight',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700)),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.auto_awesome_rounded,
+                          size: 18,
+                          color: AppColors.kcal,
+                        ),
+                        const SizedBox(width: 6),
+                        Text('Smart Insight',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700)),
+                      ],
+                    ),
                     if (insightAsync.valueOrNull?.loggedDays != null &&
                         insightAsync.value!.loggedDays > 0)
                       Text(
@@ -821,7 +831,19 @@ class _InfoRow extends StatelessWidget {
       onTap: () => showDialog(
         context: context,
         builder: (_) => AlertDialog(
-          title: const Text('What is Smart Insight?'),
+          title: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.auto_awesome_rounded,
+                size: 36,
+                color: AppColors.kcal,
+              ),
+              const SizedBox(height: 10),
+              const Text('What is Smart Insight?'),
+            ],
+          ),
           content: const Text(
             'Smart Insight analyses your past meals and suggests the best '
             'food combinations to close your remaining macro targets for today. '
