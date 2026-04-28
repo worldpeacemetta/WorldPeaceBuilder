@@ -165,11 +165,11 @@ class _SmartInsightSheet extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 
 /// How much the previous card's bottom strip peeks above the active card.
-const _kPeekAbove  = 20.0;
+const _kPeekAbove  = 95.0;
 /// How much the first behind-below card peeks below the active card.
-const _kPeekBelow1 = 32.0;
+const _kPeekBelow1 = 115.0;
 /// How much the second behind-below card peeks below the first behind card.
-const _kPeekBelow2 = 20.0;
+const _kPeekBelow2 = 95.0;
 /// Horizontal scale for non-active cards — subtle inward shrink signals depth.
 const _kBackScale  = 0.95;
 
@@ -344,13 +344,15 @@ class _OptionCarouselState extends State<_OptionCarousel>
   /// Y-position for card [i] in the stacked deck at the current fractional page.
   ///
   /// Three regions:
-  ///   rel ≤ 0  — active / previous: bottom edge sits at activeTop, peek strip
-  ///              visible at the top edge of the container.
-  ///   0 < rel ≤ 1 — first below: smooth lerp from active pos to first-peek pos.
-  ///   rel > 1  — deeper below: each card adds kPeekBelow2 of visible strip.
+  ///   rel ≤ 0  — active / previous: bottom edge sits at activeTop, so only
+  ///              kPeekAbove strip is visible at the container's top edge.
+  ///   0 < rel ≤ 1 — first below: top offset = rel * kPeekBelow1, so the card
+  ///              is mostly hidden under the active card with exactly kPeekBelow1
+  ///              sticking out below.
+  ///   rel > 1  — each deeper card adds kPeekBelow2 of its own visible strip.
   ///
-  /// Setting kPeekAbove == kPeekBelow2 keeps total deck height == availH for
-  /// every active page, so the ClipRect never cuts off a visible peek strip.
+  /// kPeekAbove == kPeekBelow2 keeps total deck height == availH for every
+  /// active page, so the ClipRect never cuts off a visible peek strip.
   double _topFor(int i) {
     final p         = _ctrl.value;
     final rel       = i.toDouble() - p;
@@ -360,9 +362,12 @@ class _OptionCarouselState extends State<_OptionCarousel>
     if (rel <= 0) {
       return activeTop + rel * _cardHeight;
     } else if (rel <= 1) {
-      return activeTop + rel * (_cardHeight - _kPeekBelow1);
+      // Card sits so its top is kPeekBelow1 before the active card's bottom edge,
+      // leaving exactly kPeekBelow1 of it visible below the active card.
+      return activeTop + rel * _kPeekBelow1;
     } else {
-      return activeTop + (_cardHeight - _kPeekBelow1) + (rel - 1) * _kPeekBelow2;
+      // Each deeper card stacks kPeekBelow2 below the one above it.
+      return activeTop + _kPeekBelow1 + (rel - 1) * _kPeekBelow2;
     }
   }
 
