@@ -111,11 +111,7 @@ class _SmartInsightSheet extends ConsumerWidget {
                   children: [
                     Row(
                       children: [
-                        Icon(
-                          Icons.auto_awesome_rounded,
-                          size: 18,
-                          color: AppColors.kcal,
-                        ),
+                        _SpinningSparkle(size: 18, color: AppColors.kcal),
                         const SizedBox(width: 6),
                         Text('Smart Insight',
                             style: Theme.of(context).textTheme.titleMedium
@@ -835,11 +831,7 @@ class _InfoRow extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.auto_awesome_rounded,
-                size: 36,
-                color: AppColors.kcal,
-              ),
+              _PulsingSparkle(size: 36, color: AppColors.kcal),
               const SizedBox(height: 10),
               const Text('What is Smart Insight?'),
             ],
@@ -1522,4 +1514,90 @@ class _DonutPainter extends CustomPainter {
       old.goal        != goal        ||
       old.color       != color       ||
       old.strokeWidth != strokeWidth;
+}
+
+// ---------------------------------------------------------------------------
+// Animated sparkle icons
+// ---------------------------------------------------------------------------
+
+/// Slow continuous 360° rotation — used in the main sheet header.
+class _SpinningSparkle extends StatefulWidget {
+  const _SpinningSparkle({required this.size, required this.color});
+  final double size;
+  final Color  color;
+
+  @override
+  State<_SpinningSparkle> createState() => _SpinningSparkleState();
+}
+
+class _SpinningSparkleState extends State<_SpinningSparkle>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync:    this,
+      duration: const Duration(seconds: 5),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => RotationTransition(
+        turns: _ctrl,
+        child: Icon(Icons.auto_awesome_rounded,
+            size: widget.size, color: widget.color),
+      );
+}
+
+/// Gentle scale + opacity breathe — used in the "What is Smart Insight?" dialog.
+class _PulsingSparkle extends StatefulWidget {
+  const _PulsingSparkle({required this.size, required this.color});
+  final double size;
+  final Color  color;
+
+  @override
+  State<_PulsingSparkle> createState() => _PulsingSparkleState();
+}
+
+class _PulsingSparkleState extends State<_PulsingSparkle>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double>   _scale;
+  late final Animation<double>   _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync:    this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
+    final curve = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+    _scale   = Tween<double>(begin: 1.0,  end: 1.15).animate(curve);
+    _opacity = Tween<double>(begin: 0.70, end: 1.0 ).animate(curve);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ScaleTransition(
+        scale: _scale,
+        child: FadeTransition(
+          opacity: _opacity,
+          child: Icon(Icons.auto_awesome_rounded,
+              size: widget.size, color: widget.color),
+        ),
+      );
 }
