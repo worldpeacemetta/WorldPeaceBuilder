@@ -725,11 +725,13 @@ class _MacroRatioBar extends StatelessWidget {
 
     if (total <= 0) return const SizedBox.shrink();
 
+    final cs = AppColorScheme.of(context);
     return ClipRRect(
-      borderRadius: BorderRadius.circular(2),
-      child: SizedBox(
-        height: 4,
+      borderRadius: BorderRadius.circular(3),
+      child: Container(
+        height: 5,
         width: double.infinity,
+        color: cs.border,
         child: Row(
           children: [
             if (carbsKcal > 0)
