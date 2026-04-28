@@ -128,6 +128,10 @@ class AppSettings {
   // badges so only foods the user adds themselves count toward milestones.
   // Mirrors web app's defaultFoodIds in daily_macro_goals.
   final List<String> defaultFoodIds;
+  // Smart Insight suppression — keys are "$meal::$comboKey" (per slot).
+  // Local-only, not synced to Supabase.
+  final Set<String> reducedCombos;
+  final Set<String> blockedCombos;
 
   const AppSettings({
     this.setupMode = 'maintenance',
@@ -143,6 +147,8 @@ class AppSettings {
     this.weightHistory = const [],
     this.goalSchedule = const {},
     this.defaultFoodIds = const [],
+    this.reducedCombos = const {},
+    this.blockedCombos = const {},
   });
 
   MacroGoals get activeGoals {
@@ -228,6 +234,8 @@ class AppSettings {
       (k, v) => MapEntry(k as String, (v as Map).cast<String, String>()),
     ) ?? {},
     defaultFoodIds: (j['defaultFoodIds'] as List?)?.cast<String>() ?? [],
+    reducedCombos: (j['reducedCombos'] as List?)?.cast<String>().toSet() ?? const {},
+    blockedCombos: (j['blockedCombos'] as List?)?.cast<String>().toSet() ?? const {},
   );
 
   Map<String, dynamic> toJson() => {
@@ -244,6 +252,8 @@ class AppSettings {
     'weightHistory': weightHistory.map((e) => e.toJson()).toList(),
     'goalSchedule': goalSchedule,
     'defaultFoodIds': defaultFoodIds,
+    'reducedCombos': reducedCombos.toList(),
+    'blockedCombos': blockedCombos.toList(),
   };
 
   AppSettings copyWith({
@@ -260,6 +270,8 @@ class AppSettings {
     List<WeightEntry>? weightHistory,
     Map<String, Map<String, String>>? goalSchedule,
     List<String>? defaultFoodIds,
+    Set<String>? reducedCombos,
+    Set<String>? blockedCombos,
   }) => AppSettings(
     setupMode: setupMode ?? this.setupMode,
     dualProfile: dualProfile ?? this.dualProfile,
@@ -274,6 +286,8 @@ class AppSettings {
     weightHistory: weightHistory ?? this.weightHistory,
     goalSchedule : goalSchedule  ?? this.goalSchedule,
     defaultFoodIds: defaultFoodIds ?? this.defaultFoodIds,
+    reducedCombos: reducedCombos ?? this.reducedCombos,
+    blockedCombos: blockedCombos ?? this.blockedCombos,
   );
 }
 
@@ -325,7 +339,12 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
       final goalsJson = row['daily_macro_goals'];
       if (goalsJson != null) {
         updated = _settingsFromSupabase(goalsJson as Map<String, dynamic>)
-            .copyWith(language: currentLanguage, theme: currentTheme);
+            .copyWith(
+              language: currentLanguage,
+              theme: currentTheme,
+              reducedCombos: state.reducedCombos,
+              blockedCombos: state.blockedCombos,
+            );
       }
 
       // Body stats from individual columns.
@@ -403,6 +422,26 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     state = updated;
     await _save();
     await _saveToSupabase();
+  }
+
+  /// Mark a meal+combo as "suggest less often" (score × 0.15). Clears any block.
+  Future<void> setComboReduced(String meal, String comboKey) async {
+    final k = '$meal::$comboKey';
+    state = state.copyWith(
+      reducedCombos: {...state.reducedCombos, k},
+      blockedCombos: state.blockedCombos.difference({k}),
+    );
+    await _save();
+  }
+
+  /// Permanently remove a meal+combo from suggestions. Clears any reduce entry.
+  Future<void> setComboBlocked(String meal, String comboKey) async {
+    final k = '$meal::$comboKey';
+    state = state.copyWith(
+      blockedCombos: {...state.blockedCombos, k},
+      reducedCombos: state.reducedCombos.difference({k}),
+    );
+    await _save();
   }
 
   /// Set (or replace) the goal-mode override for a specific date.

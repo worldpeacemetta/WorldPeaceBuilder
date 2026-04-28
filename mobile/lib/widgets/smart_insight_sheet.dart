@@ -216,7 +216,7 @@ class _CardDeckState extends State<_CardDeck> {
           const SizedBox(height: 4),
         Expanded(
           child: _OptionCarousel(
-            key:           ValueKey('slot_$_slotIndex'),
+            key:           ValueKey('slot_${_slotIndex}_${options.length}'),
             options:       options,
             slot:          currentSlot,
             parentContext: widget.parentContext,
@@ -1106,6 +1106,49 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
           ),
           // Macro impact — driven by selected items only
           _DonutImpactSection(suggestion: _selectedMacros),
+          // Suggestion preference buttons
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _logging ? null : () {
+                      ref.read(settingsProvider.notifier).setComboReduced(
+                        widget.insight.meal, widget.insight.comboKey);
+                      Navigator.pop(context);
+                    },
+                    icon: const Icon(Icons.trending_down_rounded, size: 14),
+                    label: const Text('Suggest less often'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: cs.textMuted,
+                      side: BorderSide(color: cs.border),
+                      textStyle: const TextStyle(fontSize: 12),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _logging ? null : () {
+                      ref.read(settingsProvider.notifier).setComboBlocked(
+                        widget.insight.meal, widget.insight.comboKey);
+                      Navigator.pop(context);
+                    },
+                    icon: const Icon(Icons.block_rounded, size: 14),
+                    label: const Text('Remove from suggestions'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.danger.withValues(alpha: 0.7),
+                      side: BorderSide(color: AppColors.danger.withValues(alpha: 0.3)),
+                      textStyle: const TextStyle(fontSize: 12),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           // Log button
           Padding(
             padding: EdgeInsets.fromLTRB(

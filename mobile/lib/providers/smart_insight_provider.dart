@@ -25,11 +25,13 @@ class InsightItem {
 
 class MealInsight {
   final String meal;
+  final String comboKey;
   final List<InsightItem> items;
   final MacroValues totalMacros;
   final double score;
   const MealInsight({
     required this.meal,
+    required this.comboKey,
     required this.items,
     required this.totalMacros,
     required this.score,
@@ -89,8 +91,9 @@ final smartInsightProvider = FutureProvider.autoDispose<SmartInsightResult>((ref
   final todayEntries     = ref.watch(entriesProvider(today)).valueOrNull ?? [];
   final loggedMealsToday = todayEntries.map((e) => e.meal).toSet();
 
-  // Remaining macro targets for today
-  final settings      = ref.read(settingsProvider);
+  // Watch settings so suppression changes (reducedCombos/blockedCombos) and
+  // goal updates are reflected without reopening the sheet.
+  final settings      = ref.watch(settingsProvider);
   final goals         = settings.goalsForDate(today);
   final totals        = MacroValues.sum(todayEntries.map((e) => e.macros));
   final remainKcal    = (goals.kcal    - totals.kcal).clamp(0.0, double.infinity);
@@ -129,17 +132,23 @@ final smartInsightProvider = FutureProvider.autoDispose<SmartInsightResult>((ref
       if (items.isEmpty) continue;
 
       final combo = MacroValues.sum(items.map((i) => i.macros));
-      final score = _gapScore(
+      // Dedup key: sorted food IDs (same food set = same combo, regardless of qty)
+      final key     = (items.map((i) => i.food.id).toList()..sort()).join('|');
+      final slotKey = '$meal::$key';
+
+      if (settings.blockedCombos.contains(slotKey)) continue;
+
+      double score = _gapScore(
         combo,
         remainKcal: remainKcal,
         remainProtein: remainProtein,
         remainCarbs: remainCarbs,
         remainFat: remainFat,
       );
-      // Dedup key: sorted food IDs (same food set = same combo, regardless of qty)
-      final key = (items.map((i) => i.food.id).toList()..sort()).join('|');
+      if (settings.reducedCombos.contains(slotKey)) score *= 0.15;
+
       scored.add((key: key, score: score,
-          insight: MealInsight(meal: meal, items: items,
+          insight: MealInsight(meal: meal, comboKey: key, items: items,
               totalMacros: combo, score: score)));
     }
 
