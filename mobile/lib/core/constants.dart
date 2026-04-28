@@ -25,6 +25,7 @@ const foodCategories = [
   'homeRecipe',
   'outsideMeal',
   'sweet',
+  'beverage',
   'other',
 ];
 
@@ -49,6 +50,7 @@ const categoryLabels = {
   'homeRecipe'   : 'Home Recipe',
   'outsideMeal'  : 'Outside Meal',
   'sweet'        : 'Sweet',
+  'beverage'     : 'Beverage',
   'other'        : 'Other',
 };
 
@@ -73,6 +75,7 @@ const categoryEmojis = {
   'homeRecipe'   : '🏠',
   'outsideMeal'  : '🍽️',
   'sweet'        : '🍬',
+  'beverage'     : '🥤',
   'other'        : '⚪️',
 };
 

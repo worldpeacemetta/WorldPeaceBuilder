@@ -359,6 +359,7 @@ const FOOD_CATEGORIES = [
   { value: "homeRecipe", label: "Home Recipe", emoji: "🏠" },
   { value: "outsideMeal", label: "Outside Meal", emoji: "🍽️" },
   { value: "sweet", label: "Sweet", emoji: "🍬" },
+  { value: "beverage", label: "Beverage", emoji: "🥤" },
   { value: "other", label: "Other", emoji: "⚪️" },
 ];
 
