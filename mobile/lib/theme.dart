@@ -33,6 +33,7 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
     required this.textPrimary,
     required this.textMuted,
     required this.kcalColor,
+    required this.smartInsightColor,
   });
 
   final Color bg;
@@ -43,6 +44,8 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
   /// Theme-conditional kcal / calorie colour.
   /// Dark mode: deep teal-blue. Light mode: soft sky blue.
   final Color kcalColor;
+  /// Smart Insight icon colour — dark: lavender (kcal), light: teal mist (protein).
+  final Color smartInsightColor;
 
   static AppColorScheme of(BuildContext context) =>
       Theme.of(context).extension<AppColorScheme>()!;
@@ -54,6 +57,7 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
     textPrimary: Color(0xFFE2E8F0),
     textMuted: Color(0xFF94A3B8),
     kcalColor: Color(0xFFD0C3F1),
+    smartInsightColor: AppColors.kcal,      // lavender
   );
 
   static const light = AppColorScheme(
@@ -63,6 +67,7 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
     textPrimary: Color(0xFF0F172A),
     textMuted: Color(0xFF64748B),
     kcalColor: Color(0xFF9BC0DA),
+    smartInsightColor: AppColors.protein,   // teal mist
   );
 
   @override
@@ -73,6 +78,7 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
     Color? textPrimary,
     Color? textMuted,
     Color? kcalColor,
+    Color? smartInsightColor,
   }) =>
       AppColorScheme(
         bg: bg ?? this.bg,
@@ -81,6 +87,7 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
         textPrimary: textPrimary ?? this.textPrimary,
         textMuted: textMuted ?? this.textMuted,
         kcalColor: kcalColor ?? this.kcalColor,
+        smartInsightColor: smartInsightColor ?? this.smartInsightColor,
       );
 
   @override
@@ -93,6 +100,7 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
       textPrimary: Color.lerp(textPrimary, other.textPrimary, t)!,
       textMuted: Color.lerp(textMuted, other.textMuted, t)!,
       kcalColor: Color.lerp(kcalColor, other.kcalColor, t)!,
+      smartInsightColor: Color.lerp(smartInsightColor, other.smartInsightColor, t)!,
     );
   }
 }
