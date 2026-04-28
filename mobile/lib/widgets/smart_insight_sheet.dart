@@ -395,8 +395,8 @@ class _OptionCarouselState extends State<_OptionCarousel>
 
   void _onPanUpdate(DragUpdateDetails d) {
     if (_cardHeight <= 0) return;
-    // Swipe DOWN (dy > 0) → page increases → next card rises to front.
-    _dragRaw += d.delta.dy / _cardHeight;
+    // Swipe UP (dy < 0) → page increases → next card rises to front.
+    _dragRaw += -d.delta.dy / _cardHeight;
     final maxPage = (_n - 1).toDouble();
     if (_dragRaw < 0) {
       _ctrl.value = _dragRaw * 0.2;
@@ -409,7 +409,7 @@ class _OptionCarouselState extends State<_OptionCarousel>
 
   void _onPanEnd(DragEndDetails d) {
     if (_cardHeight <= 0) return;
-    final velocity = d.velocity.pixelsPerSecond.dy / _cardHeight;
+    final velocity = -d.velocity.pixelsPerSecond.dy / _cardHeight;
     final maxPage  = _n - 1;
     final int target;
     if (velocity > 1.2) {
