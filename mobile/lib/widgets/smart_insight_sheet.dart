@@ -1,4 +1,8 @@
+import 'dart:math';
+import 'dart:ui' show lerpDouble;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/utils.dart';
@@ -163,11 +167,21 @@ class _SmartInsightSheet extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Card carousel — H-swipe navigates meal slots, V-swipe navigates options
+// Carousel constants
 // ---------------------------------------------------------------------------
 
-const _kPeek  = 28.0;  // horizontal: adjacent slot visible on each side
-const _kPeekH = 72.0;  // vertical: how much of the next option card peeks below
+/// How much the previous card's bottom strip peeks above the active card.
+const _kPeekAbove  = 91.0;
+/// How much the first behind-below card peeks below the active card.
+const _kPeekBelow1 = 103.0;
+/// How much the second behind-below card peeks below the first behind card.
+const _kPeekBelow2 = 91.0;
+/// Horizontal scale for non-active cards — subtle inward shrink signals depth.
+const _kBackScale  = 0.95;
+
+// ---------------------------------------------------------------------------
+// Card deck — slot selector + option carousel
+// ---------------------------------------------------------------------------
 
 class _CardDeck extends StatefulWidget {
   const _CardDeck({
@@ -186,214 +200,357 @@ class _CardDeck extends StatefulWidget {
   State<_CardDeck> createState() => _CardDeckState();
 }
 
-class _CardDeckState extends State<_CardDeck> with TickerProviderStateMixin {
-  // ── Slot (horizontal) ────────────────────────────────────────────────────
-  int _slotIdx = 0;
-  double _dragX = 0;
-  double _hS = 0, _hE = 0;
-  late final AnimationController _hCtrl;
-
-  // ── Option (vertical) ────────────────────────────────────────────────────
-  late List<int> _optIdxs;
-  double _dragY = 0;
-  double _vS = 0, _vE = 0;
-  late final AnimationController _vCtrl;
-
-  // ── Gesture direction lock ────────────────────────────────────────────────
-  bool? _isHoriz;
-
-  // ── Layout (set by LayoutBuilder each frame) ──────────────────────────────
-  double _cardW  = 300;
-  double _availH = 300; // full slot area height; card height = availH - (n-1)*kPeekH
+class _CardDeckState extends State<_CardDeck> {
+  int _slotIndex = 0;
 
   @override
-  void initState() {
-    super.initState();
-    _optIdxs = List.filled(widget.slots.length, 0);
+  Widget build(BuildContext context) {
+    final currentSlot = widget.slots[_slotIndex];
+    final options     = widget.suggestions[currentSlot]!;
 
-    _hCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 280));
-    _hCtrl.addListener(() {
-      final t = Curves.easeOutCubic.transform(_hCtrl.value);
-      setState(() => _dragX = _hS + (_hE - _hS) * t);
-    });
-    _hCtrl.addStatusListener((s) {
-      if (s != AnimationStatus.completed) return;
-      setState(() {
-        if (_hE < 0 && _slotIdx < widget.slots.length - 1) _slotIdx++;
-        else if (_hE > 0 && _slotIdx > 0)                  _slotIdx--;
-        _dragX = 0;
-      });
-    });
-
-    _vCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 280));
-    _vCtrl.addListener(() {
-      final t = Curves.easeOutCubic.transform(_vCtrl.value);
-      setState(() => _dragY = _vS + (_vE - _vS) * t);
-    });
-    _vCtrl.addStatusListener((s) {
-      if (s != AnimationStatus.completed) return;
-      setState(() {
-        final cnt = widget.suggestions[widget.slots[_slotIdx]]!.length;
-        final cur = _optIdxs[_slotIdx];
-        if (_vE < 0 && cur < cnt - 1) _optIdxs[_slotIdx] = cur + 1;
-        else if (_vE > 0 && cur > 0)  _optIdxs[_slotIdx] = cur - 1;
-        _dragY = 0;
-      });
-    });
+    return Column(
+      children: [
+        const SizedBox(height: 8),
+        if (widget.slots.length > 1) ...[
+          _SlotSelector(
+            slots:          widget.slots,
+            selectedIndex:  _slotIndex,
+            onSlotSelected: (i) => setState(() => _slotIndex = i),
+          ),
+          const SizedBox(height: 12),
+        ] else
+          const SizedBox(height: 4),
+        Expanded(
+          child: _OptionCarousel(
+            key:           ValueKey('slot_${_slotIndex}_${options.length}'),
+            options:       options,
+            slot:          currentSlot,
+            parentContext: widget.parentContext,
+            ref:           widget.ref,
+          ),
+        ),
+        const _InfoRow(),
+        const SizedBox(height: 20),
+      ],
+    );
   }
+}
 
-  @override
-  void dispose() {
-    _hCtrl.dispose();
-    _vCtrl.dispose();
-    super.dispose();
-  }
+// ---------------------------------------------------------------------------
+// Slot selector — horizontal pill tabs
+// ---------------------------------------------------------------------------
 
-  void _hTo(double t) { _hS = _dragX; _hE = t; _hCtrl..reset()..forward(); }
-  void _vTo(double t) { _vS = _dragY; _vE = t; _vCtrl..reset()..forward(); }
+class _SlotSelector extends StatelessWidget {
+  const _SlotSelector({
+    required this.slots,
+    required this.selectedIndex,
+    required this.onSlotSelected,
+  });
 
-  void _onPanStart(DragStartDetails _) {
-    _isHoriz = null;
-    if (_hCtrl.isAnimating) _hCtrl.stop();
-    if (_vCtrl.isAnimating) _vCtrl.stop();
-  }
-
-  void _onPanUpdate(DragUpdateDetails d) {
-    _isHoriz ??= d.delta.dx.abs() >= d.delta.dy.abs();
-    if (_isHoriz!) setState(() => _dragX += d.delta.dx);
-    else           setState(() => _dragY += d.delta.dy);
-  }
-
-  void _onPanEnd(DragEndDetails d) {
-    final vx    = d.velocity.pixelsPerSecond.dx;
-    final vy    = d.velocity.pixelsPerSecond.dy;
-    final horiz = _isHoriz == true || (_isHoriz == null && vx.abs() >= vy.abs());
-    _isHoriz = null;
-
-    if (horiz) {
-      if ((_dragX < -48 || vx < -500) && _slotIdx < widget.slots.length - 1) {
-        _hTo(-_cardW);
-      } else if ((_dragX > 48 || vx > 500) && _slotIdx > 0) {
-        _hTo(_cardW);
-      } else {
-        _hTo(0);
-      }
-    } else {
-      final cnt   = widget.suggestions[widget.slots[_slotIdx]]!.length;
-      final cur   = _optIdxs[_slotIdx];
-      final cardH = _availH - (cnt - 1) * _kPeekH;
-      if ((_dragY < -48 || vy < -500) && cur < cnt - 1) {
-        _vTo(-cardH);
-      } else if ((_dragY > 48 || vy > 500) && cur > 0) {
-        _vTo(cardH);
-      } else {
-        _vTo(0);
-      }
-    }
-  }
+  final List<String>      slots;
+  final int               selectedIndex;
+  final ValueChanged<int> onSlotSelected;
 
   @override
   Widget build(BuildContext context) {
     final cs = AppColorScheme.of(context);
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection:  Axis.horizontal,
+        padding:          const EdgeInsets.symmetric(horizontal: 16),
+        itemCount:        slots.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
+          final slot       = slots[i];
+          final isSelected = i == selectedIndex;
+          final color      = _mealColor(slot);
+          return GestureDetector(
+            onTap: () => onSlotSelected(i),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve:    Curves.easeOut,
+              padding:  const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? color.withValues(alpha: 0.15)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isSelected
+                      ? color.withValues(alpha: 0.60)
+                      : cs.border,
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _mealIcon(slot),
+                    size:  13,
+                    color: isSelected ? color : cs.textMuted,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    mealLabels[slot] ?? slot,
+                    style: TextStyle(
+                      fontSize:   13,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color:      isSelected ? color : cs.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Option carousel — spring-driven vertical stacked-card carousel
+//
+// Three cards remain in a compact stacked deck at all times.  The active card
+// is fully visible in front; the others peek above/below it.
+// Swipe DOWN → next option rises to front.  Swipe UP → previous returns.
+// ---------------------------------------------------------------------------
+
+class _OptionCarousel extends StatefulWidget {
+  const _OptionCarousel({
+    super.key,
+    required this.options,
+    required this.slot,
+    required this.parentContext,
+    required this.ref,
+  });
+
+  final List<MealInsight> options;
+  final String            slot;
+  final BuildContext      parentContext;
+  final WidgetRef         ref;
+
+  @override
+  State<_OptionCarousel> createState() => _OptionCarouselState();
+}
+
+class _OptionCarouselState extends State<_OptionCarousel>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  double _cardHeight = 300.0;
+  double _dragRaw    = 0.0;
+
+  int get _n => widget.options.length;
+
+  // ── Geometry ──────────────────────────────────────────────────────────────
+
+  /// Y-position for card [i] in the stacked deck at the current fractional page.
+  ///
+  /// Three regions:
+  ///   rel ≤ 0  — active / previous: bottom edge sits at activeTop, so only
+  ///              kPeekAbove strip is visible at the container's top edge.
+  ///   0 < rel ≤ 1 — first below: top offset = rel * kPeekBelow1, so the card
+  ///              is mostly hidden under the active card with exactly kPeekBelow1
+  ///              sticking out below.
+  ///   rel > 1  — each deeper card adds kPeekBelow2 of its own visible strip.
+  ///
+  /// kPeekAbove == kPeekBelow2 keeps total deck height == availH for every
+  /// active page, so the ClipRect never cuts off a visible peek strip.
+  double _topFor(int i) {
+    final p         = _ctrl.value;
+    final rel       = i.toDouble() - p;
+    // Shift active card down by kPeekAbove once a previous card exists (p ≥ 1).
+    final activeTop = p.clamp(0.0, 1.0) * _kPeekAbove;
+
+    if (rel <= 0) {
+      return activeTop + rel * _cardHeight;
+    } else if (rel <= 1) {
+      // Card sits so its top is kPeekBelow1 before the active card's bottom edge,
+      // leaving exactly kPeekBelow1 of it visible below the active card.
+      return activeTop + rel * _kPeekBelow1;
+    } else {
+      // Each deeper card stacks kPeekBelow2 below the one above it.
+      return activeTop + _kPeekBelow1 + (rel - 1) * _kPeekBelow2;
+    }
+  }
+
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController.unbounded(vsync: this);
+    _ctrl.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  // ── Gesture handlers ─────────────────────────────────────────────────────
+
+  void _onPanStart(DragStartDetails _) {
+    if (_ctrl.isAnimating) _ctrl.stop();
+    _dragRaw = _ctrl.value;
+  }
+
+  void _onPanUpdate(DragUpdateDetails d) {
+    if (_cardHeight <= 0) return;
+    // Swipe UP (dy < 0) → page increases → next card rises to front.
+    _dragRaw += -d.delta.dy / _cardHeight;
+    final maxPage = (_n - 1).toDouble();
+    if (_dragRaw < 0) {
+      _ctrl.value = _dragRaw * 0.2;
+    } else if (_dragRaw > maxPage) {
+      _ctrl.value = maxPage + (_dragRaw - maxPage) * 0.2;
+    } else {
+      _ctrl.value = _dragRaw;
+    }
+  }
+
+  void _onPanEnd(DragEndDetails d) {
+    if (_cardHeight <= 0) return;
+    final velocity = -d.velocity.pixelsPerSecond.dy / _cardHeight;
+    final maxPage  = _n - 1;
+    final int target;
+    if (velocity > 1.2) {
+      target = (_ctrl.value.floor() + 1).clamp(0, maxPage);
+    } else if (velocity < -1.2) {
+      target = (_ctrl.value.ceil() - 1).clamp(0, maxPage);
+    } else {
+      target = _ctrl.value.round().clamp(0, maxPage);
+    }
+    _ctrl.animateWith(SpringSimulation(
+      const SpringDescription(mass: 1, stiffness: 600, damping: 60),
+      _ctrl.value,
+      target.toDouble(),
+      velocity,
+    ));
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final cs            = AppColorScheme.of(context);
+    final color         = _mealColor(widget.slot);
+    final today         = todayISO();
+    final currentMacros = widget.ref.read(macroTotalsProvider(today));
+    final goals         = widget.ref.read(settingsProvider).goalsForDate(today);
+    final n             = widget.options.length;
+    final p             = _ctrl.value;
+    final activeDot     = p.round().clamp(0, n - 1);
+
+    // Render back-to-front: furthest from active page drawn first (behind).
+    // Equal-distance tie: more-negative rel card drawn first, so the incoming
+    // card (positive rel approaching 0) always lands visually on top.
+    final ordered = List.generate(n, (i) => i)
+      ..sort((a, b) {
+        final ra = a.toDouble() - p;
+        final rb = b.toDouble() - p;
+        final da = ra.abs(), db = rb.abs();
+        if ((da - db).abs() > 1e-9) return db.compareTo(da);
+        return rb.compareTo(ra);
+      });
+
     return Column(
       children: [
-        const SizedBox(height: 12),
         Expanded(
           child: LayoutBuilder(builder: (_, box) {
-            _cardW  = box.maxWidth  - 2 * _kPeek;
-            _availH = box.maxHeight;
+            // cardH fills availH minus the two peek strips so the deck sits
+            // flush at page=0.  Floor at 80 dp for tiny screens.
+            _cardHeight = max(80.0, box.maxHeight - _kPeekBelow1 - _kPeekBelow2);
             return GestureDetector(
+              behavior:    HitTestBehavior.opaque,
               onPanStart:  _onPanStart,
               onPanUpdate: _onPanUpdate,
               onPanEnd:    _onPanEnd,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  for (int si = 0; si < widget.slots.length; si++)
-                    _buildSlot(context, si),
-                ],
+              child: ClipRect(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    for (final i in ordered)
+                      _buildCard(i, box.maxHeight, currentMacros, goals),
+                  ],
+                ),
               ),
             );
           }),
         ),
-        if (widget.slots.length > 1) ...[
+        if (n > 1) ...[
           const SizedBox(height: 14),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(widget.slots.length, (i) {
-              final active = i == _slotIdx;
-              final color  = _mealColor(widget.slots[i]);
+            children: List.generate(n, (i) {
+              final active = i == activeDot;
               return AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeOut,
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: active ? 20 : 6,
-                height: 6,
+                duration: const Duration(milliseconds: 220),
+                curve:    Curves.easeOut,
+                margin:   const EdgeInsets.symmetric(horizontal: 3),
+                width:    active ? 20 : 6,
+                height:   6,
                 decoration: BoxDecoration(
-                  color: active ? color : cs.border,
+                  color:        active ? color : cs.border,
                   borderRadius: BorderRadius.circular(3),
                 ),
               );
             }),
           ),
         ],
-        const _InfoRow(),
-        const SizedBox(height: 20),
+        const SizedBox(height: 4),
       ],
     );
   }
 
-  Widget _buildSlot(BuildContext context, int si) {
-    final left = _kPeek + (si - _slotIdx) * _cardW + _dragX;
-    final cW   = 2 * _kPeek + _cardW;
-    if (left >= cW + 4 || left + _cardW <= -4) return const SizedBox.shrink();
+  Widget _buildCard(
+    int i,
+    double availH,
+    MacroValues currentMacros,
+    MacroGoals goals,
+  ) {
+    final top = _topFor(i);
+    if (top > availH + 4 || top + _cardHeight < -4) return const SizedBox.shrink();
 
-    final slot   = widget.slots[si];
-    final opts   = widget.suggestions[slot]!;
-    final n      = opts.length;
-    final curOpt = _optIdxs[si];
-    final dy     = si == _slotIdx ? _dragY : 0.0;
-    // Front card fills the space; each additional option adds one kPeekH peek
-    final cardH  = _availH - (n - 1) * _kPeekH;
+    final absRel      = (i.toDouble() - _ctrl.value).abs().clamp(0.0, 1.0);
+    final scale       = 1.0 - absRel * (1.0 - _kBackScale);
+    final shadowBlur  = lerpDouble(20.0, 4.0,  absRel)!;
+    final shadowAlpha = lerpDouble(0.12, 0.03, absRel)!;
 
     return Positioned(
-      left: left,
-      top: 0,
-      width: _cardW,
-      height: _availH,
-      child: ClipRect(
-        child: Stack(
-          // Render back-to-front: lowest oi painted last = highest z-order
-          children: [
-            for (int oi = n - 1; oi >= 0; oi--)
-              _buildWalletCard(oi, curOpt, cardH, dy, slot, opts),
-          ],
+      top:    top,
+      left:   0,
+      right:  0,
+      height: _cardHeight,
+      child: Transform.scale(
+        scale: scale,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color:        Colors.black.withValues(alpha: shadowAlpha),
+                blurRadius:   shadowBlur,
+                offset:       const Offset(0, 4),
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: _MealSlotCard(
+            meal:          widget.slot,
+            insight:       widget.options[i],
+            optionIdx:     i,
+            optionCount:   widget.options.length,
+            onViewDetail:  () => _showMealDetailSheet(
+                widget.parentContext, widget.ref, widget.options[i], i + 1),
+            currentMacros: currentMacros,
+            goals:         goals,
+          ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildWalletCard(
-      int oi, int curOpt, double cardH, double dy,
-      String slot, List<MealInsight> opts) {
-    final top = (oi - curOpt) * cardH + dy;
-    if (top >= _availH + 4 || top + cardH <= -4) return const SizedBox.shrink();
-
-    final insight = opts[oi];
-    return Positioned(
-      left: 0,
-      right: 0,
-      top: top,
-      height: cardH,
-      child: _MealSlotCard(
-        meal: slot,
-        insight: insight,
-        optionIdx: oi,
-        optionCount: opts.length,
-        onViewDetail: () =>
-            _showMealDetailSheet(widget.parentContext, widget.ref, insight),
       ),
     );
   }
@@ -410,6 +567,8 @@ class _MealSlotCard extends StatelessWidget {
     required this.optionIdx,
     required this.optionCount,
     required this.onViewDetail,
+    required this.currentMacros,
+    required this.goals,
   });
 
   final String meal;
@@ -417,6 +576,8 @@ class _MealSlotCard extends StatelessWidget {
   final int optionIdx;
   final int optionCount;
   final VoidCallback onViewDetail;
+  final MacroValues currentMacros;
+  final MacroGoals goals;
 
   @override
   Widget build(BuildContext context) {
@@ -452,27 +613,53 @@ class _MealSlotCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      width: 48, height: 48,
+                      width: 64, height: 64,
                       decoration: BoxDecoration(
                         color: color.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(13),
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                      child: Icon(_mealIcon(meal), color: color, size: 24),
+                      child: Icon(_mealIcon(meal), color: color, size: 32),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            mealLabels[meal] ?? meal,
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                              color: cs.textPrimary,
-                            ),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  mealLabels[meal] ?? meal,
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w700,
+                                    color: cs.textPrimary,
+                                  ),
+                                ),
+                              ),
+                              if (optionCount > 1) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 9, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: color.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    'Option ${optionIdx + 1}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: color,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 3),
                           Text(
                             _mealTagline(meal),
                             style: TextStyle(fontSize: 12, color: cs.textMuted),
@@ -481,49 +668,58 @@ class _MealSlotCard extends StatelessWidget {
                           Text(
                             names + extra,
                             style: TextStyle(fontSize: 12, color: cs.textMuted),
-                            maxLines: 3,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
                     ),
-                    Icon(Icons.chevron_right_rounded,
-                        color: color.withValues(alpha: 0.7), size: 20),
                   ],
                 ),
               ),
               const Spacer(),
               Container(
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.09),
+                  color: color.withValues(alpha: 0.07),
                   borderRadius: const BorderRadius.vertical(
                       bottom: Radius.circular(19)),
                 ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _MacroPill('P', '${m.protein.round()}g', AppColors.protein),
-                    const SizedBox(width: 10),
-                    _MacroPill('C', '${m.carbs.round()}g', AppColors.carbs),
-                    const SizedBox(width: 10),
-                    _MacroPill('F', '${m.fat.round()}g', AppColors.fat),
-                    const Spacer(),
-                    Text(
-                      '${m.kcal.round()} kcal',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: cs.kcalColor,
-                      ),
+                    _MacroDonut(
+                      label: 'Protein',
+                      addition: m.protein,
+                      current: currentMacros.protein,
+                      goal: goals.protein,
+                      color: AppColors.protein,
+                      unit: 'g',
                     ),
-                    if (optionCount > 1) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        '${optionIdx + 1}/$optionCount',
-                        style: TextStyle(fontSize: 10, color: cs.textMuted),
-                      ),
-                    ],
+                    _MacroDonut(
+                      label: 'Carbs',
+                      addition: m.carbs,
+                      current: currentMacros.carbs,
+                      goal: goals.carbs,
+                      color: AppColors.carbs,
+                      unit: 'g',
+                    ),
+                    _MacroDonut(
+                      label: 'Fat',
+                      addition: m.fat,
+                      current: currentMacros.fat,
+                      goal: goals.fat,
+                      color: AppColors.fat,
+                      unit: 'g',
+                    ),
+                    _MacroDonut(
+                      label: 'Kcal',
+                      addition: m.kcal,
+                      current: currentMacros.kcal,
+                      goal: goals.kcal,
+                      color: cs.kcalColor,
+                      unit: '',
+                    ),
                   ],
                 ),
               ),
@@ -678,6 +874,7 @@ void _showMealDetailSheet(
   BuildContext context,
   WidgetRef ref,
   MealInsight insight,
+  int optionNumber,
 ) {
   final container = ProviderScope.containerOf(context);
   final cardColor  = Theme.of(context).extension<AppColorScheme>()!.card;
@@ -690,7 +887,10 @@ void _showMealDetailSheet(
     ),
     builder: (ctx) => ProviderScope(
       parent: container,
-      child: _MealDetailSheet(insight: insight, parentContext: context),
+      child: _MealDetailSheet(
+          insight: insight,
+          parentContext: context,
+          optionNumber: optionNumber),
     ),
   );
 }
@@ -699,9 +899,11 @@ class _MealDetailSheet extends ConsumerStatefulWidget {
   const _MealDetailSheet({
     required this.insight,
     required this.parentContext,
+    required this.optionNumber,
   });
   final MealInsight insight;
   final BuildContext parentContext;
+  final int optionNumber;
 
   @override
   ConsumerState<_MealDetailSheet> createState() => _MealDetailSheetState();
@@ -709,14 +911,27 @@ class _MealDetailSheet extends ConsumerStatefulWidget {
 
 class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
   bool _logging = false;
+  late Set<int> _selectedIndices;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndices = Set<int>.from(
+        Iterable.generate(widget.insight.items.length));
+  }
+
+  MacroValues get _selectedMacros => MacroValues.sum(
+      _selectedIndices.map((i) => widget.insight.items[i].macros));
 
   Future<void> _logAll() async {
     setState(() => _logging = true);
     final today    = todayISO();
     final notifier = ref.read(entriesProvider(today).notifier);
     bool allOk = true;
-    for (final item in widget.insight.items) {
-      final ok = await notifier.addEntry(
+    final indices  = _selectedIndices.toList()..sort();
+    for (final i in indices) {
+      final item = widget.insight.items[i];
+      final ok   = await notifier.addEntry(
         foodId: item.food.id,
         qty: item.qty,
         meal: widget.insight.meal,
@@ -738,7 +953,19 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
   Widget build(BuildContext context) {
     final cs    = AppColorScheme.of(context);
     final color = _mealColor(widget.insight.meal);
-    final m     = widget.insight.totalMacros;
+    final n     = widget.insight.items.length;
+    final sel   = _selectedIndices.length;
+
+    final String buttonLabel;
+    if (_logging) {
+      buttonLabel = '';
+    } else if (sel == 0) {
+      buttonLabel = 'Select items to log';
+    } else if (sel == n) {
+      buttonLabel = 'Log ${mealLabels[widget.insight.meal] ?? widget.insight.meal}';
+    } else {
+      buttonLabel = 'Log $sel item${sel == 1 ? '' : 's'}';
+    }
 
     return DraggableScrollableSheet(
       expand: false,
@@ -771,14 +998,27 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
                       color: color, size: 18),
                 ),
                 const SizedBox(width: 10),
-                Text(
-                  mealLabels[widget.insight.meal] ?? widget.insight.meal,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w700),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Text(
+                        mealLabels[widget.insight.meal] ?? widget.insight.meal,
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Option ${widget.optionNumber}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: color,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ],
+                  ),
                 ),
-                const Spacer(),
                 TextButton(
                   onPressed: Navigator.of(context).pop,
                   child: const Text('Cancel'),
@@ -787,85 +1027,166 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
             ),
           ),
           Divider(height: 1, color: cs.border),
-          // Food list + macro summary
+          // Food items, macro impact, and preference buttons all scroll together
+          // so the sheet never overflows when dragged to a small size.
           Expanded(
-            child: ListView.separated(
+            child: CustomScrollView(
               controller: scrollCtrl,
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              itemCount: widget.insight.items.length + 1,
-              separatorBuilder: (_, i) =>
-                  i < widget.insight.items.length - 1
-                      ? Divider(height: 24, color: cs.border)
-                      : const SizedBox(height: 16),
-              itemBuilder: (ctx, i) {
-                if (i == widget.insight.items.length) {
-                  return _MacroSummaryRow(macros: m, color: color);
-                }
-                final item = widget.insight.items[i];
-                final im   = item.macros;
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(item.food.name,
-                              style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: cs.textPrimary)),
-                          if (item.food.brand != null)
-                            Text(item.food.brand!,
-                                style: TextStyle(
-                                    fontSize: 12, color: cs.textMuted)),
-                          const SizedBox(height: 4),
-                          Row(children: [
-                            _SmallPill('P ${im.protein.round()}g',
-                                AppColors.protein),
-                            const SizedBox(width: 6),
-                            _SmallPill(
-                                'C ${im.carbs.round()}g', AppColors.carbs),
-                            const SizedBox(width: 6),
-                            _SmallPill('F ${im.fat.round()}g', AppColors.fat),
-                          ]),
-                        ],
-                      ),
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (ctx, i) {
+                        if (i.isOdd) return Divider(height: 24, color: cs.border);
+                        final idx      = i ~/ 2;
+                        final item     = widget.insight.items[idx];
+                        final im       = item.macros;
+                        final selected = _selectedIndices.contains(idx);
+                        return GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => setState(() {
+                            if (selected) {
+                              _selectedIndices.remove(idx);
+                            } else {
+                              _selectedIndices.add(idx);
+                            }
+                          }),
+                          child: AnimatedOpacity(
+                            opacity: selected ? 1.0 : 0.38,
+                            duration: const Duration(milliseconds: 180),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 10),
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 180),
+                                    child: Icon(
+                                      selected
+                                          ? Icons.check_circle_rounded
+                                          : Icons.radio_button_unchecked_rounded,
+                                      key: ValueKey(selected),
+                                      size: 20,
+                                      color: selected ? color : cs.border,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(item.food.name,
+                                          style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: cs.textPrimary)),
+                                      if (item.food.brand != null)
+                                        Text(item.food.brand!,
+                                            style: TextStyle(
+                                                fontSize: 12, color: cs.textMuted)),
+                                      const SizedBox(height: 4),
+                                      Row(children: [
+                                        _SmallPill('P ${im.protein.round()}g',
+                                            AppColors.protein),
+                                        const SizedBox(width: 6),
+                                        _SmallPill('C ${im.carbs.round()}g',
+                                            AppColors.carbs),
+                                        const SizedBox(width: 6),
+                                        _SmallPill('F ${im.fat.round()}g',
+                                            AppColors.fat),
+                                      ]),
+                                    ],
+                                  ),
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      _qtyLabel(item.food.unit, item.qty),
+                                      style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: cs.textPrimary),
+                                    ),
+                                    Text('${im.kcal.round()} kcal',
+                                        style: TextStyle(
+                                            fontSize: 12, color: cs.kcalColor)),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                      childCount: n > 0 ? n * 2 - 1 : 0,
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                  ),
+                ),
+                // Macro impact — driven by selected items only
+                SliverToBoxAdapter(
+                  child: _DonutImpactSection(suggestion: _selectedMacros),
+                ),
+                // Suggestion preference buttons
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: Row(
                       children: [
-                        Text(
-                          _qtyLabel(item.food.unit, item.qty),
-                          style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: cs.textPrimary),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _logging ? null : () {
+                              ref.read(settingsProvider.notifier).setComboReduced(
+                                widget.insight.meal, widget.insight.comboKey);
+                              Navigator.pop(context);
+                            },
+                            icon: const Icon(Icons.trending_down_rounded, size: 14),
+                            label: const Text('Suggest less often'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: cs.textMuted,
+                              side: BorderSide(color: cs.border),
+                              textStyle: const TextStyle(fontSize: 12),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
                         ),
-                        Text('${im.kcal.round()} kcal',
-                            style: TextStyle(
-                                fontSize: 12, color: cs.kcalColor)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _logging ? null : () {
+                              ref.read(settingsProvider.notifier).setComboBlocked(
+                                widget.insight.meal, widget.insight.comboKey);
+                              Navigator.pop(context);
+                            },
+                            icon: const Icon(Icons.block_rounded, size: 14),
+                            label: const Text('Remove from suggestions'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.danger.withValues(alpha: 0.7),
+                              side: BorderSide(color: AppColors.danger.withValues(alpha: 0.3)),
+                              textStyle: const TextStyle(fontSize: 12),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
-                  ],
-                );
-              },
+                  ),
+                ),
+              ],
             ),
           ),
-          // Macro impact preview
-          _MacroImpactSection(suggestion: widget.insight.totalMacros),
-          // Log button
+          // Log button — pinned at bottom, always reachable regardless of sheet height
           Padding(
             padding: EdgeInsets.fromLTRB(
                 16, 8, 16, MediaQuery.of(context).padding.bottom + 16),
             child: ElevatedButton(
-              onPressed: _logging ? null : _logAll,
+              onPressed: (_logging || sel == 0) ? null : _logAll,
               child: _logging
                   ? const SizedBox(
                       height: 20,
                       width: 20,
                       child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text('Log ${mealLabels[widget.insight.meal] ?? widget.insight.meal}'),
+                  : Text(buttonLabel),
             ),
           ),
         ],
@@ -875,11 +1196,11 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
 }
 
 // ---------------------------------------------------------------------------
-// Macro impact section — shows current progress + what this meal would add
+// Macro impact section — donut view, matches carousel card style
 // ---------------------------------------------------------------------------
 
-class _MacroImpactSection extends ConsumerWidget {
-  const _MacroImpactSection({required this.suggestion});
+class _DonutImpactSection extends ConsumerWidget {
+  const _DonutImpactSection({required this.suggestion});
   final MacroValues suggestion;
 
   @override
@@ -888,6 +1209,7 @@ class _MacroImpactSection extends ConsumerWidget {
     final today   = todayISO();
     final current = ref.watch(macroTotalsProvider(today));
     final goals   = ref.read(settingsProvider).goalsForDate(today);
+    final m       = suggestion;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -904,141 +1226,51 @@ class _MacroImpactSection extends ConsumerWidget {
               letterSpacing: 0.4,
             ),
           ),
-          const SizedBox(height: 12),
-          _ImpactBar(
-            label: 'Protein',
-            current: current.protein,
-            addition: suggestion.protein,
-            goal: goals.protein,
-            color: AppColors.protein,
-            unit: 'g',
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _MacroDonut(
+                label: 'Protein',
+                addition: m.protein,
+                current: current.protein,
+                goal: goals.protein,
+                color: AppColors.protein,
+                unit: 'g',
+                size: 76.0,
+              ),
+              _MacroDonut(
+                label: 'Carbs',
+                addition: m.carbs,
+                current: current.carbs,
+                goal: goals.carbs,
+                color: AppColors.carbs,
+                unit: 'g',
+                size: 76.0,
+              ),
+              _MacroDonut(
+                label: 'Fat',
+                addition: m.fat,
+                current: current.fat,
+                goal: goals.fat,
+                color: AppColors.fat,
+                unit: 'g',
+                size: 76.0,
+              ),
+              _MacroDonut(
+                label: 'Kcal',
+                addition: m.kcal,
+                current: current.kcal,
+                goal: goals.kcal,
+                color: AppColorScheme.of(context).kcalColor,
+                unit: '',
+                size: 76.0,
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          _ImpactBar(
-            label: 'Carbs',
-            current: current.carbs,
-            addition: suggestion.carbs,
-            goal: goals.carbs,
-            color: AppColors.carbs,
-            unit: 'g',
-          ),
-          const SizedBox(height: 10),
-          _ImpactBar(
-            label: 'Fat',
-            current: current.fat,
-            addition: suggestion.fat,
-            goal: goals.fat,
-            color: AppColors.fat,
-            unit: 'g',
-          ),
-          const SizedBox(height: 10),
-          _ImpactBar(
-            label: 'Calories',
-            current: current.kcal,
-            addition: suggestion.kcal,
-            goal: goals.kcal,
-            color: AppColorScheme.of(context).kcalColor,
-            unit: ' kcal',
-          ),
+          const SizedBox(height: 8),
         ],
       ),
-    );
-  }
-}
-
-class _ImpactBar extends StatelessWidget {
-  const _ImpactBar({
-    required this.label,
-    required this.current,
-    required this.addition,
-    required this.goal,
-    required this.color,
-    required this.unit,
-  });
-
-  final String label;
-  final double current;
-  final double addition;
-  final double goal;
-  final Color color;
-  final String unit;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs             = AppColorScheme.of(context);
-    final projected      = current + addition;
-    final currentRatio   = goal > 0 ? (current   / goal).clamp(0.0, 1.0) : 0.0;
-    final projectedRatio = goal > 0 ? (projected / goal).clamp(0.0, 1.0) : 0.0;
-    final addRatio       = projectedRatio - currentRatio;
-    final overGoal       = projected > goal;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label,
-                style: TextStyle(fontSize: 12, color: cs.textMuted)),
-            RichText(
-              text: TextSpan(
-                style: DefaultTextStyle.of(context).style,
-                children: [
-                  TextSpan(
-                    text: '+${addition.round()}$unit  ',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: color,
-                        fontWeight: FontWeight.w600),
-                  ),
-                  TextSpan(
-                    text: '→ ${projected.round()} / ${goal.round()}$unit',
-                    style: TextStyle(fontSize: 11, color: cs.textMuted),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 5),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: SizedBox(
-            height: 7,
-            child: LayoutBuilder(
-              builder: (_, constraints) {
-                final w = constraints.maxWidth;
-                return Stack(
-                  children: [
-                    // Background track
-                    Container(color: cs.border),
-                    // Current portion (muted)
-                    Positioned(
-                      left: 0,
-                      child: Container(
-                        width: currentRatio * w,
-                        height: 7,
-                        color: color.withValues(alpha: 0.40),
-                      ),
-                    ),
-                    // Addition portion (full color)
-                    Positioned(
-                      left: currentRatio * w,
-                      child: Container(
-                        width: addRatio * w,
-                        height: 7,
-                        color: overGoal
-                            ? AppColors.danger.withValues(alpha: 0.8)
-                            : color,
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1238,8 +1470,8 @@ class _DonutPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2 - strokeWidth;
     final stroke = strokeWidth;
-    final start   = -pi / 2;
-    final full    = pi * 2;
+    const start   = -pi / 2;
+    const full    = pi * 2;
 
     final bg = Paint()
       ..style       = PaintingStyle.stroke
@@ -1457,4 +1689,3 @@ class _Star extends StatelessWidget {
         ),
       );
 }
-
