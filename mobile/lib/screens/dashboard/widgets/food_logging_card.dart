@@ -96,6 +96,18 @@ class _FoodLoggingCardState extends ConsumerState<FoodLoggingCard> {
     };
   }
 
+  /// True average daily intake: sum each day's total, then divide by day count.
+  /// Independent of per-meal averages — correctly handles days where some
+  /// meal slots are skipped.
+  double _computeDailyAvg(List<Entry> entries) {
+    final dailyTotals = <String, double>{};
+    for (final e in entries) {
+      dailyTotals[e.date] = (dailyTotals[e.date] ?? 0) + _macroValue(e.macros);
+    }
+    if (dailyTotals.isEmpty) return 0;
+    return dailyTotals.values.fold(0.0, (s, v) => s + v) / dailyTotals.length;
+  }
+
   Widget _chip({
     required String label,
     required bool selected,
@@ -180,7 +192,7 @@ class _FoodLoggingCardState extends ConsumerState<FoodLoggingCard> {
                 if (avgs.isNotEmpty) {
                   _lastAvgs   = avgs;
                   _lastMaxVal = avgs.values.reduce((a, b) => a > b ? a : b);
-                  _lastTotal  = avgs.values.fold(0.0, (s, v) => s + v);
+                  _lastTotal  = _computeDailyAvg(entries);
                 }
               });
 
@@ -282,12 +294,12 @@ class _FoodLoggingCardState extends ConsumerState<FoodLoggingCard> {
                       // Total row
                       Divider(height: 16, color: cs.border),
                       Row(children: [
-                        const Text('∑',
+                        const Text('∅',
                             style: TextStyle(
                                 fontSize: 13, fontWeight: FontWeight.w700)),
                         const SizedBox(width: 7),
                         const Expanded(
-                          child: Text('Total',
+                          child: Text('Daily avg',
                               style: TextStyle(
                                   fontSize: 12, fontWeight: FontWeight.w700)),
                         ),
