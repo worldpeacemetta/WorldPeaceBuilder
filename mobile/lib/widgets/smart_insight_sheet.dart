@@ -165,11 +165,11 @@ class _SmartInsightSheet extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 
 /// How much the previous card's bottom strip peeks above the active card.
-const _kPeekAbove  = 95.0;
+const _kPeekAbove  = 91.0;
 /// How much the first behind-below card peeks below the active card.
-const _kPeekBelow1 = 115.0;
+const _kPeekBelow1 = 103.0;
 /// How much the second behind-below card peeks below the first behind card.
-const _kPeekBelow2 = 95.0;
+const _kPeekBelow2 = 91.0;
 /// Horizontal scale for non-active cards — subtle inward shrink signals depth.
 const _kBackScale  = 0.95;
 
