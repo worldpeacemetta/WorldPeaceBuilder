@@ -524,39 +524,40 @@ class _FoodTileState extends ConsumerState<_FoodTile>
                       offset: Offset(offset, 0),
                       child: Container(
                         color: cs.card,
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 4),
-                          // Category emoji on the LEFT
-                          leading: Text(
-                            categoryEmojis[widget.food.category] ?? '🍽️',
-                            style: const TextStyle(fontSize: 22),
-                          ),
-                          title: Text(
-                            widget.food.displayName,
-                            style: const TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.w500),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 4),
+                              // Category emoji on the LEFT
+                              leading: Text(
+                                categoryEmojis[widget.food.category] ?? '🍽️',
+                                style: const TextStyle(fontSize: 22),
+                              ),
+                              title: Text(
+                                widget.food.displayName,
+                                style: const TextStyle(
+                                    fontSize: 14, fontWeight: FontWeight.w500),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(
                                 '${widget.food.kcal.round()} kcal · P ${widget.food.protein.round()}g · C ${widget.food.carbs.round()}g · F ${widget.food.fat.round()}g'
                                 '  ·  per ${widget.food.unit == 'per100g' ? '100 g' : 'serving'}',
                                 style: TextStyle(
                                     fontSize: 12, color: cs.textMuted),
                               ),
-                              const SizedBox(height: 6),
-                              _MacroRatioBar(
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                              child: _MacroRatioBar(
                                 protein: widget.food.protein,
                                 carbs: widget.food.carbs,
                                 fat: widget.food.fat,
                               ),
-                              const SizedBox(height: 2),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
