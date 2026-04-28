@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lottie/lottie.dart';
 
 import '../core/utils.dart';
 import '../providers/date_provider.dart';
@@ -148,22 +147,30 @@ class _ArchNavBar extends StatelessWidget {
             ),
           ),
 
-          // ── Smart Insight animation — sits just below the FAB ──
+          // ── Smart Insight icon — sits just below the FAB ──
           if (hasInsight)
             Positioned(
-              top: _fabD,        // start exactly at FAB bottom edge
+              top: _fabD - 12,
               left: 0,
               right: 0,
               height: 72,
               child: Center(
                 child: GestureDetector(
                   onTap: onInsightTap,
-                  child: Lottie.asset(
-                    'assets/lottie/AI generating.json',
-                    width: 72,
-                    height: 72,
-                    repeat: true,
-                    fit: BoxFit.contain,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SpinningSparkle(size: 26, color: AppColors.kcal),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Smart Insight',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.kcal,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

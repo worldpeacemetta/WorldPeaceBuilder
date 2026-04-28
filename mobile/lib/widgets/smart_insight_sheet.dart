@@ -107,7 +107,7 @@ class _SmartInsightSheet extends ConsumerWidget {
                   children: [
                     Row(
                       children: [
-                        _SpinningSparkle(size: 18, color: AppColors.kcal),
+                        SpinningSparkle(size: 18, color: AppColors.kcal),
                         const SizedBox(width: 6),
                         Text('Smart Insight',
                             style: Theme.of(context).textTheme.titleMedium
@@ -1288,17 +1288,17 @@ class _DonutPainter extends CustomPainter {
 // Animated sparkle icons
 // ---------------------------------------------------------------------------
 
-/// Slow continuous 360° rotation — used in the main sheet header.
-class _SpinningSparkle extends StatefulWidget {
-  const _SpinningSparkle({required this.size, required this.color});
+/// Slow continuous 360° rotation — used in the main sheet header and nav bar.
+class SpinningSparkle extends StatefulWidget {
+  const SpinningSparkle({super.key, required this.size, required this.color});
   final double size;
   final Color  color;
 
   @override
-  State<_SpinningSparkle> createState() => _SpinningSparkleState();
+  State<SpinningSparkle> createState() => SpinningSparkleState();
 }
 
-class _SpinningSparkleState extends State<_SpinningSparkle>
+class SpinningSparkleState extends State<SpinningSparkle>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
 
