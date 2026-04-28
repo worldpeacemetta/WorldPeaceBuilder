@@ -1238,8 +1238,8 @@ class _DonutPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2 - strokeWidth;
     final stroke = strokeWidth;
-    const start   = -pi / 2;
-    const full    = pi * 2;
+    final start   = -pi / 2;
+    final full    = pi * 2;
 
     final bg = Paint()
       ..style       = PaintingStyle.stroke
