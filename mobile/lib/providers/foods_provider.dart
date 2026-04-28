@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/food.dart';
+import 'entries_provider.dart';
 
 final _supabase = Supabase.instance.client;
 
@@ -9,9 +10,11 @@ final _supabase = Supabase.instance.client;
 // Foods list notifier — loads all user foods, supports CRUD.
 // ---------------------------------------------------------------------------
 class FoodsNotifier extends StateNotifier<AsyncValue<List<Food>>> {
-  FoodsNotifier() : super(const AsyncValue.loading()) {
+  FoodsNotifier(this._ref) : super(const AsyncValue.loading()) {
     fetch();
   }
+
+  final Ref _ref;
 
   Future<void> fetch() async {
     state = const AsyncValue.loading();
@@ -58,6 +61,9 @@ class FoodsNotifier extends StateNotifier<AsyncValue<List<Food>>> {
       state = state.whenData(
         (list) => list.map((f) => f.id == id ? updated : f).toList(),
       );
+      // Force entries to refetch so the updated name/macros appear in the log.
+      _ref.invalidate(entriesProvider);
+      _ref.invalidate(entriesInRangeProvider);
       return true;
     } catch (_) {
       return false;
@@ -77,7 +83,7 @@ class FoodsNotifier extends StateNotifier<AsyncValue<List<Food>>> {
 
 final foodsProvider =
     StateNotifierProvider<FoodsNotifier, AsyncValue<List<Food>>>(
-  (_) => FoodsNotifier(),
+  (ref) => FoodsNotifier(ref),
 );
 
 /// Convenience: foods as a flat list (empty while loading).

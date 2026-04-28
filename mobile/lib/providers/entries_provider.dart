@@ -110,12 +110,17 @@ class EntriesNotifier extends StateNotifier<AsyncValue<List<Entry>>> {
   }
 
   Future<bool> deleteEntry(String id) async {
+    // Optimistic update: remove immediately so the tile cannot re-appear
+    // during the async Supabase round-trip if something else triggers a rebuild.
+    final prev = state;
+    state = state.whenData((list) => list.where((e) => e.id != id).toList());
+    _ref.invalidate(loggedDatesProvider);
     try {
       await _supabase.from('entries').delete().eq('id', id);
-      state = state.whenData((list) => list.where((e) => e.id != id).toList());
-      _ref.invalidate(loggedDatesProvider);
+      _ref.read(badgesProvider.notifier).recompute();
       return true;
     } catch (_) {
+      state = prev; // rollback on network failure
       return false;
     }
   }
