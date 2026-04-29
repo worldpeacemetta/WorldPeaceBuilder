@@ -438,14 +438,13 @@ int _editDistance(String a, String b) {
   return dp[m][n];
 }
 
-/// True when [a] and [b] are the same or very close (1 edit, or ≤15% edits for
-/// longer strings). Both inputs should already be [_normalizeFoodName]d.
+/// True when [a] and [b] share ≥75% similarity (edit distance ≤25% of the
+/// longer name's length). Both inputs should already be [_normalizeFoodName]d.
 bool _isSimilarFoodName(String a, String b) {
   if (a == b) return true;
   final maxLen = a.length > b.length ? a.length : b.length;
   if (maxLen == 0) return true;
-  final dist = _editDistance(a, b);
-  return dist == 1 || dist / maxLen <= 0.15;
+  return _editDistance(a, b) / maxLen <= 0.25;
 }
 
 // ── Barcode hero button ────────────────────────────────────────────────────────
