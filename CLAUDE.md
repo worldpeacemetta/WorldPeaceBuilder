@@ -278,6 +278,33 @@ Container(
 3. Baked the 50% width reduction into the painter (`barWidth = size.width * 0.5`) with a `clipRRect` for rounded ends
 4. Documented the `ListTile.subtitle` layout gotcha in CLAUDE.md
 
+### What was accomplished in session 2026-04-29 (food detail sheet + compare)
+
+**Food Detail Sheet (Flutter mobile, branch `claude/add-food-detail-sheet-FTy8I`):**
+
+Tapping any food tile in the Food Database now opens a `DraggableScrollableSheet` (`food_detail_sheet.dart`) with:
+
+1. **Composition donut** — `fl_chart PieChart` showing carbs/fat/protein by kcal %. Tap a segment to expand it and reveal its %. Center shows base kcal.
+2. **Goal contribution** — serving-size slider (10–600 g or 0.25–6 srv) with four `LayoutBuilder`-based progress bars (kcal, protein, carbs, fat vs daily goals). Bars turn red when over goal. Updates live as slider moves.
+3. **History stats** — three stat pills (N× logged, avg qty, favourite meal slot). Only shown when the food has been logged at least once.
+4. **History scatter plot** — `fl_chart ScatterChart` (touch disabled to avoid scroll conflicts) with meal-coloured dots on a date × quantity axis. Auto-scales x-axis interval based on date range.
+5. **Meal-slot donut** — small `PieChart` + Wrap legend showing breakfast/lunch/dinner/snack % breakdown.
+6. **Log button** — pre-selects the food in `AddEntrySheet`.
+
+New provider: `foodEntriesProvider` (family, fetches all entries for a food ID, no food join).
+
+`_FoodTile` tap wired: open when swipe closed, close swipe when open.
+
+**Food Comparison Feature (same branch):**
+
+1. `compare_provider.dart` — `StateNotifier<List<Food>>` capped at 3 foods; `toggle` / `remove` / `clear`.
+2. `compare_sheet.dart` — exports `compareColors = [protein, carbs, fat]` for slot colouring.
+   - `CompareBar` widget: appears at bottom of food DB screen when ≥1 food queued; shows coloured food chips with ×, slot count, "Compare N foods" button (enabled at ≥2), hint text at 1.
+   - `showCompareSheet()` / `_CompareSheet`: draggable sheet with numbered coloured food headers + four macro sections (Calories, Protein, Carbs, Fat). Each section shows a bar per food scaled to the max value in that row; winning value highlighted in the macro colour.
+3. `_CompareButton` in food detail sheet: `ConsumerWidget` above the Log button. Shows "Add to compare" / "In comparison (N/3)" / "Compare full". Tints itself with the food's assigned slot colour once added. Disabled when all 3 slots occupied by other foods.
+
+**Known gotcha — `ScatterTouchData` is not const in fl_chart 0.68.** Use `ScatterTouchData(enabled: false)` without `const`.
+
 ### What was accomplished in session 2026-04-28
 
 **AI icon & animation work (Flutter mobile, merged into main):**
