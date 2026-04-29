@@ -101,22 +101,36 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
     if (widget.existing == null) {
       final name = _normalizeFoodName(_nameCtrl.text);
       final brand = _brandCtrl.text.trim().toLowerCase();
+      final kcal    = double.tryParse(_kcalCtrl.text)    ?? 0;
+      final protein = double.tryParse(_proteinCtrl.text) ?? 0;
+      final carbs   = double.tryParse(_carbsCtrl.text)   ?? 0;
+      final fat     = double.tryParse(_fatCtrl.text)     ?? 0;
       final allFoods = ref.read(foodListProvider);
 
-      final match = allFoods.where((f) {
-        return _isSimilarFoodName(name, _normalizeFoodName(f.name));
-      }).firstOrNull;
+      // Trigger on: name ≥75% similar, OR name >50% similar + macros ≥95% match
+      Food? match;
+      bool macroTriggered = false;
+      for (final f in allFoods) {
+        final sim = _nameSimilarity(name, _normalizeFoodName(f.name));
+        if (sim >= 0.75) { match = f; break; }
+        if (sim > 0.50 && _macrosSimilar(f, kcal, protein, carbs, fat)) {
+          match = f;
+          macroTriggered = true;
+          break;
+        }
+      }
 
       if (match != null && mounted) {
         final matchLabel = match.brand != null && match.brand!.isNotEmpty
             ? '"${match.name}" by ${match.brand}'
             : '"${match.name}"';
-        // Warn even when brands differ — user may be entering the same food twice
         final isSameBrand =
             (match.brand ?? '').trim().toLowerCase() == brand;
-        final subtitle = isSameBrand
-            ? 'An identical food is already in your database.'
-            : 'A food with this name already exists (different brand).';
+        final subtitle = macroTriggered
+            ? 'A food with a similar name and identical macros already exists.'
+            : isSameBrand
+                ? 'An identical food is already in your database.'
+                : 'A food with this name already exists (different brand).';
         final confirm = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
@@ -438,13 +452,28 @@ int _editDistance(String a, String b) {
   return dp[m][n];
 }
 
-/// True when [a] and [b] share ≥75% similarity (edit distance ≤25% of the
-/// longer name's length). Both inputs should already be [_normalizeFoodName]d.
-bool _isSimilarFoodName(String a, String b) {
-  if (a == b) return true;
+/// Returns 0..1 name similarity (1 = identical). Both inputs should already
+/// be [_normalizeFoodName]d.
+double _nameSimilarity(String a, String b) {
+  if (a == b) return 1.0;
   final maxLen = a.length > b.length ? a.length : b.length;
-  if (maxLen == 0) return true;
-  return _editDistance(a, b) / maxLen <= 0.25;
+  if (maxLen == 0) return 1.0;
+  return 1.0 - _editDistance(a, b) / maxLen;
+}
+
+/// True when every macro in [f] is within 5% of the supplied values.
+bool _macrosSimilar(Food f, double kcal, double protein, double carbs, double fat) {
+  return _macroClose(f.kcal, kcal) &&
+      _macroClose(f.protein, protein) &&
+      _macroClose(f.carbs, carbs) &&
+      _macroClose(f.fat, fat);
+}
+
+bool _macroClose(double a, double b) {
+  if (a == b) return true;
+  final larger = a > b ? a : b;
+  if (larger == 0) return false; // one is 0, the other isn't
+  return (a - b).abs() / larger <= 0.05;
 }
 
 // ── Barcode hero button ────────────────────────────────────────────────────────
