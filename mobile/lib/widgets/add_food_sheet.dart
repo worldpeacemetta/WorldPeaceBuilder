@@ -99,12 +99,12 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
 
     // Duplicate check — only for new foods, not edits
     if (widget.existing == null) {
-      final name = _nameCtrl.text.trim().toLowerCase();
+      final name = _normalizeFoodName(_nameCtrl.text);
       final brand = _brandCtrl.text.trim().toLowerCase();
       final allFoods = ref.read(foodListProvider);
 
       final match = allFoods.where((f) {
-        return f.name.trim().toLowerCase() == name;
+        return _isSimilarFoodName(name, _normalizeFoodName(f.name));
       }).firstOrNull;
 
       if (match != null && mounted) {
@@ -410,6 +410,42 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
       ),
     );
   }
+}
+
+// ── Duplicate detection helpers ───────────────────────────────────────────────
+
+/// Lowercase + collapse unicode variants (°→o) + strip non-alphanumeric + collapse spaces.
+String _normalizeFoodName(String s) => s
+    .toLowerCase()
+    .replaceAll('°', 'o')
+    .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
+    .replaceAll(RegExp(r'\s+'), ' ')
+    .trim();
+
+/// Levenshtein edit distance.
+int _editDistance(String a, String b) {
+  final m = a.length, n = b.length;
+  final dp = List.generate(m + 1, (_) => List.filled(n + 1, 0));
+  for (var i = 0; i <= m; i++) dp[i][0] = i;
+  for (var j = 0; j <= n; j++) dp[0][j] = j;
+  for (var i = 1; i <= m; i++) {
+    for (var j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] == b[j - 1]
+          ? dp[i - 1][j - 1]
+          : 1 + [dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]].reduce((x, y) => x < y ? x : y);
+    }
+  }
+  return dp[m][n];
+}
+
+/// True when [a] and [b] are the same or very close (1 edit, or ≤15% edits for
+/// longer strings). Both inputs should already be [_normalizeFoodName]d.
+bool _isSimilarFoodName(String a, String b) {
+  if (a == b) return true;
+  final maxLen = a.length > b.length ? a.length : b.length;
+  if (maxLen == 0) return true;
+  final dist = _editDistance(a, b);
+  return dist == 1 || dist / maxLen <= 0.15;
 }
 
 // ── Barcode hero button ────────────────────────────────────────────────────────
