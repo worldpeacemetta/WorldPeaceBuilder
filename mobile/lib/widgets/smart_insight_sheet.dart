@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/constants.dart';
 import '../core/utils.dart';
 import '../models/entry.dart';
 import '../models/food.dart';
@@ -1070,6 +1071,13 @@ class _MealDetailSheetState extends ConsumerState<_MealDetailSheet> {
                                       size: 20,
                                       color: selected ? color : cs.border,
                                     ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 10),
+                                  child: Text(
+                                    categoryEmojis[item.food.category] ?? '🍽️',
+                                    style: const TextStyle(fontSize: 22),
                                   ),
                                 ),
                                 Expanded(
