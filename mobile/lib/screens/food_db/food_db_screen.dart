@@ -12,6 +12,7 @@ import '../../theme.dart';
 import '../../widgets/add_entry_sheet.dart';
 import '../../widgets/add_food_sheet.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
+import '../../widgets/compare_sheet.dart';
 import '../../widgets/food_detail_sheet.dart';
 
 // ---------------------------------------------------------------------------
@@ -222,7 +223,7 @@ class _FoodDbScreenState extends ConsumerState<FoodDbScreen> {
                 }
 
                 return ListView.separated(
-                  padding: const EdgeInsets.only(bottom: 32),
+                  padding: const EdgeInsets.only(bottom: 100),
                   itemCount: filtered.length,
                   separatorBuilder: (_, __) =>
                       const Divider(height: 1, indent: 64),
@@ -232,6 +233,8 @@ class _FoodDbScreenState extends ConsumerState<FoodDbScreen> {
               },
             ),
           ),
+          // ── Compare bar (slides in when ≥1 food is queued) ───────────────
+          const CompareBar(),
         ],
       ),
     );

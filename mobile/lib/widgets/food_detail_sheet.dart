@@ -8,10 +8,12 @@ import 'package:intl/intl.dart';
 import '../core/constants.dart';
 import '../models/entry.dart';
 import '../models/food.dart';
+import '../providers/compare_provider.dart';
 import '../providers/entries_provider.dart';
 import '../providers/settings_provider.dart';
 import '../theme.dart';
 import 'add_entry_sheet.dart';
+import 'compare_sheet.dart' show compareColors;
 
 // ── Meal slot colours & labels ────────────────────────────────────────────────
 
@@ -134,6 +136,9 @@ class _FoodDetailSheetState extends ConsumerState<_FoodDetailSheet> {
                         : _UsageCard(entries: entries, food: food),
                   ),
                   const SizedBox(height: 20),
+                  // ── Compare button ──────────────────────────────────────
+                  _CompareButton(food: food),
+                  const SizedBox(height: 8),
                   ElevatedButton(
                     onPressed: () {
                       Navigator.pop(context);
@@ -644,6 +649,48 @@ class _UsageCard extends StatelessWidget {
 
   static String _cap(String s) =>
       s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
+}
+
+// ── Compare button (reads compare state, shows slot colour when active) ────────
+
+class _CompareButton extends ConsumerWidget {
+  const _CompareButton({required this.food});
+  final Food food;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final foods = ref.watch(compareProvider);
+    final idx = foods.indexWhere((f) => f.id == food.id);
+    final inCompare = idx >= 0;
+    final isFull = foods.length >= CompareNotifier.maxFoods && !inCompare;
+    final slotColor = inCompare ? compareColors[idx] : null;
+
+    return OutlinedButton.icon(
+      icon: Icon(
+        inCompare
+            ? Icons.check_circle_outline
+            : Icons.compare_arrows_rounded,
+        size: 18,
+        color: slotColor,
+      ),
+      label: Text(
+        inCompare
+            ? 'In comparison (${foods.length}/${CompareNotifier.maxFoods})'
+            : isFull
+                ? 'Compare full (${CompareNotifier.maxFoods}/${CompareNotifier.maxFoods})'
+                : 'Add to compare',
+        style: TextStyle(color: slotColor),
+      ),
+      onPressed: isFull
+          ? null
+          : () => ref.read(compareProvider.notifier).toggle(food),
+      style: slotColor != null
+          ? OutlinedButton.styleFrom(
+              side: BorderSide(color: slotColor.withValues(alpha: 0.6)),
+            )
+          : null,
+    );
+  }
 }
 
 class _StatPill extends StatelessWidget {
