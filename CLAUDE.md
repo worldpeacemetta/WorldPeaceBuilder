@@ -225,6 +225,37 @@ When `current + addition > goal` for a macro, `_MacroDonut` keeps its attributed
 
 ---
 
+## Flutter layout gotchas
+
+### Rendering inside `ListTile.subtitle`
+
+`ListTile` calls `getMinIntrinsicHeight` on its subtitle during tile-height measurement. This breaks several common layout approaches when used inside `ListTile.subtitle`:
+
+| Approach | Result |
+|---|---|
+| `FractionallySizedBox` | Invisible — fails when parent provides unbounded width |
+| `Row(Expanded, Expanded)` | Invisible — `ColoredBox` inside `Expanded` gets zero size |
+| `LayoutBuilder` | Invisible — throws during intrinsic sizing pass, widget not rendered |
+| `Transform.scale` | Has no effect on the underlying layout failure |
+
+**Working pattern — use `CustomPaint` + `SizedBox.expand()`:**
+
+```dart
+Container(
+  height: 4,
+  child: CustomPaint(
+    painter: _MyPainter(...),
+    child: const SizedBox.expand(), // forces CustomPaint to fill available width
+  ),
+)
+```
+
+`SizedBox.expand()` inside `Container(height: N)` gets clamped to the tile's bounded width × N. The painter receives the correct `Size` and draws directly on canvas, bypassing widget layout entirely. Any fractional sizing (e.g. 50% width) is computed inside `paint(Canvas, Size)` rather than in the widget tree.
+
+**Diagnostic approach:** replace the widget body with `Container(height: 8, color: Colors.red)` — if visible, the widget executes and the issue is in the rendering logic, not the call site.
+
+---
+
 ## Branch & Git state (as of session 2026-04-28)
 
 ### Current branch structure
@@ -237,6 +268,15 @@ When `current + addition > goal` for a macro, `_MacroDonut` keeps its attributed
 | 9 other `claude/*` branches | Have unmerged code differences vs. main — do not delete without reviewing |
 
 **Always start new sessions from `main`** — it is the most complete branch.
+
+### What was accomplished in session 2026-04-29
+
+**Macro ratio bar fix + 50% width reduction (Flutter mobile, branch `claude/reduce-macro-bar-length-9wTwe`):**
+
+1. Diagnosed that `Row/Expanded/ColoredBox` inside `ListTile.subtitle` silently produces invisible bars — `ListTile`'s intrinsic sizing pass breaks `FractionallySizedBox`, `LayoutBuilder`, and `Expanded`-based approaches
+2. Rewrote `_MacroRatioBar` using `CustomPaint` + `SizedBox.expand()` inside `Container(height: 4)` — painter draws segments directly on canvas
+3. Baked the 50% width reduction into the painter (`barWidth = size.width * 0.5`) with a `clipRRect` for rounded ends
+4. Documented the `ListTile.subtitle` layout gotcha in CLAUDE.md
 
 ### What was accomplished in session 2026-04-28
 
