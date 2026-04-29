@@ -96,6 +96,48 @@ class _AddFoodSheetState extends ConsumerState<_AddFoodSheet> {
 
   Future<void> _save() async {
     if (_nameCtrl.text.trim().isEmpty) return;
+
+    // Duplicate check — only for new foods, not edits
+    if (widget.existing == null) {
+      final name = _nameCtrl.text.trim().toLowerCase();
+      final brand = _brandCtrl.text.trim().toLowerCase();
+      final allFoods = ref.read(foodListProvider);
+
+      final match = allFoods.where((f) {
+        return f.name.trim().toLowerCase() == name;
+      }).firstOrNull;
+
+      if (match != null && mounted) {
+        final matchLabel = match.brand != null && match.brand!.isNotEmpty
+            ? '"${match.name}" by ${match.brand}'
+            : '"${match.name}"';
+        // Warn even when brands differ — user may be entering the same food twice
+        final isSameBrand =
+            (match.brand ?? '').trim().toLowerCase() == brand;
+        final subtitle = isSameBrand
+            ? 'An identical food is already in your database.'
+            : 'A food with this name already exists (different brand).';
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Possible duplicate'),
+            content: Text('$subtitle\n\nExisting: $matchLabel\n\nSave anyway?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Save Anyway'),
+              ),
+            ],
+          ),
+        );
+        if (confirm != true) return;
+      }
+    }
+
     setState(() => _saving = true);
 
     final data = {
