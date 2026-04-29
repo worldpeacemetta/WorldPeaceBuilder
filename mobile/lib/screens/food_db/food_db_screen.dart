@@ -724,30 +724,7 @@ class _MacroRatioBar extends StatelessWidget {
 
     if (total <= 0) return const SizedBox.shrink();
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(2),
-      child: SizedBox(
-        height: 4,
-        child: Row(
-          children: [
-            if (carbsKcal > 0)
-              Expanded(
-                flex: (carbsKcal / total * 1000).round(),
-                child: const ColoredBox(color: AppColors.carbs),
-              ),
-            if (fatKcal > 0)
-              Expanded(
-                flex: (fatKcal / total * 1000).round(),
-                child: const ColoredBox(color: AppColors.fat),
-              ),
-            if (proteinKcal > 0)
-              Expanded(
-                flex: (proteinKcal / total * 1000).round(),
-                child: const ColoredBox(color: AppColors.protein),
-              ),
-          ],
-        ),
-      ),
-    );
+    // DIAGNOSTIC: replace with solid red bar to test visibility
+    return Container(height: 8, color: const Color(0xFFFF0000));
   }
 }
