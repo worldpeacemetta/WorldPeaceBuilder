@@ -740,7 +740,7 @@ class _ScatterPlot extends StatelessWidget {
               maxX: maxX + xPad,
               minY: 0,
               maxY: maxY * 1.35,
-              scatterTouchData: const ScatterTouchData(enabled: false),
+              scatterTouchData: ScatterTouchData(enabled: false),
               gridData: FlGridData(
                 show: true,
                 drawVerticalLine: false,
