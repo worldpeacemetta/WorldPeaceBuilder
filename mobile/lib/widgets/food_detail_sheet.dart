@@ -141,12 +141,14 @@ class _FoodDetailSheetState extends ConsumerState<_FoodDetailSheet> {
                   const SizedBox(height: 8),
                   ElevatedButton(
                     onPressed: () {
+                      final qty = _qty;
                       Navigator.pop(context);
                       showAddEntrySheet(
                         context,
                         ref,
                         widget.logDate,
                         preselectedFood: food,
+                        preselectedQty: qty,
                       );
                     },
                     child: const Text('Log this food'),

@@ -24,6 +24,7 @@ void showAddEntrySheet(
   WidgetRef ref,
   String date, {
   Food? preselectedFood,
+  double? preselectedQty,
 }) {
   final container = ProviderScope.containerOf(context);
   final cardColor = Theme.of(context).extension<AppColorScheme>()!.card;
@@ -42,6 +43,7 @@ void showAddEntrySheet(
         parentContext: context,
         parentRef: ref,
         preselectedFood: preselectedFood,
+        preselectedQty: preselectedQty,
       ),
     ),
   );
@@ -53,11 +55,13 @@ class _AddEntrySheet extends ConsumerStatefulWidget {
     required this.parentContext,
     required this.parentRef,
     this.preselectedFood,
+    this.preselectedQty,
   });
   final String date;
   final BuildContext parentContext;
   final WidgetRef parentRef;
   final Food? preselectedFood;
+  final double? preselectedQty;
 
   @override
   ConsumerState<_AddEntrySheet> createState() => _AddEntrySheetState();
@@ -75,7 +79,9 @@ class _AddEntrySheetState extends ConsumerState<_AddEntrySheet> {
   void initState() {
     super.initState();
     _selectedFood = widget.preselectedFood;
-    final defaultQty = widget.preselectedFood?.unit == 'perServing' ? '1' : '100';
+    final defaultQty = widget.preselectedQty != null
+        ? _formatQty(widget.preselectedQty!)
+        : (widget.preselectedFood?.unit == 'perServing' ? '1' : '100');
     _qtyCtrl = TextEditingController(text: defaultQty);
   }
 
@@ -84,6 +90,11 @@ class _AddEntrySheetState extends ConsumerState<_AddEntrySheet> {
     _qtyCtrl.dispose();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  static String _formatQty(double qty) {
+    if (qty == qty.roundToDouble()) return qty.round().toString();
+    return qty.toStringAsFixed(2).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
   }
 
   MacroValues get _preview {
