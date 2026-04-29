@@ -724,7 +724,66 @@ class _MacroRatioBar extends StatelessWidget {
 
     if (total <= 0) return const SizedBox.shrink();
 
-    // DIAGNOSTIC: replace with solid red bar to test visibility
-    return Container(height: 8, color: const Color(0xFFFF0000));
+    return Container(
+      height: 4,
+      child: CustomPaint(
+        painter: _MacroBarPainter(
+          carbsFraction: carbsKcal / total,
+          fatFraction: fatKcal / total,
+          proteinFraction: proteinKcal / total,
+        ),
+        child: const SizedBox.expand(),
+      ),
+    );
   }
+}
+
+class _MacroBarPainter extends CustomPainter {
+  const _MacroBarPainter({
+    required this.carbsFraction,
+    required this.fatFraction,
+    required this.proteinFraction,
+  });
+
+  final double carbsFraction;
+  final double fatFraction;
+  final double proteinFraction;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final barWidth = size.width * 0.5;
+    final paint = Paint()..isAntiAlias = false;
+
+    canvas.save();
+    canvas.clipRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, 0, barWidth, size.height),
+        const Radius.circular(2),
+      ),
+    );
+
+    double x = 0;
+    if (carbsFraction > 0) {
+      final w = barWidth * carbsFraction;
+      canvas.drawRect(Rect.fromLTWH(x, 0, w, size.height), paint..color = AppColors.carbs);
+      x += w;
+    }
+    if (fatFraction > 0) {
+      final w = barWidth * fatFraction;
+      canvas.drawRect(Rect.fromLTWH(x, 0, w, size.height), paint..color = AppColors.fat);
+      x += w;
+    }
+    if (proteinFraction > 0) {
+      final w = barWidth * proteinFraction;
+      canvas.drawRect(Rect.fromLTWH(x, 0, w, size.height), paint..color = AppColors.protein);
+    }
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_MacroBarPainter old) =>
+      old.carbsFraction != carbsFraction ||
+      old.fatFraction != fatFraction ||
+      old.proteinFraction != proteinFraction;
 }
