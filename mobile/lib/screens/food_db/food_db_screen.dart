@@ -724,11 +724,12 @@ class _MacroRatioBar extends StatelessWidget {
 
     if (total <= 0) return const SizedBox.shrink();
 
-    return LayoutBuilder(
-      builder: (context, constraints) => ClipRRect(
+    return Transform.scale(
+      scaleX: 0.5,
+      alignment: Alignment.centerLeft,
+      child: ClipRRect(
         borderRadius: BorderRadius.circular(2),
         child: SizedBox(
-          width: constraints.maxWidth * 0.5,
           height: 4,
           child: Row(
             children: [
