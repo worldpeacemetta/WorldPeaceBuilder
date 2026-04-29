@@ -147,6 +147,23 @@ final macroTotalsProvider = Provider.family<MacroValues, String>((ref, date) {
   return MacroValues.sum(entries.map((e) => e.macros));
 });
 
+// ---------------------------------------------------------------------------
+// All entries for a specific food across all dates (for food detail history).
+// ---------------------------------------------------------------------------
+final foodEntriesProvider =
+    FutureProvider.autoDispose.family<List<Entry>, String>((ref, foodId) async {
+  final user = _supabase.auth.currentUser;
+  if (user == null) return [];
+  final data = await _supabase
+      .from('entries')
+      .select('id, date, food_id, qty, meal')
+      .eq('food_id', foodId)
+      .order('date');
+  return (data as List)
+      .map((j) => Entry.fromJson(j as Map<String, dynamic>))
+      .toList();
+});
+
 /// Entries for log date grouped by meal.
 final logEntriesByMealProvider =
     Provider<Map<String, List<Entry>>>((ref) {

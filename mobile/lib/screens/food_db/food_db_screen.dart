@@ -12,6 +12,7 @@ import '../../theme.dart';
 import '../../widgets/add_entry_sheet.dart';
 import '../../widgets/add_food_sheet.dart';
 import '../../widgets/barcode_scanner_sheet.dart';
+import '../../widgets/food_detail_sheet.dart';
 
 // ---------------------------------------------------------------------------
 // Screen
@@ -499,7 +500,14 @@ class _FoodTileState extends ConsumerState<_FoodTile>
               if (d.delta.dx < -4 && !_open) _toggle();
               if (d.delta.dx > 4 && _open) _toggle();
             },
-            onTap: _close,
+            onTap: () {
+              if (_open) {
+                _close();
+              } else {
+                showFoodDetailSheet(
+                    context, ref, widget.food, widget.logDate);
+              }
+            },
             child: AnimatedBuilder(
               animation: _slideAnim,
               builder: (_, __) {
