@@ -181,6 +181,13 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
     // How many x-ticks to show
     final xInterval = max(1, (recent.length / 4).ceil()).toDouble();
 
+    // Exactly 4 evenly-spaced Y label positions (min, 1/3, 2/3, max).
+    // We snap getTitlesWidget output to these values so labels are clean and
+    // never crowd regardless of how the padded domain aligns with fl_chart's
+    // interval multiples.
+    final wStep = (wMax - wMin) / 3;
+    final wDesired = [wMin, wMin + wStep, wMin + 2 * wStep, wMax];
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -278,6 +285,9 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                     gridData: FlGridData(
                       show: true,
                       drawVerticalLine: false,
+                      // Explicit interval keeps grid lines at 4 evenly-spaced
+                      // positions even though axis label interval is halved.
+                      horizontalInterval: wStep,
                       getDrawingHorizontalLine: (_) =>
                           FlLine(color: cs.border, strokeWidth: 1),
                     ),
@@ -290,15 +300,26 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                         sideTitles: SideTitles(
                           showTitles: true,
                           reservedSize: 48,
-                          interval: (wMax - wMin) / 3,
-                          getTitlesWidget: (v, _) => Padding(
-                            padding: const EdgeInsets.only(right: 4),
-                            child: Text(
-                              '${v.toStringAsFixed(1)} kg',
-                              style: TextStyle(
-                                  fontSize: 9, color: cs.textMuted),
-                            ),
-                          ),
+                          // Half-step interval → fl_chart calls us at
+                          // positions ≤ wStep/2 from each desired label,
+                          // so the snap filter always finds a match.
+                          interval: wStep / 2,
+                          getTitlesWidget: (v, _) {
+                            final nearest = wDesired.reduce(
+                              (a, b) => (a - v).abs() < (b - v).abs() ? a : b,
+                            );
+                            if ((nearest - v).abs() > wStep * 0.26) {
+                              return const SizedBox.shrink();
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 4),
+                              child: Text(
+                                '${nearest.toStringAsFixed(1)} kg',
+                                style: TextStyle(
+                                    fontSize: 9, color: cs.textMuted),
+                              ),
+                            );
+                          },
                         ),
                       ),
                       // Right axis — body fat (%)
@@ -306,9 +327,15 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                         sideTitles: SideTitles(
                           showTitles: hasBF,
                           reservedSize: 38,
-                          interval: (wMax - wMin) / 3,
+                          interval: wStep / 2,
                           getTitlesWidget: (v, _) {
-                            final bf = _yToBF(v,
+                            final nearest = wDesired.reduce(
+                              (a, b) => (a - v).abs() < (b - v).abs() ? a : b,
+                            );
+                            if ((nearest - v).abs() > wStep * 0.26) {
+                              return const SizedBox.shrink();
+                            }
+                            final bf = _yToBF(nearest,
                                 wMin: wMin, wMax: wMax,
                                 bfMin: bfMin, bfMax: bfMax);
                             return Padding(
