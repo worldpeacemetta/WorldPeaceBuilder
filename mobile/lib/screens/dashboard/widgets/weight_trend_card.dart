@@ -113,6 +113,17 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
 
   // ── helpers ──────────────────────────────────────────────────────────────
 
+  /// Rounds a raw interval up to the nearest human-friendly step
+  /// (0.5 → 1 → 2 → 5 → 10 …) so Y-axis ticks land on clean numbers and
+  /// never crowd together near the domain boundary.
+  static double _niceInterval(double raw) {
+    const steps = [0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0];
+    for (final s in steps) {
+      if (raw <= s) return s;
+    }
+    return (raw / 50).ceil() * 50.0;
+  }
+
   /// Padded [min, max] domain for a list of values.
   static List<double> _domain(List<double> values, double fallbackPad) {
     if (values.isEmpty) return [0, 1];
@@ -181,12 +192,9 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
     // How many x-ticks to show
     final xInterval = max(1, (recent.length / 4).ceil()).toDouble();
 
-    // Exactly 4 evenly-spaced Y label positions (min, 1/3, 2/3, max).
-    // We snap getTitlesWidget output to these values so labels are clean and
-    // never crowd regardless of how the padded domain aligns with fl_chart's
-    // interval multiples.
-    final wStep = (wMax - wMin) / 3;
-    final wDesired = [wMin, wMin + wStep, wMin + 2 * wStep, wMax];
+    // Nice interval: rounds the raw ÷3 step to 0.5/1/2/5/10… so ticks
+    // land on clean numbers and never crowd near the domain boundary.
+    final wInterval = _niceInterval((wMax - wMin) / 3);
 
     return Card(
       child: Padding(
@@ -285,9 +293,7 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                     gridData: FlGridData(
                       show: true,
                       drawVerticalLine: false,
-                      // Explicit interval keeps grid lines at 4 evenly-spaced
-                      // positions even though axis label interval is halved.
-                      horizontalInterval: wStep,
+                      horizontalInterval: wInterval,
                       getDrawingHorizontalLine: (_) =>
                           FlLine(color: cs.border, strokeWidth: 1),
                     ),
@@ -300,26 +306,15 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                         sideTitles: SideTitles(
                           showTitles: true,
                           reservedSize: 48,
-                          // Half-step interval → fl_chart calls us at
-                          // positions ≤ wStep/2 from each desired label,
-                          // so the snap filter always finds a match.
-                          interval: wStep / 2,
-                          getTitlesWidget: (v, _) {
-                            final nearest = wDesired.reduce(
-                              (a, b) => (a - v).abs() < (b - v).abs() ? a : b,
-                            );
-                            if ((nearest - v).abs() > wStep * 0.26) {
-                              return const SizedBox.shrink();
-                            }
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 4),
-                              child: Text(
-                                '${nearest.toStringAsFixed(1)} kg',
-                                style: TextStyle(
-                                    fontSize: 9, color: cs.textMuted),
-                              ),
-                            );
-                          },
+                          interval: wInterval,
+                          getTitlesWidget: (v, _) => Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: Text(
+                              '${v.toStringAsFixed(1)} kg',
+                              style: TextStyle(
+                                  fontSize: 9, color: cs.textMuted),
+                            ),
+                          ),
                         ),
                       ),
                       // Right axis — body fat (%)
@@ -327,15 +322,9 @@ class _WeightTrendCardState extends ConsumerState<WeightTrendCard> {
                         sideTitles: SideTitles(
                           showTitles: hasBF,
                           reservedSize: 38,
-                          interval: wStep / 2,
+                          interval: wInterval,
                           getTitlesWidget: (v, _) {
-                            final nearest = wDesired.reduce(
-                              (a, b) => (a - v).abs() < (b - v).abs() ? a : b,
-                            );
-                            if ((nearest - v).abs() > wStep * 0.26) {
-                              return const SizedBox.shrink();
-                            }
-                            final bf = _yToBF(nearest,
+                            final bf = _yToBF(v,
                                 wMin: wMin, wMax: wMax,
                                 bfMin: bfMin, bfMax: bfMax);
                             return Padding(
