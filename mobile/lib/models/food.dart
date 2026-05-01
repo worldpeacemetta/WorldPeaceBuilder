@@ -32,6 +32,8 @@ class Food {
   final double protein;
   final String? category;
   final List<Ingredient> components; // non-empty for homeRecipe foods
+  final String? instructions;        // optional cooking steps for recipes
+  final DateTime? createdAt;
 
   const Food({
     required this.id,
@@ -46,6 +48,8 @@ class Food {
     required this.protein,
     this.category,
     this.components = const [],
+    this.instructions,
+    this.createdAt,
   });
 
   factory Food.fromJson(Map<String, dynamic> json) {
@@ -69,6 +73,10 @@ class Food {
       protein: (json['protein'] as num?)?.toDouble() ?? 0,
       category: json['category'] as String?,
       components: components,
+      instructions: json['instructions'] as String?,
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'] as String)
+          : null,
     );
   }
 
@@ -84,6 +92,8 @@ class Food {
         'category': category,
         if (components.isNotEmpty)
           'components': components.map((c) => c.toJson()).toList(),
+        if (instructions != null && instructions!.isNotEmpty)
+          'instructions': instructions,
       };
 
   /// Scale macros by qty.
@@ -116,6 +126,7 @@ class Food {
     double? protein,
     String? category,
     List<Ingredient>? components,
+    String? instructions,
   }) =>
       Food(
         id: id,
@@ -130,6 +141,8 @@ class Food {
         protein: protein ?? this.protein,
         category: category ?? this.category,
         components: components ?? this.components,
+        instructions: instructions ?? this.instructions,
+        createdAt: createdAt,
       );
 }
 

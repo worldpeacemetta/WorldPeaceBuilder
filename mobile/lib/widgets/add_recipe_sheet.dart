@@ -42,11 +42,12 @@ class _IngRow {
 // State
 // ---------------------------------------------------------------------------
 class _AddRecipeFormState extends ConsumerState<AddRecipeForm> {
-  final _nameCtrl     = TextEditingController();
-  final _sizeCtrl     = TextEditingController();   // total size (g) — per100g only
-  String _unit        = 'perServing';
-  bool   _saving      = false;
-  final  _rows        = <_IngRow>[_IngRow()];      // at least one row
+  final _nameCtrl         = TextEditingController();
+  final _sizeCtrl         = TextEditingController();   // total size (g) — per100g only
+  final _instructionsCtrl = TextEditingController();
+  String _unit            = 'perServing';
+  bool   _saving          = false;
+  final  _rows            = <_IngRow>[_IngRow()];      // at least one row
 
   bool get _isEdit => widget.existing != null;
 
@@ -59,6 +60,9 @@ class _AddRecipeFormState extends ConsumerState<AddRecipeForm> {
     _unit = existing.unit;
     if (existing.unit == 'per100g' && existing.servingSize != null) {
       _sizeCtrl.text = existing.servingSize!.toString();
+    }
+    if (existing.instructions != null) {
+      _instructionsCtrl.text = existing.instructions!;
     }
     if (existing.components.isNotEmpty) {
       final foods = ref.read(foodListProvider);
@@ -88,6 +92,7 @@ class _AddRecipeFormState extends ConsumerState<AddRecipeForm> {
   void dispose() {
     _nameCtrl.dispose();
     _sizeCtrl.dispose();
+    _instructionsCtrl.dispose();
     for (final r in _rows) r.dispose();
     super.dispose();
   }
@@ -134,6 +139,7 @@ class _AddRecipeFormState extends ConsumerState<AddRecipeForm> {
         .map((r) => Ingredient(foodId: r.food!.id, quantity: r.grams).toJson())
         .toList();
 
+    final instructions = _instructionsCtrl.text.trim();
     final data = {
       'name':         _nameCtrl.text.trim(),
       'unit':         _unit,
@@ -146,6 +152,7 @@ class _AddRecipeFormState extends ConsumerState<AddRecipeForm> {
       'fat':          double.parse(macros.fat.toStringAsFixed(2)),
       'category':     'homeRecipe',
       'components':   components,
+      if (instructions.isNotEmpty) 'instructions': instructions,
     };
 
     if (_isEdit) {
@@ -332,6 +339,26 @@ class _AddRecipeFormState extends ConsumerState<AddRecipeForm> {
             ),
           );
         }),
+
+        const SizedBox(height: 20),
+
+        // Instructions (optional)
+        Text('INSTRUCTIONS (OPTIONAL)',
+            style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: cs.textMuted,
+                letterSpacing: 0.8)),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _instructionsCtrl,
+          maxLines: 5,
+          minLines: 3,
+          decoration: const InputDecoration(
+            hintText: 'E.g. Mix all ingredients, cook on medium heat for 20 min…',
+            alignLabelWithHint: true,
+          ),
+        ),
 
         const SizedBox(height: 16),
         Divider(color: cs.border),

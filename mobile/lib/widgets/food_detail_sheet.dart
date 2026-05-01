@@ -10,6 +10,7 @@ import '../models/entry.dart';
 import '../models/food.dart';
 import '../providers/compare_provider.dart';
 import '../providers/entries_provider.dart';
+import '../providers/foods_provider.dart';
 import '../providers/settings_provider.dart';
 import '../theme.dart';
 import 'add_entry_sheet.dart';
@@ -114,6 +115,15 @@ class _FoodDetailSheetState extends ConsumerState<_FoodDetailSheet> {
                   _buildHeader(context, cs, food),
                   const SizedBox(height: 16),
                   _CompositionCard(food: food),
+                  if (food.isRecipe) ...[
+                    const SizedBox(height: 12),
+                    _IngredientsCard(food: food),
+                    if (food.instructions != null &&
+                        food.instructions!.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      _InstructionsCard(instructions: food.instructions!),
+                    ],
+                  ],
                   const SizedBox(height: 12),
                   _GoalContributionCard(
                     food: food,
@@ -132,7 +142,7 @@ class _FoodDetailSheetState extends ConsumerState<_FoodDetailSheet> {
                     ),
                     error: (_, __) => const SizedBox.shrink(),
                     data: (entries) => entries.isEmpty
-                        ? const SizedBox.shrink()
+                        ? _UsageCard(entries: const [], food: food)
                         : _UsageCard(entries: entries, food: food),
                   ),
                   const SizedBox(height: 20),
@@ -174,12 +184,37 @@ class _FoodDetailSheetState extends ConsumerState<_FoodDetailSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                food.name,
-                style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.w700),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Text(
+                      food.name,
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.w700),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (food.isRecipe) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.carbs.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'Recipe',
+                        style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.carbs),
+                      ),
+                    ),
+                  ],
+                ],
               ),
               if (food.brand != null && food.brand!.isNotEmpty)
                 Text(
@@ -421,6 +456,90 @@ class _LegendItem extends StatelessWidget {
   }
 }
 
+// ── Recipe: Ingredients ───────────────────────────────────────────────────────
+
+class _IngredientsCard extends ConsumerWidget {
+  const _IngredientsCard({required this.food});
+  final Food food;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = AppColorScheme.of(context);
+    final allFoods = ref.watch(foodListProvider);
+
+    final rows = food.components.map((ing) {
+      final f = allFoods.where((x) => x.id == ing.foodId).firstOrNull;
+      final name = f?.displayName ?? 'Unknown food';
+      final label = f?.unit == 'perServing'
+          ? '${(ing.quantity / (f!.servingSize ?? 1.0)).toStringAsFixed(1)} srv'
+          : '${ing.quantity.round()} g';
+      return (name: name, label: label);
+    }).toList();
+
+    return _SectionCard(
+      title: 'Ingredients (${rows.length})',
+      child: Column(
+        children: rows.asMap().entries.map((e) {
+          final isLast = e.key == rows.length - 1;
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: cs.textMuted,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        e.value.name,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                    Text(
+                      e.value.label,
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: cs.textMuted),
+                    ),
+                  ],
+                ),
+              ),
+              if (!isLast) Divider(height: 1, color: cs.border),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+// ── Recipe: Instructions ──────────────────────────────────────────────────────
+
+class _InstructionsCard extends StatelessWidget {
+  const _InstructionsCard({required this.instructions});
+  final String instructions;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
+    return _SectionCard(
+      title: 'Instructions',
+      child: Text(
+        instructions,
+        style: TextStyle(fontSize: 13, height: 1.55, color: cs.textPrimary),
+      ),
+    );
+  }
+}
+
 // ── Goal contribution ─────────────────────────────────────────────────────────
 
 class _GoalContributionCard extends StatelessWidget {
@@ -595,6 +714,26 @@ class _UsageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = AppColorScheme.of(context);
+    final addedLabel = food.createdAt != null
+        ? DateFormat('MMM d, yyyy').format(food.createdAt!.toLocal())
+        : null;
+
+    // If no log history, only show the "Added" date pill.
+    if (entries.isEmpty) {
+      if (addedLabel == null) return const SizedBox.shrink();
+      return _SectionCard(
+        title: 'History',
+        child: Row(
+          children: [
+            _StatPill(label: 'Added', value: addedLabel),
+            const Expanded(child: SizedBox()),
+            const Expanded(child: SizedBox()),
+          ],
+        ),
+      );
+    }
+
     final count = entries.length;
     final avgQty =
         entries.fold<double>(0.0, (s, e) => s + e.qty) / count;
@@ -638,6 +777,13 @@ class _UsageCard extends StatelessWidget {
               ),
             ],
           ),
+          if (addedLabel != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Added $addedLabel',
+              style: TextStyle(fontSize: 11, color: cs.textMuted),
+            ),
+          ],
           const SizedBox(height: 18),
           // ── Scatter plot ───────────────────────────────────────────────
           _ScatterPlot(entries: entries, isPer100g: isPer100g),
