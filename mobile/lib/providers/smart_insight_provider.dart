@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/scoring.dart';
 import '../core/utils.dart';
 import '../models/entry.dart';
 import '../models/food.dart';
@@ -68,7 +69,7 @@ final smartInsightProvider = FutureProvider.autoDispose<SmartInsightResult>((ref
 
   final today    = todayISO();
   final cutoff   = DateTime.now().subtract(const Duration(days: _kHistoryDays));
-  final startISO = _isoDate(cutoff);
+  final startISO = isoDate(cutoff);
 
   final history = await ref.watch(entriesInRangeProvider(startISO).future);
 
@@ -138,7 +139,7 @@ final smartInsightProvider = FutureProvider.autoDispose<SmartInsightResult>((ref
 
       if (settings.blockedCombos.contains(slotKey)) continue;
 
-      double score = _gapScore(
+      double score = gapScore(
         combo,
         remainKcal: remainKcal,
         remainProtein: remainProtein,
@@ -172,41 +173,3 @@ final smartInsightProvider = FutureProvider.autoDispose<SmartInsightResult>((ref
     suggestions: suggestions,
   );
 });
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-String _isoDate(DateTime dt) =>
-    '${dt.year.toString().padLeft(4, '0')}-'
-    '${dt.month.toString().padLeft(2, '0')}-'
-    '${dt.day.toString().padLeft(2, '0')}';
-
-// Gap-closing score: higher is better.
-// Protein weighted 2×, kcal 1×, carbs + fat 0.8× each.
-// Overshoot penalised at 50% of the excess ratio.
-double _gapScore(
-  MacroValues combo, {
-  required double remainKcal,
-  required double remainProtein,
-  required double remainCarbs,
-  required double remainFat,
-}) {
-  double score  = 0;
-  double weight = 0;
-
-  void add(double val, double remain, double w) {
-    if (remain <= 0) return;
-    final fill = (val / remain).clamp(0.0, 1.0);
-    final over = val > remain ? (val - remain) / remain * 0.5 : 0.0;
-    score  += (fill - over) * w;
-    weight += w;
-  }
-
-  add(combo.protein, remainProtein, 2.0);
-  add(combo.kcal,    remainKcal,    1.0);
-  add(combo.carbs,   remainCarbs,   0.8);
-  add(combo.fat,     remainFat,     0.8);
-
-  return weight > 0 ? score / weight : 0.0;
-}

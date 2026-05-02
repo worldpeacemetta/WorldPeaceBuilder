@@ -3,6 +3,9 @@ import 'package:intl/intl.dart';
 /// Today as 'YYYY-MM-DD' string.
 String todayISO() => DateFormat('yyyy-MM-dd').format(DateTime.now());
 
+/// Any DateTime as 'YYYY-MM-DD' string.
+String isoDate(DateTime dt) => DateFormat('yyyy-MM-dd').format(dt);
+
 /// Format a date string for display (e.g. 'Mar 26').
 String formatDateDisplay(String iso) {
   final dt = DateTime.parse(iso);
