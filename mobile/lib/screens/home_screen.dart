@@ -7,6 +7,7 @@ import '../providers/date_provider.dart';
 import '../providers/smart_insight_provider.dart';
 import '../theme.dart';
 import '../widgets/add_entry_sheet.dart';
+import '../widgets/smart_insight/sparkle.dart';
 import '../widgets/smart_insight_sheet.dart';
 
 // Dashboard branch index in the StatefulNavigationShell
