@@ -126,10 +126,11 @@ mobile/lib/
   router.dart                # go_router config — auth guard, named routes
   theme.dart                 # AppTheme (light/dark), AppColorScheme extension, AppColors
   core/
-    utils.dart               # todayISO(), formatNumber(), mealLabels, etc.
+    utils.dart               # todayISO(), isoDate(), formatNumber(), mealLabels, etc.
     constants.dart           # App-wide constants
     open_food_facts.dart     # Open Food Facts API client
     recipe_utils.dart        # computeRecipeTotals()
+    scoring.dart             # gapScore() — Smart Insight macro gap-closing scorer
   models/
     food.dart                # Food, MacroValues, scaledMacros()
     entry.dart               # Entry, MacroValues, MacroGoals, sumMacros()
@@ -151,7 +152,16 @@ mobile/lib/
     onboarding/              # Goal setup wizard
     profile/                 # Weight log, body stats, badge gallery
   widgets/
-    smart_insight_sheet.dart # Smart Insight modal (see below)
+    smart_insight_sheet.dart # Smart Insight entry point + carousel + meal cards (~875 lines)
+    smart_insight/
+      sparkle.dart           # SpinningSparkle + _SequentialStarsSparkle animations
+      macro_donut.dart       # MacroDonut + _DonutPainter (public, used by meal detail)
+      meal_detail_sheet.dart # showMealDetailSheet + detail sheet + macro impact section
+    food_detail_sheet.dart   # Food detail entry point + goal contribution + recipe cards (~508 lines)
+    food_detail/
+      section_card.dart      # Shared SectionCard shell widget
+      composition_card.dart  # CompositionCard (donut + legend)
+      usage_card.dart        # UsageCard + scatter plot + meal distribution
     macro_progress_card.dart
     weekly_chart.dart
     add_entry_sheet.dart
@@ -170,14 +180,15 @@ mobile/lib/
 
 ### Smart Insight feature
 
-**File:** `mobile/lib/widgets/smart_insight_sheet.dart`
-**Branch merged into main:** `claude/add-ai-icon-smart-insight-om0Rx`
+**Files:** `mobile/lib/widgets/smart_insight_sheet.dart` + `smart_insight/` subfolder
 
 Smart Insight analyses 90 days of meal history (minimum 14 logged days), scores food combinations by how well they close today's remaining macro gaps, and surfaces up to 3 ranked suggestions per meal slot (breakfast / lunch / dinner / snack).
 
+**Scoring:** `core/scoring.dart` → `gapScore()`. Protein weighted 2×, kcal 1×, carbs + fat 0.8×. Overshoot penalised at 50% excess ratio.
+
 #### AI icon — three locations
 
-`SpinningSparkle` (public widget, defined in `smart_insight_sheet.dart`) is used in three places, all reading `cs.smartInsightColor`:
+`SpinningSparkle` (public widget, defined in `smart_insight/sparkle.dart`) is used in three places, all reading `cs.smartInsightColor`:
 
 | Location | Widget | Animation |
 |---|---|---|
@@ -185,26 +196,26 @@ Smart Insight analyses 90 days of meal history (minimum 14 logged days), scores 
 | Main sheet header, next to "Smart Insight" title | `SpinningSparkle(size: 18)` | Slow 5s linear 360° rotation |
 | "What is Smart Insight?" dialog title | `_SequentialStarsSparkle` | 3 staggered stars pop in/out |
 
-**`SpinningSparkle`** — single `AnimationController` repeating over 5s, drives a `RotationTransition` on `Icons.auto_awesome_rounded`. Made public so `home_screen.dart` can import it.
+**`SpinningSparkle`** — single `AnimationController` repeating over 5s, drives a `RotationTransition` on `Icons.auto_awesome_rounded`. Defined in `smart_insight/sparkle.dart`; imported by both `smart_insight_sheet.dart` and `home_screen.dart`.
 
 **`_SequentialStarsSparkle`** — 44×44 `Stack` of 3 stars (26/17/11dp at different positions). Single 2.4s controller with staggered `Interval` animations per star. Each star: `elasticOut` scale pop-in, opacity 0→1→0 via a 30/40/30 `TweenSequence`. Stars activate at intervals 0.00–0.45 / 0.30–0.75 / 0.58–0.98, creating a ripple effect with a brief all-dark pause before the loop repeats.
 
 #### Complete widget tree
 
-| Class | Role |
-|---|---|
-| `_SmartInsightSheet` | Modal bottom sheet entry point (`showSmartInsightSheet()`). Reads `smartInsightProvider`. |
-| `_CardDeck` | Slot selector + carousel shell. |
-| `_SlotSelector` | Horizontal scrollable pill tabs (breakfast / lunch / dinner / snack). |
-| `_OptionCarousel` / `_OptionCarouselState` | Spring-physics vertical stacked-card carousel. Swipe up → next option; swipe down → previous. |
-| `_MealSlotCard` | Individual option card. Meal icon, "Option N" badge, 4× `_MacroDonut` in footer. Tap → opens `_MealDetailSheet`. |
-| `_MealDetailSheet` / `_MealDetailSheetState` | Full detail bottom sheet. Food item list with per-item selection toggle, `_DonutImpactSection`, Log button. |
-| `_DonutImpactSection` | Macro impact row using `_MacroDonut` at `size: 76`. Reacts live to item selection. |
-| `_MacroDonut` / `_DonutPainter` | Donut ring showing current fill (muted arc) + projected addition (full-color arc). Overshoot signalled by a soft red `BoxShadow` glow. |
-| `_InfoRow` | "What is Smart Insight?" tap target at the bottom of the carousel. Opens `AlertDialog` with `_SequentialStarsSparkle`. |
-| `SpinningSparkle` / `SpinningSparkleState` | Public animated sparkle icon (rotating). Used in nav bar and sheet header. |
-| `_SequentialStarsSparkle` | Private animated 3-star pop-in. Used in info dialog only. |
-| `_EmptyState` | Shown when `loggedDays < 14` or all meals already logged today. |
+| Class | File | Role |
+|---|---|---|
+| `_SmartInsightSheet` | `smart_insight_sheet.dart` | Modal bottom sheet entry point (`showSmartInsightSheet()`). Reads `smartInsightProvider`. |
+| `_CardDeck` | `smart_insight_sheet.dart` | Slot selector + carousel shell. |
+| `_SlotSelector` | `smart_insight_sheet.dart` | Horizontal scrollable pill tabs (breakfast / lunch / dinner / snack). |
+| `_OptionCarousel` / `_OptionCarouselState` | `smart_insight_sheet.dart` | Spring-physics vertical stacked-card carousel. Swipe up → next option; swipe down → previous. |
+| `_MealSlotCard` | `smart_insight_sheet.dart` | Individual option card. Meal icon, "Option N" badge, 4× `MacroDonut` in footer. Tap → opens detail sheet. |
+| `_MealDetailSheet` / `_MealDetailSheetState` | `smart_insight/meal_detail_sheet.dart` | Full detail bottom sheet. Food item list with per-item selection toggle, `_DonutImpactSection`, Log button. |
+| `_DonutImpactSection` | `smart_insight/meal_detail_sheet.dart` | Macro impact row using `MacroDonut` at `size: 76`. Reacts live to item selection. |
+| `MacroDonut` / `_DonutPainter` | `smart_insight/macro_donut.dart` | Donut ring showing current fill (muted arc) + projected addition (full-color arc). Overshoot signalled by a soft red `BoxShadow` glow. |
+| `_InfoRow` | `smart_insight_sheet.dart` | "What is Smart Insight?" tap target at the bottom of the carousel. Opens `AlertDialog` with `_SequentialStarsSparkle`. |
+| `SpinningSparkle` / `SpinningSparkleState` | `smart_insight/sparkle.dart` | Public animated sparkle icon (rotating). Used in nav bar and sheet header. |
+| `_SequentialStarsSparkle` | `smart_insight/sparkle.dart` | Private animated 3-star pop-in. Used in info dialog only. |
+| `_EmptyState` | `smart_insight_sheet.dart` | Shown when `loggedDays < 14` or all meals already logged today. |
 
 #### Carousel mechanics
 
