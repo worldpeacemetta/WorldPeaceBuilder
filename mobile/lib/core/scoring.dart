@@ -1,4 +1,4 @@
-import '../models/entry.dart';
+import '../models/food.dart';
 
 // Gap-closing score: higher is better.
 // Protein weighted 2×, kcal 1×, carbs + fat 0.8× each.

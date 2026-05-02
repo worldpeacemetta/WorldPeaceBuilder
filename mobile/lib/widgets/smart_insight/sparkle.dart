@@ -39,16 +39,16 @@ class SpinningSparkleState extends State<SpinningSparkle>
 
 /// Three staggered stars that pop in and fade out sequentially —
 /// used in the "What is Smart Insight?" dialog.
-class _SequentialStarsSparkle extends StatefulWidget {
-  const _SequentialStarsSparkle({required this.color});
+class SequentialStarsSparkle extends StatefulWidget {
+  const SequentialStarsSparkle({super.key, required this.color});
   final Color color;
 
   @override
-  State<_SequentialStarsSparkle> createState() =>
+  State<SequentialStarsSparkle> createState() =>
       _SequentialStarsSparkleState();
 }
 
-class _SequentialStarsSparkleState extends State<_SequentialStarsSparkle>
+class _SequentialStarsSparkleState extends State<SequentialStarsSparkle>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
 

@@ -835,7 +835,7 @@ class _InfoRow extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _SequentialStarsSparkle(color: cs.smartInsightColor),
+              SequentialStarsSparkle(color: cs.smartInsightColor),
               const SizedBox(height: 10),
               const Text('What is Smart Insight?'),
             ],
