@@ -126,6 +126,9 @@ class _ReportBody extends StatelessWidget {
         _DailyBreakdownCard(report: report),
         const SizedBox(height: 12),
 
+        _MacroTrendCard(report: report),
+        const SizedBox(height: 12),
+
         _MacroAveragesCard(report: report),
         const SizedBox(height: 12),
 
@@ -412,13 +415,12 @@ class _MacroAveragesCard extends StatelessWidget {
           for (int i = 0; i < rows.length; i++) ...[
             if (i > 0) const SizedBox(height: 16),
             _MacroRow(
-              label:      rows[i].$1,
-              unit:       rows[i].$2,
-              actual:     rows[i].$3,
-              goal:       rows[i].$4,
-              daysHit:    rows[i].$5,
-              daysLogged: report.daysLogged,
-              color:      rows[i].$6,
+              label:    rows[i].$1,
+              unit:     rows[i].$2,
+              actual:   rows[i].$3,
+              goal:     rows[i].$4,
+              daysHit:  rows[i].$5,
+              color:    rows[i].$6,
             ),
           ],
         ],
@@ -434,7 +436,6 @@ class _MacroRow extends StatelessWidget {
     required this.actual,
     required this.goal,
     required this.daysHit,
-    required this.daysLogged,
     required this.color,
   });
 
@@ -443,7 +444,6 @@ class _MacroRow extends StatelessWidget {
   final double actual;
   final double goal;
   final int    daysHit;
-  final int    daysLogged;
   final Color  color;
 
   @override
@@ -480,7 +480,7 @@ class _MacroRow extends StatelessWidget {
                   color: daysHit > 0 ? color.withValues(alpha: 0.35) : cs.border),
               ),
               child: Text(
-                '$daysHit/$daysLogged d',
+                '$daysHit/7 d',
                 style: TextStyle(
                   fontSize: 9, fontWeight: FontWeight.w600,
                   color: daysHit > 0 ? color : cs.textMuted,
@@ -512,16 +512,15 @@ class _CalorieJourneyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs          = AppColorScheme.of(context);
-    final kcalColor   = cs.kcalColor;
-    final isSurplus   = report.totalSurplus >= 0;
-    final balColor    = isSurplus ? AppColors.success : AppColors.danger;
-    final avgGoalKcal = report.avgGoal.kcal;
+    final cs        = AppColorScheme.of(context);
+    final kcalColor = cs.kcalColor;
+    final isSurplus = report.totalSurplus >= 0;
+    final balColor  = isSurplus ? AppColors.success : AppColors.danger;
 
     // Bar groups — one per day
     final maxKcal = report.days
         .map((d) => d.totals.kcal)
-        .fold(avgGoalKcal * 1.1, (a, b) => math.max(a, b));
+        .fold(0.0, (a, b) => math.max(a, b));
 
     final barGroups = List.generate(7, (i) {
       final day = report.days[i];
@@ -619,22 +618,6 @@ class _CalorieJourneyCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                extraLinesData: avgGoalKcal > 0
-                    ? ExtraLinesData(horizontalLines: [
-                        HorizontalLine(
-                          y:           avgGoalKcal,
-                          color:       kcalColor.withValues(alpha: 0.5),
-                          strokeWidth: 1.5,
-                          dashArray:   [5, 4],
-                          label: HorizontalLineLabel(
-                            show: true,
-                            alignment: Alignment.topRight,
-                            style: TextStyle(fontSize: 9, color: kcalColor),
-                            labelResolver: (_) => 'goal',
-                          ),
-                        ),
-                      ])
-                    : null,
               ),
             ),
           ),
@@ -957,6 +940,228 @@ class _MealSpotlightCardState extends State<_MealSpotlightCard> {
   ];
 }
 
+// ── Macro Trends ──────────────────────────────────────────────────────────────
+
+class _MacroTrendCard extends StatelessWidget {
+  const _MacroTrendCard({required this.report});
+  final WeeklyReportData report;
+
+  static const _dayLetters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+  @override
+  Widget build(BuildContext context) {
+    final cs        = AppColorScheme.of(context);
+    final kcalColor = cs.kcalColor;
+
+    final loggedCount = report.days.where((d) => d.logged).length;
+    if (loggedCount < 2) return const SizedBox.shrink();
+
+    final kcalSpots     = <FlSpot>[];
+    final kcalGoalSpots = <FlSpot>[];
+    final proteinSpots  = <FlSpot>[];
+    final carbsSpots    = <FlSpot>[];
+    final fatSpots      = <FlSpot>[];
+
+    for (int i = 0; i < 7; i++) {
+      final day = report.days[i];
+      if (day.goals.kcal > 0) {
+        kcalGoalSpots.add(FlSpot(i.toDouble(), day.goals.kcal));
+      }
+      if (day.logged) {
+        kcalSpots.add(FlSpot(i.toDouble(), day.totals.kcal));
+        proteinSpots.add(FlSpot(i.toDouble(), day.totals.protein));
+        carbsSpots.add(FlSpot(i.toDouble(), day.totals.carbs));
+        fatSpots.add(FlSpot(i.toDouble(), day.totals.fat));
+      }
+    }
+
+    final maxKcal = [
+      ...kcalSpots.map((s) => s.y),
+      ...kcalGoalSpots.map((s) => s.y),
+    ].fold(1.0, math.max);
+
+    final maxMacro = [
+      ...proteinSpots.map((s) => s.y),
+      ...carbsSpots.map((s) => s.y),
+      ...fatSpots.map((s) => s.y),
+    ].fold(1.0, math.max);
+
+    FlTitlesData _titles({required bool showBottom}) => FlTitlesData(
+      leftTitles:   AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      rightTitles:  AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      topTitles:    AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      bottomTitles: AxisTitles(
+        sideTitles: SideTitles(
+          showTitles: showBottom,
+          reservedSize: 18,
+          getTitlesWidget: (v, _) {
+            final i = v.toInt();
+            if (i < 0 || i > 6) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(_dayLetters[i],
+                  style: TextStyle(fontSize: 10, color: cs.textMuted)),
+            );
+          },
+        ),
+      ),
+    );
+
+    LineChartBarData _line(List<FlSpot> spots, Color color, {bool dashed = false}) =>
+        LineChartBarData(
+          spots:    spots,
+          isCurved: true,
+          color:    color,
+          barWidth: dashed ? 1.5 : 2,
+          dotData: FlDotData(
+            show: true,
+            getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
+              radius:      3,
+              color:       color,
+              strokeWidth: 0,
+              strokeColor: Colors.transparent,
+            ),
+          ),
+          dashArray:    dashed ? [4, 3] : null,
+          belowBarData: BarAreaData(show: false),
+        );
+
+    return SectionCard(
+      title: 'Macro Trends',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Calories line ──────────────────────────────────────────────────
+          SizedBox(
+            height: 110,
+            child: LineChart(
+              LineChartData(
+                minX: 0, maxX: 6,
+                minY: 0, maxY: maxKcal * 1.2,
+                gridData:      FlGridData(show: false),
+                borderData:    FlBorderData(show: false),
+                lineTouchData: LineTouchData(enabled: false),
+                titlesData:    _titles(showBottom: false),
+                lineBarsData: [
+                  if (kcalGoalSpots.length >= 2)
+                    _line(kcalGoalSpots, kcalColor.withValues(alpha: 0.4), dashed: true),
+                  if (kcalSpots.length >= 2)
+                    _line(kcalSpots, kcalColor),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          // Kcal legend
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _TrendLegendLine(color: kcalColor, label: 'Calories'),
+              const SizedBox(width: 16),
+              _TrendLegendLine(color: kcalColor.withValues(alpha: 0.4), label: 'Goal', dashed: true),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(child: Divider(color: cs.border, height: 1)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Text('Protein · Carbs · Fat',
+                    style: TextStyle(fontSize: 10, color: cs.textMuted, letterSpacing: 0.4)),
+              ),
+              Expanded(child: Divider(color: cs.border, height: 1)),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // ── Macros line ────────────────────────────────────────────────────
+          SizedBox(
+            height: 110,
+            child: LineChart(
+              LineChartData(
+                minX: 0, maxX: 6,
+                minY: 0, maxY: maxMacro * 1.2,
+                gridData:      FlGridData(show: false),
+                borderData:    FlBorderData(show: false),
+                lineTouchData: LineTouchData(enabled: false),
+                titlesData:    _titles(showBottom: true),
+                lineBarsData: [
+                  if (proteinSpots.length >= 2) _line(proteinSpots, AppColors.protein),
+                  if (carbsSpots.length   >= 2) _line(carbsSpots,   AppColors.carbs),
+                  if (fatSpots.length     >= 2) _line(fatSpots,     AppColors.fat),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _TrendLegendLine(color: AppColors.protein, label: 'Protein'),
+              const SizedBox(width: 16),
+              _TrendLegendLine(color: AppColors.carbs,   label: 'Carbs'),
+              const SizedBox(width: 16),
+              _TrendLegendLine(color: AppColors.fat,     label: 'Fat'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrendLegendLine extends StatelessWidget {
+  const _TrendLegendLine({required this.color, required this.label, this.dashed = false});
+  final Color  color;
+  final String label;
+  final bool   dashed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 18, height: 10,
+          child: CustomPaint(painter: _LinePainter(color: color, dashed: dashed)),
+        ),
+        const SizedBox(width: 4),
+        Text(label,
+            style: TextStyle(fontSize: 10, color: AppColorScheme.of(context).textMuted)),
+      ],
+    );
+  }
+}
+
+class _LinePainter extends CustomPainter {
+  const _LinePainter({required this.color, required this.dashed});
+  final Color color;
+  final bool  dashed;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color       = color
+      ..strokeWidth = 1.5
+      ..strokeCap   = StrokeCap.round;
+    final y = size.height / 2;
+    if (!dashed) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    } else {
+      double x = 0;
+      while (x < size.width) {
+        canvas.drawLine(Offset(x, y), Offset(math.min(x + 4, size.width), y), paint);
+        x += 7;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_LinePainter old) => old.color != color || old.dashed != dashed;
+}
+
 // ── Weekday vs Weekend ────────────────────────────────────────────────────────
 
 class _WeekdayWeekendCard extends StatelessWidget {
@@ -980,7 +1185,7 @@ class _WeekdayWeekendCard extends StatelessWidget {
               color:  AppColors.protein,
             ),
           ),
-          Container(width: 1, height: 80, color: cs.border),
+          Container(width: 1, height: 100, color: cs.border),
           Expanded(
             child: _DayTypeColumn(
               label:  'Weekend',
@@ -1030,6 +1235,8 @@ class _DayTypeColumn extends StatelessWidget {
           _MiniStat(value: '${avg.protein.round()}g', unit: 'protein', color: AppColors.protein),
           const SizedBox(height: 6),
           _MiniStat(value: '${avg.carbs.round()}g', unit: 'carbs', color: AppColors.carbs),
+          const SizedBox(height: 6),
+          _MiniStat(value: '${avg.fat.round()}g', unit: 'fat', color: AppColors.fat),
         ] else
           Text('No data', style: TextStyle(fontSize: 11, color: cs.textMuted)),
       ],

@@ -42,10 +42,11 @@ class DayReport {
     return n > 0 ? s / n : 0;
   }
 
-  bool get hitKcal    => logged && goals.kcal    > 0 && totals.kcal    >= goals.kcal    * 0.9;
-  bool get hitProtein => logged && goals.protein > 0 && totals.protein >= goals.protein * 0.9;
-  bool get hitCarbs   => logged && goals.carbs   > 0 && totals.carbs   >= goals.carbs   * 0.9;
-  bool get hitFat     => logged && goals.fat     > 0 && totals.fat     >= goals.fat     * 0.9;
+  // Mirrors Daily Log thresholds: protein >= 100%, kcal/carbs/fat within 95–105%.
+  bool get hitKcal    => logged && goals.kcal    > 0 && totals.kcal    >= goals.kcal    * 0.95 && totals.kcal    <= goals.kcal    * 1.05;
+  bool get hitProtein => logged && goals.protein > 0 && totals.protein >= goals.protein;
+  bool get hitCarbs   => logged && goals.carbs   > 0 && totals.carbs   >= goals.carbs   * 0.95 && totals.carbs   <= goals.carbs   * 1.05;
+  bool get hitFat     => logged && goals.fat     > 0 && totals.fat     >= goals.fat     * 0.95 && totals.fat     <= goals.fat     * 1.05;
   bool get hitAll     => hitKcal && hitProtein && hitCarbs && hitFat;
 }
 
