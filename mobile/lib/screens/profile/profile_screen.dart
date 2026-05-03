@@ -16,6 +16,7 @@ import '../../providers/foods_provider.dart';
 import '../../providers/log_history_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../theme.dart';
+import '../../widgets/weekly_report_sheet.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -339,6 +340,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 title: 'Achievements',
                 subtitle: 'Badges & milestones',
                 onTap: () => context.push('/badges'),
+              ),
+              _CategoryRow(
+                icon: Icons.bar_chart_rounded,
+                iconColor: AppColors.kcal,
+                iconBg: AppColors.kcal.withValues(alpha: 0.12),
+                title: 'Weekly Reports',
+                subtitle: 'Insights & history from past weeks',
+                onTap: () => showWeeklyReportsListSheet(context, ref),
                 isLast: true,
               ),
             ],
