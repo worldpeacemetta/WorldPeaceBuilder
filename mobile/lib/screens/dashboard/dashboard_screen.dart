@@ -116,20 +116,26 @@ class _WeeklyReportBannerState extends ConsumerState<_WeeklyReportBanner> {
   bool _dismissed = false;
   bool _loaded    = false;
 
-  // YYYY-MM-DD of the Monday whose banner we are tracking.
-  final String _todayISO = todayISO();
-
   @override
   void initState() {
     super.initState();
     _loadDismissed();
   }
 
+  /// Start of the most-recently completed week (always a Monday, regardless
+  /// of what day of the week today is). Used as the per-week dismissal key so
+  /// the banner auto-resets when a new week's report becomes available.
+  String get _reportMondayISO {
+    final now           = DateTime.now();
+    final currentMonday = now.subtract(Duration(days: now.weekday - 1));
+    return isoDate(currentMonday.subtract(const Duration(days: 7)));
+  }
+
   Future<void> _loadDismissed() async {
     final prefs = await SharedPreferences.getInstance();
     if (mounted) {
       setState(() {
-        _dismissed = prefs.getString(_kPrefKey) == _todayISO;
+        _dismissed = prefs.getString(_kPrefKey) == _reportMondayISO;
         _loaded    = true;
       });
     }
@@ -137,21 +143,12 @@ class _WeeklyReportBannerState extends ConsumerState<_WeeklyReportBanner> {
 
   Future<void> _dismiss() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kPrefKey, _todayISO);
+    await prefs.setString(_kPrefKey, _reportMondayISO);
     if (mounted) setState(() => _dismissed = true);
-  }
-
-  /// ISO date of last Monday (the start of the report week).
-  String get _reportMondayISO {
-    final now = DateTime.now();
-    // Today is Monday (weekday == 1), so last Monday is 7 days ago.
-    return isoDate(now.subtract(const Duration(days: 7)));
   }
 
   @override
   Widget build(BuildContext context) {
-    // Only render on Mondays.
-    if (DateTime.now().weekday != DateTime.monday) return const SizedBox.shrink();
     if (!_loaded || _dismissed) return const SizedBox.shrink();
 
     final mondayISO   = _reportMondayISO;

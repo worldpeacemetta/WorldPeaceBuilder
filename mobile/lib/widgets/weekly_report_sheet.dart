@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/utils.dart';
 import '../models/food.dart';
+import '../providers/log_history_provider.dart';
 import '../providers/weekly_report_provider.dart';
 import '../theme.dart';
 import '../widgets/mode_pill.dart';
@@ -1291,6 +1292,247 @@ class _AchievementChip extends StatelessWidget {
                 fontSize: 12, fontWeight: FontWeight.w600, color: c),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Weekly reports history list ───────────────────────────────────────────────
+
+void showWeeklyReportsListSheet(BuildContext context, WidgetRef ref) {
+  final container = ProviderScope.containerOf(context);
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (ctx) => ProviderScope(
+      parent: container,
+      child: const _WeeklyReportsListSheet(),
+    ),
+  );
+}
+
+class _WeeklyReportsListSheet extends ConsumerWidget {
+  const _WeeklyReportsListSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs          = AppColorScheme.of(context);
+    final loggedAsync = ref.watch(loggedDatesProvider);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize:     0.4,
+      maxChildSize:     0.95,
+      builder: (ctx, scrollCtrl) => Container(
+        decoration: BoxDecoration(
+          color:        cs.bg,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: loggedAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error:   (_, __) => Center(
+            child: Text('Unable to load history',
+                style: TextStyle(color: cs.textMuted)),
+          ),
+          data: (loggedDates) {
+            final weeks = _computeAvailableWeeks(loggedDates);
+            return _WeeklyReportsListBody(
+              weeks:      weeks,
+              scrollCtrl: scrollCtrl,
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Groups logged dates into completed Mon–Sun weeks (excluding the current
+  /// incomplete week), sorted newest first. Returns a list of
+  /// (mondayISO, daysLogged) records.
+  List<(String, int)> _computeAvailableWeeks(List<String> loggedDates) {
+    if (loggedDates.isEmpty) return [];
+
+    final now            = DateTime.now();
+    final currentMonday  = now.subtract(Duration(days: now.weekday - 1));
+    final currentMondayISO = isoDate(
+      DateTime(currentMonday.year, currentMonday.month, currentMonday.day),
+    );
+
+    final weekMap = <String, int>{};
+    for (final d in loggedDates) {
+      final dt   = DateTime.parse(d);
+      final mon  = dt.subtract(Duration(days: dt.weekday - 1));
+      final mISO = isoDate(DateTime(mon.year, mon.month, mon.day));
+      // Skip the current week — it's not yet complete.
+      if (mISO == currentMondayISO) continue;
+      weekMap[mISO] = (weekMap[mISO] ?? 0) + 1;
+    }
+
+    final sorted = weekMap.entries.toList()
+      ..sort((a, b) => b.key.compareTo(a.key));
+
+    return sorted.map((e) => (e.key, e.value)).toList();
+  }
+}
+
+class _WeeklyReportsListBody extends StatelessWidget {
+  const _WeeklyReportsListBody({
+    required this.weeks,
+    required this.scrollCtrl,
+  });
+  final List<(String, int)> weeks;
+  final ScrollController    scrollCtrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs     = AppColorScheme.of(context);
+    final bottom = MediaQuery.of(context).padding.bottom;
+
+    return ListView(
+      controller: scrollCtrl,
+      padding: EdgeInsets.fromLTRB(16, 0, 16, bottom + 20),
+      children: [
+        // Drag handle
+        Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 12),
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: cs.border, borderRadius: BorderRadius.circular(2)),
+          ),
+        ),
+
+        // Header
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Row(
+            children: [
+              Container(
+                width: 36, height: 36,
+                decoration: BoxDecoration(
+                  color:        cs.kcalColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.bar_chart_rounded,
+                    color: cs.kcalColor, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Weekly Reports',
+                style: TextStyle(
+                  fontSize: 20, fontWeight: FontWeight.w800,
+                  color: cs.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        if (weeks.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 40),
+            child: Column(
+              children: [
+                Icon(Icons.bar_chart_outlined, size: 40, color: cs.textMuted),
+                const SizedBox(height: 12),
+                Text(
+                  'No completed weeks yet',
+                  style: TextStyle(color: cs.textMuted, fontSize: 14),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Reports appear once a full Mon–Sun week passes.',
+                  style: TextStyle(color: cs.textMuted, fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          )
+        else
+          for (final week in weeks)
+            _WeekReportRow(mondayISO: week.$1, daysLogged: week.$2),
+      ],
+    );
+  }
+}
+
+class _WeekReportRow extends ConsumerWidget {
+  const _WeekReportRow({
+    required this.mondayISO,
+    required this.daysLogged,
+  });
+  final String mondayISO;
+  final int    daysLogged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = AppColorScheme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => showWeeklyReportSheet(context, ref, mondayISO),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+          decoration: BoxDecoration(
+            color:        cs.card,
+            borderRadius: BorderRadius.circular(16),
+            border:       Border.all(color: cs.border),
+          ),
+          child: Row(
+            children: [
+              // Calendar icon with subtle kcal tint
+              Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color:        cs.kcalColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.bar_chart_rounded,
+                    color: cs.kcalColor, size: 20),
+              ),
+              const SizedBox(width: 12),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      weekRangeLabel(mondayISO),
+                      style: TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w700,
+                        color: cs.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$daysLogged/7 days logged',
+                      style: TextStyle(fontSize: 12, color: cs.textMuted),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Consistency dots
+              Row(
+                children: List.generate(7, (i) => Container(
+                  width: 6, height: 6,
+                  margin: const EdgeInsets.only(left: 3),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: i < daysLogged
+                        ? cs.kcalColor
+                        : cs.border,
+                  ),
+                )),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.chevron_right_rounded, size: 20, color: cs.textMuted),
+            ],
+          ),
+        ),
       ),
     );
   }
