@@ -920,7 +920,7 @@ class _MealSpotlightCardState extends State<_MealSpotlightCard> {
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      reservedSize: 28,
+                      reservedSize: 32,
                       getTitlesWidget: (v, _) {
                         final i = v.toInt();
                         if (i < 0 || i >= slots.length) return const SizedBox.shrink();
