@@ -143,6 +143,7 @@ mobile/lib/
     date_provider.dart       # currentDateProvider — app-wide selected date
     badges_provider.dart     # earnedBadgesProvider, badgeUnlockQueueProvider
     auth_provider.dart       # authStateProvider
+    weekly_report_provider.dart  # weeklyReportProvider(mondayISO) — full weekly report data model
   screens/
     home_screen.dart         # Bottom nav shell (Daily Log / Dashboard / Food DB / Profile)
     auth_screen.dart         # Sign-in / sign-up
@@ -167,6 +168,7 @@ mobile/lib/
     add_entry_sheet.dart
     barcode_scanner_sheet.dart
     badge_unlock_dialog.dart
+    weekly_report_sheet.dart # Weekly report sheet + history list (~1540 lines)
     (and others — mostly self-contained modal bottom sheets)
 ```
 
@@ -267,7 +269,7 @@ Container(
 
 ---
 
-## Branch & Git state (as of session 2026-04-28)
+## Branch & Git state (as of session 2026-05-03)
 
 ### Current branch structure
 
@@ -275,10 +277,36 @@ Container(
 |---|---|
 | `main` | **Source of truth** — fully up to date, contains all features |
 | `dev` | Keep — working branch |
-| `claude/add-ai-icon-smart-insight-om0Rx` | Last feature branch — AI icon work, fully merged into main |
-| 9 other `claude/*` branches | Have unmerged code differences vs. main — do not delete without reviewing |
+| `claude/add-weekly-report-feature-KXcCA` | Last feature branch — weekly report, fully merged into main |
+| other `claude/*` branches | Have unmerged code differences vs. main — do not delete without reviewing |
 
 **Always start new sessions from `main`** — it is the most complete branch.
+
+### What was accomplished in session 2026-05-03
+
+**Weekly Report feature (Flutter mobile, branch `claude/add-weekly-report-feature-KXcCA`, merged into main):**
+
+**`providers/weekly_report_provider.dart`** (new):
+- `DayReport` — per-day data: `date`, `modeLabel`, `totals (MacroValues)`, `goals (MacroGoals)`, `logged`, computed getters `score` / `hitKcal/Protein/Carbs/Fat` / `hitAll`
+- `WeeklyReportData` — full weekly payload: avg actuals/goals, days-hit counts per macro, best day index, cumulative calorie balance list, total surplus/deficit, kcal/protein by meal slot, weekday vs weekend averages, previous week average, food variety stats, weight entries, achievement flags
+- `weeklyReportProvider`: `FutureProvider.autoDispose.family<WeeklyReportData?, String>` — fetches 14 days in a single Supabase query, resolves per-date goals via `settings.goalsForDate(date)` (so train/rest/bulking/cutting targets are respected per day), requires ≥1 logged day
+
+**`widgets/weekly_report_sheet.dart`** (new, ~1540 lines):
+- `showWeeklyReportSheet(context, ref, mondayISO)` — entry point using `ProviderScope.containerOf` pattern
+- `_HeroHeader` — gradient card with week range, days logged, avg kcal, avg protein stats
+- `_DailyBreakdownCard` — 7-day strip of circles: mode-colour border, score-opacity fill, mode abbreviation (TRAIN/REST/BULK/CUT/MAINT), gold dot on best day (highest avg macro score)
+- `_MacroAveragesCard` — per-macro progress bar + days-hit chip (uses Dart 3 records `(label, unit, actual, goal, daysHit, color)`)
+- `_CalorieJourneyCard` — fl_chart `BarChart` (daily kcal, gradient bars, dashed goal line) + `LineChart` (cumulative balance, green below-bar fill / red above-bar fill, colour-coded dots). Surplus/deficit computed against each day's own goal (mode-aware).
+- `_MealSpotlightCard` — fl_chart `PieChart` donut (kcal % by slot, tappable) + `BarChart` (protein by meal slot). Touch index tracks section index within rendered sections only (skips 0-kcal slots) to stay aligned with fl_chart's `touchedSectionIndex`.
+- `_WeekdayWeekendCard`, `_WeekOverWeekCard` (`_DeltaChip` with ↑↓ arrows), `_FoodVarietyCard`, `_HighlightsCard` (`_AchievementChip` wrap)
+- `showWeeklyReportsListSheet(context, ref)` — history list sheet reading `loggedDatesProvider`, groups logged dates into completed Mon–Sun weeks (excludes current week), lists newest first with consistency dot indicators; tapping a row opens the full report stacked on top
+
+**`screens/dashboard/dashboard_screen.dart`** (modified):
+- `_WeeklyReportBanner` — appears Mon–Sun (not just Monday) so users who open mid-week still see last week's report
+- Dismissal keyed to previous week's Monday ISO via `SharedPreferences` — auto-resets when a new week begins
+
+**`screens/profile/profile_screen.dart`** (modified):
+- Added "Weekly Reports" `_CategoryRow` (bar chart icon, `AppColors.kcal` colour) that opens `showWeeklyReportsListSheet`, giving permanent access to dismissed reports
 
 ### What was accomplished in session 2026-04-29
 
