@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/utils.dart';
 import '../../providers/date_provider.dart';
 import '../../providers/entries_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../providers/weekly_report_provider.dart';
 import '../../theme.dart';
 import '../../widgets/activity_rings_panel.dart';
 import '../../widgets/mode_pill.dart';
+import '../../widgets/weekly_report_sheet.dart';
 
 import 'widgets/food_logging_card.dart';
 import 'widgets/weekly_nutrition_chart.dart';
@@ -18,9 +21,9 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final date = ref.watch(dashboardDateProvider);
-    final totals = ref.watch(macroTotalsProvider(date));
-    final goals = ref.watch(settingsProvider).goalsForDate(date);
+    final date    = ref.watch(dashboardDateProvider);
+    final totals  = ref.watch(macroTotalsProvider(date));
+    final goals   = ref.watch(settingsProvider).goalsForDate(date);
     final isToday = date == todayISO();
 
     final cs = AppColorScheme.of(context);
@@ -71,6 +74,9 @@ class DashboardScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
+          // Weekly report banner — appears on Mondays when last week has data
+          const _WeeklyReportBanner(),
+
           // Concentric rings
           Card(
             margin: EdgeInsets.zero,
@@ -95,3 +101,135 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
+// ── Weekly report Monday banner ───────────────────────────────────────────────
+
+class _WeeklyReportBanner extends ConsumerStatefulWidget {
+  const _WeeklyReportBanner();
+
+  @override
+  ConsumerState<_WeeklyReportBanner> createState() => _WeeklyReportBannerState();
+}
+
+class _WeeklyReportBannerState extends ConsumerState<_WeeklyReportBanner> {
+  static const _kPrefKey = 'weekly_report_dismissed';
+
+  bool _dismissed = false;
+  bool _loaded    = false;
+
+  // YYYY-MM-DD of the Monday whose banner we are tracking.
+  final String _todayISO = todayISO();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDismissed();
+  }
+
+  Future<void> _loadDismissed() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _dismissed = prefs.getString(_kPrefKey) == _todayISO;
+        _loaded    = true;
+      });
+    }
+  }
+
+  Future<void> _dismiss() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kPrefKey, _todayISO);
+    if (mounted) setState(() => _dismissed = true);
+  }
+
+  /// ISO date of last Monday (the start of the report week).
+  String get _reportMondayISO {
+    final now = DateTime.now();
+    // Today is Monday (weekday == 1), so last Monday is 7 days ago.
+    return isoDate(now.subtract(const Duration(days: 7)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Only render on Mondays.
+    if (DateTime.now().weekday != DateTime.monday) return const SizedBox.shrink();
+    if (!_loaded || _dismissed) return const SizedBox.shrink();
+
+    final mondayISO   = _reportMondayISO;
+    final reportAsync = ref.watch(weeklyReportProvider(mondayISO));
+
+    // Only show when data is available and qualifies (≥1 logged day).
+    final report = reportAsync.valueOrNull;
+    if (report == null) return const SizedBox.shrink();
+
+    final cs = AppColorScheme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: GestureDetector(
+        onTap: () => showWeeklyReportSheet(context, ref, mondayISO),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                cs.kcalColor.withValues(alpha: 0.18),
+                AppColors.protein.withValues(alpha: 0.08),
+              ],
+              begin: Alignment.topLeft,
+              end:   Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: cs.kcalColor.withValues(alpha: 0.35)),
+          ),
+          child: Row(
+            children: [
+              // Icon
+              Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color:        cs.kcalColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.bar_chart_rounded, color: cs.kcalColor, size: 22),
+              ),
+              const SizedBox(width: 12),
+
+              // Text
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Weekly Report Ready',
+                      style: TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w700,
+                        color: cs.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${report.daysLogged}/7 days · ${weekRangeLabel(mondayISO)}',
+                      style: TextStyle(fontSize: 12, color: cs.textMuted),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Dismiss
+              GestureDetector(
+                onTap: _dismiss,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: Icon(Icons.close_rounded, size: 16, color: cs.textMuted),
+                ),
+              ),
+              const SizedBox(width: 2),
+              Icon(Icons.chevron_right_rounded, size: 20, color: cs.textMuted),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
