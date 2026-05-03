@@ -231,6 +231,18 @@ class _Grid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = _colorsFor(context);
+
+    // Common absolute scale per macro across all 7 days so bars are visually
+    // comparable. Each day's goal line then sits at its own position on this
+    // shared scale instead of always at the same static fraction.
+    final weekMax = <String, double>{
+      for (final k in _keys)
+        k: List.generate(7, (i) => max(
+              _actual(totals[i], k),
+              _goal(goals[i], k) * _scale,
+            )).fold(0.0, max),
+    };
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: List.generate(7, (col) {
@@ -262,9 +274,10 @@ class _Grid extends StatelessWidget {
                     if (r > 0) SizedBox(height: _rowGap),
                     Center(
                       child: _BarCell(
-                        actual      : _actual(totals[col], _keys[r]),
-                        goal        : _goal(goals[col], _keys[r]),
-                        color       : colors[_keys[r]]!,
+                        actual       : _actual(totals[col], _keys[r]),
+                        goal         : _goal(goals[col], _keys[r]),
+                        weekMax      : weekMax[_keys[r]]!,
+                        color        : colors[_keys[r]]!,
                         showRemaining: showRemaining,
                       ),
                     ),
@@ -312,35 +325,33 @@ class _BarCell extends StatelessWidget {
   const _BarCell({
     required this.actual,
     required this.goal,
+    required this.weekMax,
     required this.color,
     required this.showRemaining,
   });
 
   final double actual;
   final double goal;
+  // Shared absolute scale for the whole week — makes bars visually comparable
+  // across days that have different goals (e.g. train vs rest days).
+  final double weekMax;
   final Color  color;
   final bool   showRemaining;
 
   @override
   Widget build(BuildContext context) {
-    // Track represents goal × _scale — provides headroom to visualise overflow
-    // without changing bar color to red.
-    final trackMax = goal * _scale;
+    final trackMax = weekMax > 0 ? weekMax : 1.0;
 
     double fillFrac;
     if (showRemaining) {
-      // Remaining: shrinks toward 0 as the user eats more.
       final remaining = (goal - actual).clamp(0.0, goal);
-      fillFrac = goal > 0 ? remaining / trackMax : 0.0;
+      fillFrac = remaining / trackMax;
     } else {
-      // Consumed: grows upward; can exceed the goal line.
-      fillFrac = trackMax > 0
-          ? (actual / trackMax).clamp(0.0, 1.0)
-          : 0.0;
+      fillFrac = (actual / trackMax).clamp(0.0, 1.0);
     }
 
-    // Goal line sits at goal/trackMax from bottom (= 1/_scale ≈ 77%).
-    final goalLineFrac = goal > 0 ? 1.0 / _scale : 1.0;
+    // Goal line is per-day: sits at each day's own goal on the shared scale.
+    final goalLineFrac = goal > 0 ? (goal / trackMax).clamp(0.0, 1.0) : 0.0;
 
     final cs = AppColorScheme.of(context);
     return SizedBox(
